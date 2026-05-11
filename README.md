@@ -30,7 +30,8 @@ CRM operativo del equipo TERAVINO, S.A. de C.V. para gestión de clientes HORECA
 
 ### Datos reales
 - Las 332 cuentas HORECA se importaron desde HubSpot (companies), mapeadas a región/tier/vendedor. El `accounts.hubspot_company_id` permite re-sincronizar.
-- Los **contactos** de HubSpot no se importaron en bloque: los registros de contacto de esta cuenta de HubSpot no llevan la propiedad `associatedcompanyid`, así que no se pueden ligar a una cuenta de forma fiable. Se pueden agregar por cuenta dentro del CRM o vía una sincronización dirigida (consulta por empresa) más adelante.
+- **Contactos:** 370 contactos importados desde HubSpot vía sincronización dirigida (consulta por empresa con `associatedWith`), ligados a su cuenta. `contacts.hubspot_contact_id` permite re-sincronizar.
+- Cada vendedor solo ve las cuentas y contactos asignados a él (heredados del owner en HubSpot), por RLS; Sabrina (admin) ve y modifica todo, y todas las cuentas sin owner quedaron asignadas a Sabrina.
 
 ## Setup local
 
