@@ -67,11 +67,20 @@ export function ImportExcelClient({ repId }: { repId: string }) {
     }
     startTransition(async () => {
       const now = new Date().toISOString();
-      const payload = rows.map((r) => ({
-        ...r,
-        last_stock_update: now,
-        last_stock_source: `Excel ${fileName ?? ""}`.trim(),
-      }));
+      // Portfolio import is a price/catalog event, not a stock event — don't
+      // overwrite stock_quantity (so a later CONTPAQi stock sync isn't reset).
+      const isPortfolio = mode === "portafolio";
+      const payload = rows.map((r) => {
+        if (isPortfolio) {
+          const { stock_quantity: _drop, ...rest } = r;
+          return rest;
+        }
+        return {
+          ...r,
+          last_stock_update: now,
+          last_stock_source: `Excel ${fileName ?? ""}`.trim(),
+        };
+      });
       const { error } = await supabase
         .from("products")
         .upsert(payload, { onConflict: "sku" });
@@ -90,7 +99,11 @@ export function ImportExcelClient({ repId }: { repId: string }) {
         rows_error: errors.length,
         error_log: errors as never,
       });
-      toast.success(`Catálogo importado: ${rows.length} productos`);
+      toast.success(
+        isPortfolio
+          ? `Portafolio importado: ${rows.length} vinos`
+          : `Catálogo importado: ${rows.length} productos`,
+      );
       reset();
       router.push("/catalogo");
       router.refresh();
@@ -278,13 +291,13 @@ export function ImportExcelClient({ repId }: { repId: string }) {
               </Button>
               <Button
                 onClick={
-                  mode === "catalogo" ? confirmCatalogImport : confirmStockImport
+                  mode === "stock" ? confirmStockImport : confirmCatalogImport
                 }
                 disabled={
                   pending ||
-                  (mode === "catalogo"
-                    ? !productsPreview?.rows.length
-                    : !stockPreview?.rows.length)
+                  (mode === "stock"
+                    ? !stockPreview?.rows.length
+                    : !productsPreview?.rows.length)
                 }
               >
                 {pending ? "Importando…" : "Confirmar import"}
