@@ -17,13 +17,31 @@ type Line = { key: string; product_id: string | null; product_name: string; qty:
 
 const KNOWN_SUPPLIERS = ["Vernazza","Bruma","Vinaltura","Brewwines","Lechuza","Wendlandt","Discográfica Vinícola","Finca La Carrodilla","Philipponnat","Habla","La Crema"];
 
-export function PurchaseOrderForm({ products, sourceRequestIds }: { products: Product[]; sourceRequestIds?: string[] }) {
+export type InitialLine = { product_id: string | null; product_name: string; qty: number };
+
+export function PurchaseOrderForm({
+  products, sourceRequestIds, initialSupplier, initialLines,
+}: {
+  products: Product[];
+  sourceRequestIds?: string[];
+  initialSupplier?: string;
+  initialLines?: InitialLine[];
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
-  const [supplier, setSupplier] = useState("");
+  const [supplier, setSupplier] = useState(initialSupplier ?? "");
   const [eta, setEta] = useState("");
-  const [lines, setLines] = useState<Line[]>([]);
+  const [lines, setLines] = useState<Line[]>(
+    (initialLines ?? []).map((l) => ({
+      key: crypto.randomUUID(),
+      product_id: l.product_id,
+      product_name: l.product_name,
+      qty: l.qty,
+      unit_cost: 0,
+      destination_region: "",
+    })),
+  );
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {

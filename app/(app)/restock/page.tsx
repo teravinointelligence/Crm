@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, PackageCheck } from "lucide-react";
+import { Plus, PackageCheck, PackagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -44,9 +44,16 @@ export default async function RestockPage() {
               : "Tus solicitudes de producto al almacén."}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/restock/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido de restock</Link>
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button asChild variant="outline">
+              <Link href="/restock/consolidables"><PackagePlus className="mr-1 h-4 w-4" /> Consolidables por proveedor</Link>
+            </Button>
+          )}
+          <Button asChild>
+            <Link href="/restock/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido de restock</Link>
+          </Button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
