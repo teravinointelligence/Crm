@@ -11,7 +11,7 @@ CRM operativo del equipo TERAVINO, S.A. de C.V. para gestión de clientes HORECA
 - `xlsx` (SheetJS) para imports desde CONTPAQi
 - `recharts`, `sonner`, `lucide-react`
 
-## Módulos en esta iteración (MVP de ventas)
+## Módulos
 
 | Módulo | Estado |
 |---|---|
@@ -22,9 +22,15 @@ CRM operativo del equipo TERAVINO, S.A. de C.V. para gestión de clientes HORECA
 | Catálogo (CRUD, precios duales por región, import Excel) | ✅ |
 | Pedidos / Cotizaciones (numeración, precio por región, PDF) | ✅ |
 | Dashboard (KPIs, próximos pasos, top cuentas) | ✅ |
-| Cartera, Restock, Tránsito, Cuentas por Pagar, Email | ⏳ iteración siguiente |
+| Cartera de clientes (facturas, pagos FIFO, PDF estado de cuenta, import Excel) | ✅ |
+| Restock (vendedor pide → admin aprueba/ajusta) | ✅ |
+| Tránsito (qué viene en camino, OCs, factura proveedor, recepción) | ✅ |
+| Cuentas por Pagar (saldos por proveedor, registro de pagos, admin-only) | ✅ |
+| Notificaciones email (Resend) | ⏳ siguiente |
 
-El schema completo del prompt ya está aplicado (tablas e índices para Cartera, Restock, Tránsito y Cuentas por Pagar) — solo falta UI.
+### Datos reales
+- Las 332 cuentas HORECA se importaron desde HubSpot (companies), mapeadas a región/tier/vendedor. El `accounts.hubspot_company_id` permite re-sincronizar.
+- Los **contactos** de HubSpot no se importaron en bloque: los registros de contacto de esta cuenta de HubSpot no llevan la propiedad `associatedcompanyid`, así que no se pueden ligar a una cuenta de forma fiable. Se pueden agregar por cuenta dentro del CRM o vía una sincronización dirigida (consulta por empresa) más adelante.
 
 ## Setup local
 

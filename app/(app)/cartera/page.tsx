@@ -1,0 +1,177 @@
+import Link from "next/link";
+import { Upload } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import { getCurrentRep } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
+import { formatCurrency } from "@/lib/utils";
+import type { AccountBalance } from "@/types/database";
+
+export const metadata = { title: "Cartera — TERAVINO CRM" };
+
+export default async function CarteraPage() {
+  const supabase = createClient();
+  const rep = await getCurrentRep();
+  const isAdmin = rep?.role === "admin";
+
+  const [{ data: balances }, { data: reps }] = await Promise.all([
+    supabase
+      .from("v_account_balance")
+      .select("*")
+      .order("saldo_vencido", { ascending: false })
+      .order("saldo_pendiente", { ascending: false }),
+    supabase.from("sales_reps").select("id, full_name"),
+  ]);
+
+  const repName = new Map((reps ?? []).map((r) => [r.id, r.full_name]));
+  const rows = ((balances ?? []) as AccountBalance[]).filter(
+    (b) => (b.total_facturado ?? 0) > 0,
+  );
+
+  const totals = rows.reduce(
+    (acc, b) => {
+      acc.facturado += b.total_facturado ?? 0;
+      acc.pagado += b.total_pagado ?? 0;
+      acc.pendiente += b.saldo_pendiente ?? 0;
+      acc.vencido += b.saldo_vencido ?? 0;
+      return acc;
+    },
+    { facturado: 0, pagado: 0, pendiente: 0, vencido: 0 },
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl">Cartera de clientes</h1>
+          <p className="text-sm text-muted-foreground">
+            Estado de cuenta por cliente — facturas y pagos.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button asChild variant="outline">
+            <Link href="/cartera/importar">
+              <Upload className="mr-1 h-4 w-4" /> Importar facturas / pagos
+            </Link>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label="Total facturado" value={formatCurrency(totals.facturado)} />
+        <KpiCard label="Total pagado" value={formatCurrency(totals.pagado)} />
+        <KpiCard label="Saldo pendiente" value={formatCurrency(totals.pendiente)} accent />
+        <KpiCard label="Saldo vencido" value={formatCurrency(totals.vencido)} danger />
+      </div>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title="Sin cartera aún"
+          description="Importa las facturas históricas desde Excel para empezar."
+        />
+      ) : (
+        <div className="overflow-x-auto rounded-lg border bg-card">
+          <table className="min-w-full text-sm">
+            <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Región</th>
+                <th className="px-4 py-3">Vendedor</th>
+                <th className="px-4 py-3 text-right">Facturado</th>
+                <th className="px-4 py-3 text-right">Pagado</th>
+                <th className="px-4 py-3 text-right">Pendiente</th>
+                <th className="px-4 py-3 text-right">Vencido</th>
+                <th className="px-4 py-3 text-center">Facturas</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((b) => (
+                <tr
+                  key={b.account_id}
+                  className="border-b last:border-b-0 hover:bg-muted/30"
+                >
+                  <td className="px-4 py-3">
+                    <Link
+                      href={`/cartera/${b.account_id}`}
+                      className="font-medium hover:text-brand-carmesi"
+                    >
+                      {b.business_name}
+                    </Link>
+                    <div className="mt-1">
+                      <SemaforoBadge
+                        saldoPendiente={b.saldo_pendiente ?? 0}
+                        saldoVencido={b.saldo_vencido ?? 0}
+                      />
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {b.region ?? "—"}
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {b.assigned_rep_id ? repName.get(b.assigned_rep_id) ?? "—" : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {formatCurrency(b.total_facturado)}
+                  </td>
+                  <td className="px-4 py-3 text-right text-muted-foreground">
+                    {formatCurrency(b.total_pagado)}
+                  </td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {formatCurrency(b.saldo_pendiente)}
+                  </td>
+                  <td
+                    className={`px-4 py-3 text-right ${
+                      (b.saldo_vencido ?? 0) > 0 ? "font-medium text-red-600" : "text-muted-foreground"
+                    }`}
+                  >
+                    {formatCurrency(b.saldo_vencido)}
+                  </td>
+                  <td className="px-4 py-3 text-center text-muted-foreground">
+                    {b.facturas_abiertas ?? 0}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button asChild size="sm" variant="ghost">
+                      <Link href={`/cartera/${b.account_id}`}>Estado de cuenta</Link>
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  accent,
+  danger,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <Card>
+      <CardContent className="space-y-1 p-4">
+        <div className="text-xs uppercase tracking-wide text-muted-foreground">
+          {label}
+        </div>
+        <div
+          className={`font-display text-2xl ${
+            danger ? "text-red-600" : accent ? "text-brand-carmesi" : ""
+          }`}
+        >
+          {value}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

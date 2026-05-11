@@ -8,6 +8,7 @@ import {
   Wine,
   FileText,
   CalendarCheck2,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,11 +16,11 @@ const items = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/cuentas", label: "Cuentas", icon: Building2 },
   { href: "/actividades", label: "Visitas", icon: CalendarCheck2 },
-  { href: "/catalogo", label: "Vinos", icon: Wine },
   { href: "/pedidos", label: "Pedidos", icon: FileText },
+  { href: "/cartera", label: "Cartera", icon: Wallet },
 ];
 
-export function BottomNav() {
+export function BottomNav(_props: { isAdmin: boolean }) {
   const pathname = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t bg-card lg:hidden">

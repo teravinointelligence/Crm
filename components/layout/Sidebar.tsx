@@ -9,29 +9,40 @@ import {
   CalendarCheck2,
   Wine,
   FileText,
+  Wallet,
+  PackageCheck,
+  Truck,
+  Banknote,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
 
-const items = [
+type Item = { href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean };
+
+const items: Item[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/cuentas", label: "Cuentas", icon: Building2 },
   { href: "/contactos", label: "Contactos", icon: Users },
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2 },
   { href: "/catalogo", label: "Catálogo", icon: Wine },
   { href: "/pedidos", label: "Pedidos", icon: FileText },
+  { href: "/cartera", label: "Cartera", icon: Wallet },
+  { href: "/restock", label: "Restock", icon: PackageCheck },
+  { href: "/transito", label: "Tránsito", icon: Truck },
+  { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
 ];
 
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
+  const visible = items.filter((i) => !i.adminOnly || isAdmin);
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-card lg:flex">
       <div className="px-6 py-6">
         <Wordmark size="md" />
       </div>
-      <nav className="flex-1 space-y-1 px-3">
-        {items.map(({ href, label, icon: Icon }) => {
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
+        {visible.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/"
               ? pathname === "/"
