@@ -14,9 +14,10 @@ import {
   type ParseResult,
 } from "@/lib/excel/parseProducts";
 import { parseStockExcel, type StockRowParsed } from "@/lib/excel/parseStock";
+import { parsePortfolioExcel } from "@/lib/excel/parsePortfolio";
 import { createClient } from "@/lib/supabase/client";
 
-type Mode = "catalogo" | "stock";
+type Mode = "catalogo" | "stock" | "portafolio";
 
 export function ImportExcelClient({ repId }: { repId: string }) {
   const router = useRouter();
@@ -38,6 +39,10 @@ export function ImportExcelClient({ repId }: { repId: string }) {
     const buf = await file.arrayBuffer();
     if (mode === "catalogo") {
       const res = await parseProductsExcel(buf);
+      setProductsPreview(res);
+      setStockPreview(null);
+    } else if (mode === "portafolio") {
+      const res = await parsePortfolioExcel(buf);
       setProductsPreview(res);
       setStockPreview(null);
     } else {
@@ -156,6 +161,7 @@ export function ImportExcelClient({ repId }: { repId: string }) {
         <TabsList>
           <TabsTrigger value="stock">Solo stock (uso frecuente)</TabsTrigger>
           <TabsTrigger value="catalogo">Catálogo completo</TabsTrigger>
+          <TabsTrigger value="portafolio">Portafolio TERAVINO</TabsTrigger>
         </TabsList>
 
         <TabsContent value="stock">
@@ -187,6 +193,25 @@ export function ImportExcelClient({ repId }: { repId: string }) {
                 Columnas esperadas: SKU, Nombre, Proveedor, Categoría, Varietal,
                 País, Región origen, Vintage, Volumen ml, Precio Base, Stock,
                 Activo.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="portafolio">
+          <Card>
+            <CardContent className="space-y-3 p-6">
+              <h3 className="font-display text-lg">Portafolio TERAVINO</h3>
+              <p className="text-sm text-muted-foreground">
+                Sube el portafolio mensual con el formato propio de TERAVINO (agrupado por país / región).
+                Detecta automáticamente la fila de encabezados (VINO · REGIÓN · AÑADA · MEDIDA · s/IVA · c/IVA) y
+                las filas de sección (p.ej. <em>ALSACIA — Riquewihr · Dopff &amp; Fils</em>) para asignar país / región / bodega
+                a los vinos siguientes.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Genera un SKU estable por vino (<code>slug(nombre)-añada-volumen</code>) y precio base usa <strong>s/IVA</strong>;
+                si solo viene c/IVA, divide entre 1.16. La <strong>bodega</strong> se toma de la sección cuando trae <code>·</code>;
+                si no, se infiere de la primera palabra del nombre y la editas después si es necesario.
               </p>
             </CardContent>
           </Card>
