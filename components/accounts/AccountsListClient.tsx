@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { LayoutGrid, List, Plus, Search } from "lucide-react";
+import { LayoutGrid, List, Plus, Search, CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -179,6 +179,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Vendedor</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -214,6 +215,13 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                   <td className="px-4 py-3 text-muted-foreground">
                     {a.sales_reps?.full_name ?? "—"}
                   </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button asChild size="sm" variant="ghost" title="Registrar actividad">
+                      <Link href={`/actividades/nueva?account=${a.id}`}>
+                        <CalendarPlus className="mr-1 h-4 w-4" /> Actividad
+                      </Link>
+                    </Button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -222,8 +230,8 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((a) => (
-            <Link key={a.id} href={`/cuentas/${a.id}`}>
-              <Card className="h-full transition hover:border-brand-carmesi">
+            <Card key={a.id} className="flex h-full flex-col transition hover:border-brand-carmesi">
+              <Link href={`/cuentas/${a.id}`} className="flex-1">
                 <CardContent className="space-y-2 p-5">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -245,8 +253,15 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                     </span>
                   </div>
                 </CardContent>
-              </Card>
-            </Link>
+              </Link>
+              <div className="border-t px-5 py-2">
+                <Button asChild size="sm" variant="ghost" className="w-full justify-start">
+                  <Link href={`/actividades/nueva?account=${a.id}`}>
+                    <CalendarPlus className="mr-1 h-4 w-4" /> Registrar actividad
+                  </Link>
+                </Button>
+              </div>
+            </Card>
           ))}
         </div>
       )}

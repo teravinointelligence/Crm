@@ -3,6 +3,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
+import { Fab } from "@/components/layout/Fab";
 
 export default async function AppLayout({
   children,
@@ -22,6 +23,7 @@ export default async function AppLayout({
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
           {children}
         </main>
+        <Fab />
         <BottomNav isAdmin={isAdmin} />
       </div>
     </div>
