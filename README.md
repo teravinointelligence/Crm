@@ -55,16 +55,18 @@ Si necesitas reaplicar el schema en otro proyecto, los archivos están en `supab
 
 ## Cuentas pre-creadas
 
+Cada vendedor solo ve las cuentas y contactos que tiene asignados (heredados del owner en HubSpot), vía Row Level Security. Sabrina (admin) ve todo.
+
 | Email | Rol | Contraseña temporal |
 |---|---|---|
-| sabrina@teravino.com | admin | Teravino2026! |
-| yamile@teravino.com | rep (Los Cabos) | Teravino2026! |
-| citlali@teravino.com | rep (La Paz) | Teravino2026! |
-| andra@teravino.com | rep (Puerto Vallarta) | Teravino2026! |
-| emmanuel@teravino.com | rep (Tijuana) | Teravino2026! |
-| felix@teravino.com | rep (Nayarit) | Teravino2026! |
+| sabrina@teravino.com | admin | `Teravino-Sabrina-2026` |
+| yamile@teravino.com | rep | `Teravino-Yamile-2026` |
+| citlali@teravino.com | rep | `Teravino-Citlali-2026` |
+| andra@teravino.com | rep | `Teravino-Andra-2026` |
+| emmanuel@teravino.com | rep | `Teravino-Emmanuel-2026` |
+| felix@teravino.com | rep | `Teravino-Felix-2026` |
 
-> Cambiar contraseñas en producción y confirmar el correo real de Sabrina.
+> Son contraseñas temporales — cada uno debe cambiarla en su primer ingreso (Perfil / o vía "enlace mágico" para resetear).
 
 ## Reglas de precio por región
 
