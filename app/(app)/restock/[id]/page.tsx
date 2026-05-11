@@ -68,6 +68,13 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
       {isAdmin && r.status === "enviada" && rep && (
         <RestockReviewActions requestId={r.id} repId={rep.id} items={items} />
       )}
+
+      {isAdmin && r.status === "aprobada" && (
+        <Card><CardContent className="flex items-center justify-between gap-3 p-6">
+          <p className="text-sm text-muted-foreground">Pedido aprobado — listo para generar la orden de compra al proveedor.</p>
+          <Button asChild><Link href={`/transito/nueva?from=${r.id}`}>Generar OC al proveedor</Link></Button>
+        </CardContent></Card>
+      )}
     </div>
   );
 }
