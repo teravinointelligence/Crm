@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, Search, Upload } from "lucide-react";
+import { toast } from "sonner";
+import { Plus, Search, Upload, Pencil, Tags } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,9 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StockBadge } from "./StockBadge";
+import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
 import { PRODUCT_CATEGORIES, type Product } from "@/types/database";
@@ -28,13 +38,18 @@ export function ProductsListClient({
   products: Product[];
   isAdmin: boolean;
 }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
   const [supplier, setSupplier] = useState<string>(ALL);
   const [category, setCategory] = useState<string>(ALL);
   const [showInactive, setShowInactive] = useState(false);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [renaming, setRenaming] = useState<string | null>(null);
 
   const suppliers = useMemo(
-    () => Array.from(new Set(products.map((p) => p.supplier))).sort(),
+    () => Array.from(new Set(products.map((p) => p.supplier))).sort((a, b) => a.localeCompare(b)),
     [products],
   );
 
@@ -48,12 +63,62 @@ export function ProductsListClient({
         q &&
         !p.name.toLowerCase().includes(q) &&
         !(p.sku ?? "").toLowerCase().includes(q) &&
-        !(p.varietal ?? "").toLowerCase().includes(q)
+        !(p.varietal ?? "").toLowerCase().includes(q) &&
+        !p.supplier.toLowerCase().includes(q)
       )
         return false;
       return true;
     });
   }, [products, query, supplier, category, showInactive]);
+
+  const saveSupplierForProduct = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editing) return;
+    const fd = new FormData(e.currentTarget);
+    const newSupplier = String(fd.get("supplier") ?? "").trim();
+    if (!newSupplier) {
+      toast.error("El proveedor no puede quedar vacío");
+      return;
+    }
+    startTransition(async () => {
+      const { error } = await supabase
+        .from("products")
+        .update({ supplier: newSupplier })
+        .eq("id", editing.id);
+      if (error) {
+        toast.error("No pudimos actualizar el proveedor", { description: error.message });
+        return;
+      }
+      toast.success("Proveedor actualizado");
+      setEditing(null);
+      router.refresh();
+    });
+  };
+
+  const bulkRename = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!renaming) return;
+    const fd = new FormData(e.currentTarget);
+    const newSupplier = String(fd.get("new_supplier") ?? "").trim();
+    if (!newSupplier || newSupplier === renaming) {
+      toast.error("Escribe un proveedor distinto");
+      return;
+    }
+    startTransition(async () => {
+      const { error, count } = await supabase
+        .from("products")
+        .update({ supplier: newSupplier }, { count: "exact" })
+        .eq("supplier", renaming);
+      if (error) {
+        toast.error("No pudimos renombrar el proveedor", { description: error.message });
+        return;
+      }
+      toast.success(`${count ?? 0} productos reasignados a "${newSupplier}"`);
+      setRenaming(null);
+      if (supplier === renaming) setSupplier(ALL);
+      router.refresh();
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -61,14 +126,14 @@ export function ProductsListClient({
         <div className="relative min-w-[200px] flex-1">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre, SKU, varietal…"
+            placeholder="Buscar por nombre, SKU, varietal, proveedor…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
           />
         </div>
         <Select value={supplier} onValueChange={setSupplier}>
-          <SelectTrigger className="sm:w-48">
+          <SelectTrigger className="sm:w-52">
             <SelectValue placeholder="Proveedor" />
           </SelectTrigger>
           <SelectContent>
@@ -102,6 +167,11 @@ export function ProductsListClient({
           />
           Incluir inactivos
         </label>
+        {isAdmin && supplier !== ALL && (
+          <Button variant="outline" onClick={() => setRenaming(supplier)}>
+            <Tags className="mr-1 h-4 w-4" /> Renombrar proveedor «{supplier}»
+          </Button>
+        )}
         {isAdmin && (
           <>
             <Button asChild variant="outline">
@@ -119,13 +189,13 @@ export function ProductsListClient({
       </div>
 
       <div className="text-xs text-muted-foreground">
-        {filtered.length} de {products.length} productos
+        {filtered.length} de {products.length} productos · {suppliers.length} proveedores
       </div>
 
       {filtered.length === 0 ? (
         <EmptyState
           title="Sin productos"
-          description="Limpia los filtros o importa el catálogo desde CONTPAQi."
+          description="Limpia los filtros o importa el catálogo / portafolio."
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border bg-card">
@@ -133,11 +203,12 @@ export function ProductsListClient({
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Producto</th>
-                <th className="px-4 py-3">Proveedor</th>
+                <th className="px-4 py-3">Proveedor / Bodega</th>
                 <th className="px-4 py-3">Categoría</th>
                 <th className="px-4 py-3 text-right">Precio base</th>
                 <th className="px-4 py-3 text-right">+10%</th>
                 <th className="px-4 py-3">Stock</th>
+                {isAdmin && <th className="px-4 py-3"></th>}
               </tr>
             </thead>
             <tbody>
@@ -154,11 +225,11 @@ export function ProductsListClient({
                       {p.name}
                     </Link>
                     <div className="text-xs text-muted-foreground">
-                      {[p.sku, p.varietal, p.vintage].filter(Boolean).join(" · ")}
+                      {[p.sku, p.varietal, p.country, p.vintage].filter(Boolean).join(" · ")}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {p.supplier}
+                  <td className="px-4 py-3">
+                    <span className="text-muted-foreground">{p.supplier}</span>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground capitalize">
                     {p.category?.replace("_", " ") ?? "—"}
@@ -182,12 +253,107 @@ export function ProductsListClient({
                       </Badge>
                     )}
                   </td>
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(p)}
+                        title="Editar proveedor / bodega"
+                      >
+                        <Pencil className="mr-1 h-3.5 w-3.5" /> Proveedor
+                      </Button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
+      {/* Edit single product's supplier */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Proveedor / bodega del producto</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <form onSubmit={saveSupplierForProduct} className="grid gap-3">
+              <p className="text-sm text-muted-foreground">{editing.name}</p>
+              <div className="space-y-1.5">
+                <Label htmlFor="supplier">Proveedor / bodega</Label>
+                <Input
+                  id="supplier"
+                  name="supplier"
+                  required
+                  defaultValue={editing.supplier}
+                  list="all-suppliers"
+                  autoFocus
+                />
+                <datalist id="all-suppliers">
+                  {suppliers.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Para más campos (categoría, varietal, precio, stock…) abre el detalle del producto.
+              </p>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditing(null)} disabled={pending}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={pending}>
+                  {pending ? "Guardando…" : "Guardar"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk rename a supplier across all its products */}
+      <Dialog open={!!renaming} onOpenChange={(o) => !o && setRenaming(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Renombrar / reasignar proveedor</DialogTitle>
+          </DialogHeader>
+          {renaming && (
+            <form onSubmit={bulkRename} className="grid gap-3">
+              <p className="text-sm text-muted-foreground">
+                Todos los productos con proveedor <strong>«{renaming}»</strong> pasarán al
+                proveedor que escribas (útil cuando la bodega del portafolio debe ser un
+                distribuidor — p.ej. todo lo de «Tapiz» → «Vernazza»).
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="new_supplier">Nuevo proveedor</Label>
+                <Input
+                  id="new_supplier"
+                  name="new_supplier"
+                  required
+                  defaultValue={renaming}
+                  list="all-suppliers"
+                  autoFocus
+                />
+                <datalist id="all-suppliers">
+                  {suppliers.map((s) => (
+                    <option key={s} value={s} />
+                  ))}
+                </datalist>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => setRenaming(null)} disabled={pending}>
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={pending}>
+                  {pending ? "Aplicando…" : "Reasignar todos"}
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
