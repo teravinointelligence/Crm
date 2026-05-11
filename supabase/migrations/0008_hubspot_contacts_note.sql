@@ -1,0 +1,7 @@
+-- Migrations 0011_import_hubspot_contacts_1 .. 0014_import_hubspot_contacts_4
+-- were one-off data migrations applied to the remote project: 370 contacts
+-- pulled from HubSpot via the associations API (per-company `associatedWith`
+-- query), inserted with `on conflict (hubspot_contact_id) do update`. Not
+-- reproduced here by size; re-syncable via contacts.hubspot_contact_id.
+-- Also: all accounts with no assigned_rep_id were assigned to the admin (Sabrina),
+-- and one contact per account was flagged is_primary where none was set.

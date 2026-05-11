@@ -3,6 +3,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
+import { Fab } from "@/components/layout/Fab";
 
 export default async function AppLayout({
   children,
@@ -12,15 +13,18 @@ export default async function AppLayout({
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
 
+  const isAdmin = rep.role === "admin";
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar />
+      <Sidebar isAdmin={isAdmin} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} />
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
           {children}
         </main>
-        <BottomNav />
+        <Fab />
+        <BottomNav isAdmin={isAdmin} />
       </div>
     </div>
   );

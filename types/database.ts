@@ -360,6 +360,57 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
   "otro",
 ];
 
+export type Invoice = {
+  id: string;
+  invoice_number: string;
+  account_id: string;
+  order_id: string | null;
+  invoice_date: string;
+  due_date: string | null;
+  payment_terms_days: number | null;
+  subtotal: number | null;
+  iva: number | null;
+  total: number;
+  total_paid: number | null;
+  balance: number | null;
+  status: string | null;
+  uuid_fiscal: string | null;
+  pdf_url: string | null;
+  notes: string | null;
+};
+
+export type Payment = {
+  id: string;
+  invoice_id: string | null;
+  account_id: string;
+  payment_date: string;
+  amount: number;
+  method: string | null;
+  reference: string | null;
+  notes: string | null;
+};
+
+export type AccountBalance = {
+  account_id: string;
+  business_name: string | null;
+  region: string | null;
+  assigned_rep_id: string | null;
+  total_facturado: number | null;
+  total_pagado: number | null;
+  saldo_pendiente: number | null;
+  saldo_vencido: number | null;
+  facturas_abiertas: number | null;
+};
+
+export const PAYMENT_METHODS = [
+  "transferencia",
+  "efectivo",
+  "cheque",
+  "tarjeta",
+  "deposito",
+  "otro",
+] as const;
+
 export type OrderType = "cotizacion" | "pedido";
 export type OrderStatus =
   | "borrador"

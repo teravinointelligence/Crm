@@ -11,7 +11,7 @@ CRM operativo del equipo TERAVINO, S.A. de C.V. para gestión de clientes HORECA
 - `xlsx` (SheetJS) para imports desde CONTPAQi
 - `recharts`, `sonner`, `lucide-react`
 
-## Módulos en esta iteración (MVP de ventas)
+## Módulos
 
 | Módulo | Estado |
 |---|---|
@@ -22,9 +22,16 @@ CRM operativo del equipo TERAVINO, S.A. de C.V. para gestión de clientes HORECA
 | Catálogo (CRUD, precios duales por región, import Excel) | ✅ |
 | Pedidos / Cotizaciones (numeración, precio por región, PDF) | ✅ |
 | Dashboard (KPIs, próximos pasos, top cuentas) | ✅ |
-| Cartera, Restock, Tránsito, Cuentas por Pagar, Email | ⏳ iteración siguiente |
+| Cartera de clientes (facturas, pagos FIFO, PDF estado de cuenta, import Excel) | ✅ |
+| Restock (vendedor pide → admin aprueba/ajusta) | ✅ |
+| Tránsito (qué viene en camino, OCs, factura proveedor, recepción) | ✅ |
+| Cuentas por Pagar (saldos por proveedor, registro de pagos, admin-only) | ✅ |
+| Notificaciones email (Resend) | ⏳ siguiente |
 
-El schema completo del prompt ya está aplicado (tablas e índices para Cartera, Restock, Tránsito y Cuentas por Pagar) — solo falta UI.
+### Datos reales
+- Las 332 cuentas HORECA se importaron desde HubSpot (companies), mapeadas a región/tier/vendedor. El `accounts.hubspot_company_id` permite re-sincronizar.
+- **Contactos:** 370 contactos importados desde HubSpot vía sincronización dirigida (consulta por empresa con `associatedWith`), ligados a su cuenta. `contacts.hubspot_contact_id` permite re-sincronizar.
+- Cada vendedor solo ve las cuentas y contactos asignados a él (heredados del owner en HubSpot), por RLS; Sabrina (admin) ve y modifica todo, y todas las cuentas sin owner quedaron asignadas a Sabrina.
 
 ## Setup local
 
@@ -49,16 +56,18 @@ Si necesitas reaplicar el schema en otro proyecto, los archivos están en `supab
 
 ## Cuentas pre-creadas
 
+Cada vendedor solo ve las cuentas y contactos que tiene asignados (heredados del owner en HubSpot), vía Row Level Security. Sabrina (admin) ve todo.
+
 | Email | Rol | Contraseña temporal |
 |---|---|---|
-| sabrina@teravino.com | admin | Teravino2026! |
-| yamile@teravino.com | rep (Los Cabos) | Teravino2026! |
-| citlali@teravino.com | rep (La Paz) | Teravino2026! |
-| andra@teravino.com | rep (Puerto Vallarta) | Teravino2026! |
-| emmanuel@teravino.com | rep (Tijuana) | Teravino2026! |
-| felix@teravino.com | rep (Nayarit) | Teravino2026! |
+| sabrina@teravino.com | admin | `Teravino-Sabrina-2026` |
+| yamile@teravino.com | rep | `Teravino-Yamile-2026` |
+| citlali@teravino.com | rep | `Teravino-Citlali-2026` |
+| andra@teravino.com | rep | `Teravino-Andra-2026` |
+| emmanuel@teravino.com | rep | `Teravino-Emmanuel-2026` |
+| felix@teravino.com | rep | `Teravino-Felix-2026` |
 
-> Cambiar contraseñas en producción y confirmar el correo real de Sabrina.
+> Son contraseñas temporales — cada uno debe cambiarla en su primer ingreso (Perfil / o vía "enlace mágico" para resetear).
 
 ## Reglas de precio por región
 
