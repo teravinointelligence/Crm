@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Phone, Mail, MessageCircle, Star, Pencil } from "lucide-react";
+import { Phone, Mail, MessageCircle, Star, Pencil, Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,32 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
   const supabase = createClient();
   const [editing, setEditing] = useState<ContactRow | null>(null);
   const [pending, startTransition] = useTransition();
+  const [query, setQuery] = useState("");
+
+  const norm = (s: unknown) =>
+    String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+
+  const filtered = useMemo(() => {
+    const tokens = norm(query).split(/\s+/).filter(Boolean);
+    if (!tokens.length) return contacts;
+    return contacts.filter((c) => {
+      const haystack = norm(
+        [
+          c.full_name,
+          c.role,
+          c.email,
+          c.phone,
+          c.whatsapp,
+          c.notes,
+          c.accounts?.business_name,
+          c.accounts?.region,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      return tokens.every((t) => haystack.includes(t));
+    });
+  }, [contacts, query]);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -69,8 +95,27 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
 
   return (
     <>
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Buscar contacto, cuenta, cargo, email o teléfono…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="pl-9"
+        />
+      </div>
+      <p className="text-xs text-muted-foreground">
+        {filtered.length} de {contacts.length} contacto(s)
+      </p>
+
+      {filtered.length === 0 ? (
+        <p className="rounded-lg border bg-card p-6 text-sm text-muted-foreground">
+          Sin coincidencias para «{query}».
+        </p>
+      ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {contacts.map((c) => (
+        {filtered.map((c) => (
           <Card key={c.id}>
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-2">
@@ -141,6 +186,7 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
           </Card>
         ))}
       </div>
+      )}
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
