@@ -201,10 +201,16 @@ export function AccountWines({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Vinos que esta cuenta tiene en su lista (encartados) y los que ha probado en muestras.
         </p>
+        <div className="flex gap-2">
+        <Button asChild size="sm" variant="outline">
+          <Link href={`/muestras/nueva?account=${accountId}`}>
+            <FlaskConical className="mr-1 h-4 w-4" /> Solicitar muestras
+          </Link>
+        </Button>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
@@ -256,6 +262,7 @@ export function AccountWines({
             </div>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {wines.length === 0 ? (

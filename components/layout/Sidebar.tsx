@@ -13,6 +13,7 @@ import {
   PackageCheck,
   Truck,
   Banknote,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -26,6 +27,7 @@ const items: Item[] = [
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2 },
   { href: "/catalogo", label: "Catálogo", icon: Wine },
   { href: "/pedidos", label: "Pedidos", icon: FileText },
+  { href: "/muestras", label: "Muestras", icon: FlaskConical },
   { href: "/cartera", label: "Cartera", icon: Wallet },
   { href: "/restock", label: "Restock", icon: PackageCheck },
   { href: "/transito", label: "Tránsito", icon: Truck },
