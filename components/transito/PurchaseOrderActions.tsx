@@ -14,6 +14,12 @@ import { createClient } from "@/lib/supabase/client";
 
 type Item = { id: string; product_name: string; quantity_ordered: number; quantity_received: number | null };
 
+const RECEIVED_STATES = ["recibida", "recibida_parcial", "cancelada"];
+
+function sanitizeFilename(n: string) {
+  return n.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9.\-_]+/g, "_").slice(-80) || "factura.pdf";
+}
+
 export function PurchaseOrderActions({
   poId, status, items,
 }: {
@@ -23,6 +29,7 @@ export function PurchaseOrderActions({
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [recv, setRecv] = useState<Record<string, number>>(Object.fromEntries(items.map((i) => [i.id, i.quantity_received ?? 0])));
+  const [invOpen, setInvOpen] = useState(false);
 
   const setStatus = (next: string, extra?: Record<string, unknown>) => {
     startTransition(async () => {
@@ -36,16 +43,30 @@ export function PurchaseOrderActions({
   const saveInvoice = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const pdf = fd.get("inv_pdf");
+    const hasPdf = pdf instanceof File && pdf.size > 0;
     startTransition(async () => {
+      let pdfPath: string | null = null;
+      if (hasPdf) {
+        if ((pdf as File).size > 15 * 1024 * 1024) { toast.error("El PDF supera 15 MB"); return; }
+        pdfPath = `factura/${poId}/${Date.now()}-${sanitizeFilename((pdf as File).name)}`;
+        const { error: upErr } = await supabase.storage.from("documentos").upload(pdfPath, pdf as File, { upsert: true });
+        if (upErr) { toast.error("No pude subir el PDF", { description: upErr.message }); return; }
+      }
+      const nextStatus = hasPdf
+        ? (RECEIVED_STATES.includes(status) ? status : "en_transito")
+        : (status === "borrador" || status === "enviada_proveedor" || status === "confirmada" ? "facturada" : status);
       const { error } = await supabase.from("purchase_orders").update({
         supplier_invoice_number: String(fd.get("inv_num") ?? "").trim() || null,
         supplier_invoice_date: (fd.get("inv_date") as string) || null,
         supplier_invoice_due_date: (fd.get("inv_due") as string) || null,
-        status: status === "borrador" || status === "enviada_proveedor" || status === "confirmada" ? "facturada" : status,
+        ...(pdfPath ? { supplier_invoice_pdf_url: pdfPath } : {}),
+        status: nextStatus,
       }).eq("id", poId);
       if (error) { toast.error("Error", { description: error.message }); return; }
       await supabase.rpc("refresh_po_payment_status", { p_po_id: poId });
-      toast.success("Factura del proveedor registrada");
+      toast.success(hasPdf ? "Factura cargada — OC en tránsito" : "Factura del proveedor registrada");
+      setInvOpen(false);
       router.refresh();
     });
   };
@@ -79,7 +100,7 @@ export function PurchaseOrderActions({
         {status === "borrador" && <Button size="sm" disabled={pending} onClick={() => setStatus("enviada_proveedor")}>Marcar enviada al proveedor</Button>}
         {status === "enviada_proveedor" && <Button size="sm" disabled={pending} onClick={() => setStatus("confirmada")}>Marcar confirmada</Button>}
 
-        <Dialog>
+        <Dialog open={invOpen} onOpenChange={setInvOpen}>
           <DialogTrigger asChild><Button size="sm" variant="outline">Cargar factura del proveedor</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Factura del proveedor</DialogTitle></DialogHeader>
@@ -89,13 +110,18 @@ export function PurchaseOrderActions({
                 <div className="space-y-1.5"><Label htmlFor="inv_date">Fecha emisión</Label><Input id="inv_date" name="inv_date" type="date" /></div>
                 <div className="space-y-1.5"><Label htmlFor="inv_due">Fecha vencimiento</Label><Input id="inv_due" name="inv_due" type="date" /></div>
               </div>
-              <div className="flex justify-end"><Button type="submit" disabled={pending}>Guardar</Button></div>
+              <div className="space-y-1.5">
+                <Label htmlFor="inv_pdf">PDF de la factura</Label>
+                <Input id="inv_pdf" name="inv_pdf" type="file" accept="application/pdf,.pdf" />
+                <p className="text-xs text-muted-foreground">Al adjuntar el PDF de la factura, la OC pasa a <strong>en tránsito</strong>.</p>
+              </div>
+              <div className="flex justify-end"><Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar"}</Button></div>
             </form>
           </DialogContent>
         </Dialog>
 
         <Dialog>
-          <DialogTrigger asChild><Button size="sm" variant="outline">Marcar en tránsito</Button></DialogTrigger>
+          <DialogTrigger asChild><Button size="sm" variant="outline">Datos de embarque</Button></DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>Datos de embarque</DialogTitle></DialogHeader>
             <form onSubmit={saveTracking} className="grid gap-3">

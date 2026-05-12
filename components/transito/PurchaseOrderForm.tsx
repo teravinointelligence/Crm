@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
 import { IVA_RATE } from "@/lib/pricing";
+import { parsePurchaseOrderExcel } from "@/lib/excel/parsePurchaseOrder";
 import type { Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; qty: number; unit_cost: number; destination_region: string };
@@ -18,6 +19,13 @@ type Line = { key: string; product_id: string | null; product_name: string; qty:
 const KNOWN_SUPPLIERS = ["Vernazza","Bruma","Vinaltura","Brewwines","Lechuza","Wendlandt","Discográfica Vinícola","Finca La Carrodilla","Philipponnat","Habla","La Crema"];
 
 export type InitialLine = { product_id: string | null; product_name: string; qty: number };
+
+function norm(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/\s+/g, " ").trim();
+}
+function sanitizeFilename(n: string) {
+  return n.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-zA-Z0-9.\-_]+/g, "_").slice(-80) || "oc.xlsx";
+}
 
 export function PurchaseOrderForm({
   products, sourceRequestIds, initialSupplier, initialLines,
@@ -43,6 +51,19 @@ export function PurchaseOrderForm({
     })),
   );
   const [query, setQuery] = useState("");
+  const [ocFile, setOcFile] = useState<File | null>(null);
+  const [parsing, setParsing] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const productIndex = useMemo(() => {
+    const bySku = new Map<string, Product>();
+    const byName = new Map<string, Product>();
+    for (const p of products) {
+      if (p.sku) bySku.set(norm(p.sku), p);
+      byName.set(norm(p.name), p);
+    }
+    return { bySku, byName };
+  }, [products]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -61,6 +82,46 @@ export function PurchaseOrderForm({
   const upd = (k: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === k ? { ...l, ...patch } : l)));
   const rm = (k: string) => setLines((prev) => prev.filter((l) => l.key !== k));
 
+  const onPickExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setParsing(true);
+    try {
+      const res = await parsePurchaseOrderExcel(await file.arrayBuffer());
+      if (!res.lines.length) {
+        toast.error("No pude leer la OC", { description: res.errors[0]?.message ?? "Revisa el formato del Excel." });
+        return;
+      }
+      if (res.supplier && !supplier.trim()) setSupplier(res.supplier);
+      if (res.eta && !eta) setEta(res.eta);
+      let matched = 0;
+      const newLines: Line[] = res.lines.map((l) => {
+        const p = (l.sku && productIndex.bySku.get(norm(l.sku))) || productIndex.byName.get(norm(l.product_name)) || null;
+        if (p) matched++;
+        return {
+          key: crypto.randomUUID(),
+          product_id: p?.id ?? null,
+          product_name: p?.name ?? l.product_name,
+          qty: l.qty,
+          unit_cost: l.unit_cost,
+          destination_region: l.destination_region ?? "",
+        };
+      });
+      setLines((prev) => [...prev, ...newLines]);
+      setOcFile(file);
+      const parts = [`${res.lines.length} partida(s)`, `${matched} ligadas al catálogo`];
+      if (res.errors.length) parts.push(`${res.errors.length} fila(s) con problema`);
+      toast.success(`OC importada (${parts.join(" · ")})`, {
+        description: res.warnings.length ? res.warnings.join(" ") : "Revisa cantidades y costos antes de crear la OC.",
+      });
+    } catch (err) {
+      toast.error("No pude procesar el archivo", { description: err instanceof Error ? err.message : "Formato no reconocido." });
+    } finally {
+      setParsing(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+
   const submit = () => {
     if (!supplier.trim()) { toast.error("Indica el proveedor"); return; }
     if (!lines.length) { toast.error("Agrega al menos una línea"); return; }
@@ -78,6 +139,12 @@ export function PurchaseOrderForm({
         lines.map((l) => ({ po_id: po.id, product_id: l.product_id, product_name: l.product_name, quantity_ordered: l.qty, unit_cost: l.unit_cost, line_total: Math.round(l.qty * l.unit_cost * 100) / 100, destination_region: l.destination_region || null })),
       );
       if (itemsErr) { toast.error("Líneas no se guardaron", { description: itemsErr.message }); return; }
+      if (ocFile) {
+        const path = `oc/${po.id}/${Date.now()}-${sanitizeFilename(ocFile.name)}`;
+        const { error: upErr } = await supabase.storage.from("documentos").upload(path, ocFile, { upsert: true });
+        if (upErr) toast.error("La OC se creó pero no pude guardar el Excel", { description: upErr.message });
+        else await supabase.from("purchase_orders").update({ oc_file_url: path }).eq("id", po.id);
+      }
       if (sourceRequestIds?.length) {
         await supabase.from("restock_requests").update({ status: "convertida_oc" }).in("id", sourceRequestIds);
       }
@@ -89,6 +156,20 @@ export function PurchaseOrderForm({
 
   return (
     <div className="space-y-6">
+      <Card><CardContent className="space-y-3 p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="font-display text-lg">Importar OC desde Excel</h3>
+            <p className="text-sm text-muted-foreground">Sube el Excel de la orden de compra que generaste; se cargan las partidas y se guarda una copia.</p>
+          </div>
+          <Button type="button" variant="outline" size="sm" disabled={parsing || pending} onClick={() => fileRef.current?.click()}>
+            <FileUp className="mr-1 h-4 w-4" /> {parsing ? "Leyendo…" : ocFile ? "Cambiar archivo" : "Elegir Excel"}
+          </Button>
+          <input ref={fileRef} type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" className="hidden" onChange={onPickExcel} />
+        </div>
+        {ocFile && <p className="text-xs text-muted-foreground">Archivo: <span className="font-medium">{ocFile.name}</span> — se adjuntará a la OC al crearla.</p>}
+      </CardContent></Card>
+
       <Card><CardContent className="grid gap-4 p-6 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="supplier">Proveedor *</Label>
