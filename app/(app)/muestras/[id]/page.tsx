@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileDown, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,26 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
     accounts: { id: string; business_name: string | null } | null;
   };
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
+  const canExport = r.status === "aprobada" || r.status === "entregada";
+  const mailSubject = `Solicitud de muestras ${r.request_number} — TERAVINO`;
+  const mailBody = [
+    `Solicitud de muestras ${r.request_number} (${r.status})`,
+    `Solicitante: ${r.sales_reps?.full_name ?? "—"}`,
+    r.accounts ? `Cliente: ${r.accounts.business_name}` : null,
+    r.reason ? `Motivo: ${r.reason}` : null,
+    "",
+    "Vinos:",
+    ...items.map((i) => `• ${i.quantity} × ${i.product_name}${i.supplier ? ` (${i.supplier})` : ""}${i.notes ? ` — ${i.notes}` : ""}`),
+    "",
+    `Total de botellas: ${totalBottles}`,
+    r.notes ? `\nNotas: ${r.notes}` : null,
+    r.review_notes ? `Revisión: ${r.review_notes}` : null,
+    "",
+    "(El PDF con el formato TERAVINO se puede descargar desde el CRM y adjuntar a este correo.)",
+  ]
+    .filter((l) => l !== null)
+    .join("\n");
+  const mailto = `mailto:?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -43,7 +63,23 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       <div className="rounded-lg border bg-card p-6 brand-shadow space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="font-display text-3xl">{r.request_number}</h1>
-          <Badge variant="muted">{r.status}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="muted">{r.status}</Badge>
+            {canExport && (
+              <>
+                <Button asChild size="sm" variant="outline">
+                  <a href={`/api/samples/${r.id}/pdf`} target="_blank" rel="noreferrer">
+                    <FileDown className="mr-1 h-4 w-4" /> Descargar PDF
+                  </a>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <a href={mailto}>
+                    <Mail className="mr-1 h-4 w-4" /> Enviar por mail
+                  </a>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
         <p className="text-sm text-muted-foreground">
           {r.sales_reps?.full_name ?? "—"} · {totalBottles} botella(s) · {formatDateTime(r.created_at)}
