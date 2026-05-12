@@ -25,12 +25,16 @@ const CLOSED_STATUSES = ["aceptada", "facturada", "entregada"];
 
 export default async function CuentaDetailPage({
   params,
+  searchParams,
 }: {
   params: { id: string };
+  searchParams: { tab?: string };
 }) {
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
+  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "info"];
+  const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
     .from("accounts")
@@ -112,7 +116,7 @@ export default async function CuentaDetailPage({
     <div className="space-y-6">
       <AccountHeader account={account as Account} rep={rep as SalesRep | null} />
 
-      <Tabs defaultValue="resumen">
+      <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
           <TabsTrigger value="vinos">Vinos ({wineList.length})</TabsTrigger>
@@ -134,10 +138,30 @@ export default async function CuentaDetailPage({
               />
               <Kpi icon={FileText} label="Comprado (cerrado)" value={formatCurrency(totalComprado)} />
               <Kpi icon={FileText} label="Pipeline cotizaciones" value={formatCurrency(pipeline)} />
-              <Kpi icon={Wine} label="Vinos encartados" value={String(encartadosCount)} />
-              <Kpi icon={FlaskConical} label="Muestras / probados" value={String(muestrasCount)} />
-              <Kpi icon={FileText} label="Pedidos / cotizaciones" value={String(orderList.length)} />
-              <Kpi icon={CalendarCheck2} label="Actividades" value={String(activityList.length)} />
+              <Kpi
+                icon={Wine}
+                label="Vinos encartados"
+                value={String(encartadosCount)}
+                href={`/cuentas/${account.id}?tab=vinos`}
+              />
+              <Kpi
+                icon={FlaskConical}
+                label="Muestras / probados"
+                value={String(muestrasCount)}
+                href={`/cuentas/${account.id}?tab=vinos`}
+              />
+              <Kpi
+                icon={FileText}
+                label="Pedidos / cotizaciones"
+                value={String(orderList.length)}
+                href={`/cuentas/${account.id}?tab=pedidos`}
+              />
+              <Kpi
+                icon={CalendarCheck2}
+                label="Actividades"
+                value={String(activityList.length)}
+                href={`/cuentas/${account.id}?tab=actividades`}
+              />
             </div>
 
             <div className="flex flex-wrap gap-2">
@@ -146,6 +170,11 @@ export default async function CuentaDetailPage({
               </Button>
               <Button asChild variant="accent">
                 <Link href={`/pedidos/nuevo?account=${account.id}`}>Nueva cotización</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/cuentas/${account.id}?tab=vinos`}>
+                  <Wine className="mr-1 h-4 w-4" /> Gestionar vinos probados / encartados
+                </Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href={`/cartera/${account.id}`}>Ver estado de cuenta</Link>
@@ -261,15 +290,17 @@ function Kpi({
   value,
   accent,
   danger,
+  href,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
   accent?: boolean;
   danger?: boolean;
+  href?: string;
 }) {
-  return (
-    <Card>
+  const inner = (
+    <Card className={href ? "transition hover:border-brand-carmesi" : undefined}>
       <CardContent className="flex items-start justify-between gap-3 p-4">
         <div className="space-y-1">
           <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
@@ -283,6 +314,7 @@ function Kpi({
       </CardContent>
     </Card>
   );
+  return href ? <Link href={href}>{inner}</Link> : inner;
 }
 
 function Detail({ label, value, full }: { label: string; value: string; full?: boolean }) {
