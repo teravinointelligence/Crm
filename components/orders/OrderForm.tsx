@@ -68,20 +68,32 @@ export function OrderForm({
   const iva = ivaAmount(subtotal);
   const total = withIVA(subtotal);
 
+  const activeProducts = useMemo(
+    () => products.filter((p) => p.active !== false),
+    [products],
+  );
+
   const filteredProducts = useMemo(() => {
-    if (!query.trim()) return products.slice(0, 8);
-    const q = query.toLowerCase();
-    return products
-      .filter(
-        (p) =>
-          p.active !== false &&
-          (p.name.toLowerCase().includes(q) ||
-            (p.sku ?? "").toLowerCase().includes(q) ||
-            (p.varietal ?? "").toLowerCase().includes(q) ||
-            p.supplier.toLowerCase().includes(q)),
-      )
-      .slice(0, 12);
-  }, [products, query]);
+    const q = query.trim().toLowerCase();
+    if (!q) return activeProducts.slice(0, 16);
+    const tokens = q.split(/\s+/);
+    return activeProducts
+      .filter((p) => {
+        const hay = [
+          p.name,
+          p.supplier,
+          p.varietal ?? "",
+          p.country ?? "",
+          p.region_origin ?? "",
+          p.vintage ?? "",
+          p.sku ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return tokens.every((t) => hay.includes(t));
+      })
+      .slice(0, 60);
+  }, [activeProducts, query]);
 
   const addProduct = (product: Product) => {
     const unitPrice = applyRegionPrice(product.base_price, tier);
@@ -266,34 +278,53 @@ export function OrderForm({
             <div className="relative">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar producto del catálogo…"
+                placeholder={`Buscar entre ${activeProducts.length} vinos del catálogo (nombre, bodega, varietal, país, añada…)`}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="pl-9"
-                disabled={!accountId}
               />
             </div>
-            {accountId && filteredProducts.length > 0 && (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredProducts.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => addProduct(p)}
-                    className="rounded-md border bg-card p-3 text-left text-sm hover:border-brand-carmesi"
-                  >
-                    <div className="font-medium">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {[p.supplier, p.varietal, p.vintage]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </div>
-                    <div className="mt-1 font-display text-brand-carmesi">
-                      {formatCurrency(applyRegionPrice(p.base_price, tier))}
-                    </div>
-                  </button>
-                ))}
-              </div>
+            {!accountId ? (
+              <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                Selecciona el cliente arriba para ver el precio según su región y poder agregar los vinos.
+              </p>
+            ) : (
+              <>
+                <div className="text-xs text-muted-foreground">
+                  {query.trim()
+                    ? `${filteredProducts.length} coincidencia(s)${filteredProducts.length >= 60 ? "+ — afina la búsqueda" : ""}`
+                    : `Mostrando los primeros ${filteredProducts.length} — escribe para buscar entre los ${activeProducts.length}`}
+                </div>
+                {filteredProducts.length > 0 ? (
+                  <div className="grid max-h-96 gap-2 overflow-y-auto rounded-md border bg-muted/20 p-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredProducts.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => addProduct(p)}
+                        className="rounded-md border bg-card p-3 text-left text-sm hover:border-brand-carmesi"
+                      >
+                        <div className="font-medium">{p.name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {[p.supplier, p.varietal, p.country, p.vintage]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </div>
+                        <div className="mt-1 font-display text-brand-carmesi">
+                          {formatCurrency(applyRegionPrice(p.base_price, tier))}
+                          {tier === "+10" && (
+                            <span className="ml-1 text-xs text-muted-foreground">(+10%)</span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                    Sin coincidencias. Usa “Producto manual” si el vino no está en el catálogo.
+                  </p>
+                )}
+              </>
             )}
           </div>
 
