@@ -390,6 +390,17 @@ export type Payment = {
   notes: string | null;
 };
 
+export type AccountProduct = {
+  id: string;
+  account_id: string;
+  product_id: string;
+  status: "muestra" | "encartado" | "descartado";
+  notes: string | null;
+  added_by: string | null;
+  since: string | null;
+  created_at: string | null;
+};
+
 export type AccountBalance = {
   account_id: string;
   business_name: string | null;
