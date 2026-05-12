@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PurchaseOrderActions } from "@/components/transito/PurchaseOrderActions";
+import { DocumentLink } from "@/components/transito/DocumentLink";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function PODetailPage({ params }: { params: { id: string } }) {
@@ -43,6 +44,12 @@ export default async function PODetailPage({ params }: { params: { id: string } 
         )}
         {(po.shipping_carrier || po.tracking_number) && (
           <p className="text-sm text-muted-foreground">Embarque: {[po.shipping_carrier, po.tracking_number].filter(Boolean).join(" · ")}</p>
+        )}
+        {admin && (po.oc_file_url || po.supplier_invoice_pdf_url) && (
+          <div className="flex flex-wrap items-center gap-4 pt-2">
+            {po.oc_file_url && <DocumentLink path={po.oc_file_url} label="OC (Excel)" />}
+            {po.supplier_invoice_pdf_url && <DocumentLink path={po.supplier_invoice_pdf_url} label="Factura del proveedor (PDF)" />}
+          </div>
         )}
       </div>
 
