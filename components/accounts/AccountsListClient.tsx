@@ -53,7 +53,8 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
         q &&
         !a.business_name.toLowerCase().includes(q) &&
         !(a.rfc ?? "").toLowerCase().includes(q) &&
-        !(a.city ?? "").toLowerCase().includes(q)
+        !(a.city ?? "").toLowerCase().includes(q) &&
+        !(a.client_number ?? "").toLowerCase().includes(q)
       )
         return false;
       return true;
@@ -66,7 +67,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre, RFC, ciudad…"
+            placeholder="Buscar por nombre, # cliente, RFC, ciudad…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -173,6 +174,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
+                <th className="px-4 py-3 w-16"># Cliente</th>
                 <th className="px-4 py-3">Negocio</th>
                 <th className="px-4 py-3">Tipo</th>
                 <th className="px-4 py-3">Región</th>
@@ -185,6 +187,9 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
             <tbody>
               {filtered.map((a) => (
                 <tr key={a.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                  <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                    {a.client_number ?? "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <Link
                       href={`/cuentas/${a.id}`}
@@ -237,7 +242,12 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                     <div>
                       <h3 className="font-display text-lg">{a.business_name}</h3>
                       <p className="text-xs text-muted-foreground">
-                        {[a.account_type, a.region, a.city]
+                        {[
+                          a.client_number ? `# ${a.client_number}` : null,
+                          a.account_type,
+                          a.region,
+                          a.city,
+                        ]
                           .filter(Boolean)
                           .join(" · ")}
                       </p>

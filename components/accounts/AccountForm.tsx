@@ -62,6 +62,7 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
       address: (formData.get("address") as string) || null,
       rfc: (formData.get("rfc") as string) || null,
       fiscal_name: (formData.get("fiscal_name") as string) || null,
+      client_number: (formData.get("client_number") as string)?.trim() || null,
       price_tier: priceTier,
       assigned_rep_id:
         (formData.get("assigned_rep_id") as string) || defaultRepId || null,
@@ -209,6 +210,15 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
           id="fiscal_name"
           name="fiscal_name"
           defaultValue={account?.fiscal_name ?? ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="client_number"># Cliente (CONTPAQi)</Label>
+        <Input
+          id="client_number"
+          name="client_number"
+          defaultValue={account?.client_number ?? ""}
+          placeholder="p. ej. 175"
         />
       </div>
 
