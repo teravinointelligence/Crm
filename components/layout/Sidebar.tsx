@@ -14,6 +14,7 @@ import {
   Truck,
   Banknote,
   FlaskConical,
+  BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -32,6 +33,7 @@ const items: Item[] = [
   { href: "/restock", label: "Restock", icon: PackageCheck },
   { href: "/transito", label: "Tránsito", icon: Truck },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
+  { href: "/reportes", label: "Reportes", icon: BarChart3, adminOnly: true },
 ];
 
 export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
