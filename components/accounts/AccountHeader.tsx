@@ -38,6 +38,11 @@ export function AccountHeader({ account, rep }: Props) {
                 {account.rfc}
               </span>
             )}
+            {account.client_number && (
+              <span className="font-mono text-xs">
+                # cliente {account.client_number}
+              </span>
+            )}
           </div>
           {account.address && (
             <p className="text-sm text-muted-foreground">{account.address}</p>

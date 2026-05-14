@@ -17,6 +17,7 @@ export type Database = {
           assigned_rep_id: string | null;
           business_name: string;
           city: string | null;
+          client_number: string | null;
           created_at: string | null;
           fiscal_name: string | null;
           id: string;
