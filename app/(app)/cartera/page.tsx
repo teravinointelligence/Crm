@@ -69,7 +69,16 @@ export default async function CarteraPage() {
       {rows.length === 0 ? (
         <EmptyState
           title="Sin cartera aún"
-          description="Importa las facturas históricas desde Excel para empezar."
+          description="Importa las facturas históricas (CONTPAQi) desde Excel para empezar."
+          action={
+            isAdmin ? (
+              <Button asChild className="mt-2">
+                <Link href="/cartera/importar">
+                  <Upload className="mr-1 h-4 w-4" /> Importar facturas / pagos
+                </Link>
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border bg-card">

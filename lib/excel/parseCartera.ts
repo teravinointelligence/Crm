@@ -34,6 +34,7 @@ export type InvoiceRowParsed = {
   invoice_number: string;
   invoice_date: string;
   due_date: string | null;
+  client_number: string | null;
   rfc: string | null;
   client: string | null;
   subtotal: number | null;
@@ -45,6 +46,7 @@ export type InvoiceRowParsed = {
 export type PaymentRowParsed = {
   payment_date: string;
   invoice_number: string;
+  client_number: string | null;
   amount: number;
   method: string | null;
   reference: string | null;
@@ -71,12 +73,16 @@ export async function parseInvoicesExcel(buf: ArrayBuffer): Promise<ParseResult<
       if (!folio) throw new Error("Folio faltante");
       if (!fecha) throw new Error("Fecha de emisión inválida");
       if (!total || total <= 0) throw new Error("Total inválido");
+      const clientNum = String(
+        m["# cliente"] ?? m["num cliente"] ?? m["numero cliente"] ?? m["no cliente"] ?? m["no. cliente"] ?? m["cliente id"] ?? m["id cliente"] ?? "",
+      ).trim().replace(/\.0+$/, "");
       rows.push({
         invoice_number: folio,
         invoice_date: fecha,
         due_date: parseDate(m["fecha vencimiento"] ?? m["vencimiento"]),
+        client_number: clientNum || null,
         rfc: String(m["rfc"] ?? "").trim().toUpperCase() || null,
-        client: String(m["cliente"] ?? m["razon social"] ?? m["nombre fiscal"] ?? "").trim() || null,
+        client: String(m["cliente"] ?? m["razon social"] ?? m["nombre fiscal"] ?? m["nombre comercial"] ?? "").trim() || null,
         subtotal: m["subtotal"] ? parseNum(m["subtotal"]) : null,
         iva: m["iva"] ? parseNum(m["iva"]) : null,
         total,
@@ -105,9 +111,13 @@ export async function parsePaymentsExcel(buf: ArrayBuffer): Promise<ParseResult<
       if (!fecha) throw new Error("Fecha de pago inválida");
       if (!folio) throw new Error("Folio de factura faltante");
       if (!monto || monto <= 0) throw new Error("Monto inválido");
+      const clientNum = String(
+        m["# cliente"] ?? m["num cliente"] ?? m["numero cliente"] ?? m["no cliente"] ?? m["no. cliente"] ?? m["cliente id"] ?? m["id cliente"] ?? "",
+      ).trim().replace(/\.0+$/, "");
       rows.push({
         payment_date: fecha,
         invoice_number: folio,
+        client_number: clientNum || null,
         amount: monto,
         method: String(m["metodo"] ?? m["forma de pago"] ?? "").trim().toLowerCase() || null,
         reference: String(m["referencia"] ?? m["ref"] ?? "").trim() || null,
