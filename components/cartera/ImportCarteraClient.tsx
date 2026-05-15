@@ -52,14 +52,16 @@ export function ImportCarteraClient() {
   const confirmInvoices = () => {
     if (!invPreview?.rows.length) { toast.error("Sin filas válidas"); return; }
     startTransition(async () => {
-      // Resolve accounts by RFC then fiscal_name then business_name
+      // Resolve accounts by client_number first (CONTPAQi), then RFC, fiscal_name, business_name
       const { data: accounts } = await supabase
         .from("accounts")
-        .select("id, rfc, fiscal_name, business_name");
+        .select("id, client_number, rfc, fiscal_name, business_name");
+      const byClientNum = new Map<string, string>();
       const byRfc = new Map<string, string>();
       const byFiscal = new Map<string, string>();
       const byName = new Map<string, string>();
       for (const a of accounts ?? []) {
+        if (a.client_number) byClientNum.set(String(a.client_number).trim(), a.id);
         if (a.rfc) byRfc.set(String(a.rfc).toUpperCase().trim(), a.id);
         if (a.fiscal_name) byFiscal.set(String(a.fiscal_name).toUpperCase().trim(), a.id);
         if (a.business_name) byName.set(String(a.business_name).toUpperCase().trim(), a.id);
@@ -68,11 +70,12 @@ export function ImportCarteraClient() {
       const payload: Record<string, unknown>[] = [];
       for (const r of invPreview.rows) {
         const aid =
+          (r.client_number && byClientNum.get(r.client_number.trim())) ||
           (r.rfc && byRfc.get(r.rfc.toUpperCase().trim())) ||
           (r.client && byFiscal.get(r.client.toUpperCase().trim())) ||
           (r.client && byName.get(r.client.toUpperCase().trim()));
         if (!aid) {
-          errs.push(`Factura ${r.invoice_number}: cliente no encontrado (${r.rfc ?? r.client ?? "?"})`);
+          errs.push(`Factura ${r.invoice_number}: cliente no encontrado (${r.client_number ? `# ${r.client_number}` : r.rfc ?? r.client ?? "?"})`);
           continue;
         }
         const subtotal = r.subtotal ?? Math.round((r.total / 1.16) * 100) / 100;
@@ -155,14 +158,14 @@ export function ImportCarteraClient() {
         <TabsContent value="facturas">
           <Card><CardContent className="space-y-2 p-6 text-sm">
             <h3 className="font-display text-lg">Carga de facturas</h3>
-            <p className="text-muted-foreground">Columnas esperadas: Folio, Fecha emisión, Fecha vencimiento, RFC, Cliente, Subtotal, IVA, Total, UUID fiscal (opcional).</p>
-            <p className="text-xs text-muted-foreground">El sistema busca el cliente por RFC, luego por razón social/nombre exacto. Las filas que no machean se marcan en error. Upsert por Folio.</p>
+            <p className="text-muted-foreground">Columnas esperadas: <strong># Cliente</strong>, Folio, Fecha emisión, Fecha vencimiento, Subtotal, IVA, Total, UUID fiscal (opcional). RFC y Cliente (razón social) son opcionales si viene <strong># Cliente</strong>.</p>
+            <p className="text-xs text-muted-foreground">El sistema enlaza la cuenta por <strong># cliente CONTPAQi</strong>, luego por RFC, luego por razón social/nombre exacto. Si una cuenta del CRM aún no tiene <em># cliente</em>, asígnaselo en <em>Cuentas → Sincronizar # cliente</em>. Upsert por Folio.</p>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="pagos">
           <Card><CardContent className="space-y-2 p-6 text-sm">
             <h3 className="font-display text-lg">Carga de pagos</h3>
-            <p className="text-muted-foreground">Columnas esperadas: Fecha pago, Folio factura, Monto, Método, Referencia.</p>
+            <p className="text-muted-foreground">Columnas esperadas: Fecha pago, Folio factura, Monto, Método, Referencia. (# Cliente opcional para validación.)</p>
             <p className="text-xs text-muted-foreground">Cada pago se aplica a la factura indicada. Si el folio no existe, se marca en error.</p>
           </CardContent></Card>
         </TabsContent>
