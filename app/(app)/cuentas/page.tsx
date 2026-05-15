@@ -1,6 +1,9 @@
+import Link from "next/link";
+import { Link2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { AccountsListClient } from "@/components/accounts/AccountsListClient";
+import { Button } from "@/components/ui/button";
 
 export const metadata = { title: "Cuentas — TERAVINO CRM" };
 
@@ -23,11 +26,20 @@ export default async function CuentasPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl">Cuentas</h1>
-        <p className="text-sm text-muted-foreground">
-          Hoteles, restaurantes, bares y otros clientes HORECA.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl">Cuentas</h1>
+          <p className="text-sm text-muted-foreground">
+            Hoteles, restaurantes, bares y otros clientes HORECA.
+          </p>
+        </div>
+        {isAdmin && (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/cuentas/sincronizar-clientes">
+              <Link2 className="mr-1 h-4 w-4" /> Sincronizar # cliente
+            </Link>
+          </Button>
+        )}
       </div>
       <AccountsListClient
         accounts={(accountsRes.data ?? []) as never}
