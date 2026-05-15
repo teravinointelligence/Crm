@@ -158,8 +158,12 @@ export function ImportCarteraClient() {
         <TabsContent value="facturas">
           <Card><CardContent className="space-y-2 p-6 text-sm">
             <h3 className="font-display text-lg">Carga de facturas</h3>
-            <p className="text-muted-foreground">Columnas esperadas: <strong># Cliente</strong>, Folio, Fecha emisión, Fecha vencimiento, Subtotal, IVA, Total, UUID fiscal (opcional). RFC y Cliente (razón social) son opcionales si viene <strong># Cliente</strong>.</p>
-            <p className="text-xs text-muted-foreground">El sistema enlaza la cuenta por <strong># cliente CONTPAQi</strong>, luego por RFC, luego por razón social/nombre exacto. Si una cuenta del CRM aún no tiene <em># cliente</em>, asígnaselo en <em>Cuentas → Sincronizar # cliente</em>. Upsert por Folio.</p>
+            <p className="text-muted-foreground">Detecta automáticamente dos formatos:</p>
+            <ul className="list-disc pl-5 text-xs text-muted-foreground space-y-1">
+              <li><strong>Antigüedad de Saldos de Clientes Detallado</strong> (reporte CONTPAQi tal cual lo exporta): agrupado por <em>Cliente: NNN</em>; cada partida tiene Vencimiento, Fecha, Serie, Folio y los buckets 1-15/16-30/31-45/46+ días. El total que se importa es el <strong>saldo abierto</strong> de cada factura.</li>
+              <li><strong>Listado plano</strong>: columnas <code># Cliente</code>, <code>Folio</code>, <code>Fecha emisión</code>, <code>Fecha vencimiento</code>, <code>Subtotal</code>, <code>IVA</code>, <code>Total</code>, <code>UUID fiscal</code> (opcional).</li>
+            </ul>
+            <p className="text-xs text-muted-foreground">El sistema enlaza la cuenta por <strong># cliente CONTPAQi</strong>, luego por RFC, luego por razón social/nombre exacto. Si una cuenta del CRM no tiene <em># cliente</em>, asígnalo en <em>Cuentas → Sincronizar # cliente</em>. Upsert por Folio (re-importar actualiza el saldo).</p>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="pagos">
