@@ -54,13 +54,25 @@ export async function POST(req: Request) {
       user_metadata: { nombre },
     });
     if (authErr) {
-      // si ya existe, buscamos en usuarios por email para reusar el auth_id
-      const existing = await repartoAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
-      const match = existing.data?.users.find((u) => u.email?.toLowerCase() === email);
-      if (!match) {
+      const msg = (authErr.message ?? "").toLowerCase();
+      // Mensaje claro cuando la llave en Vercel no es realmente la service_role.
+      if (msg.includes("invalid api key") || msg.includes("permission denied") || msg.includes("not allowed")) {
+        return NextResponse.json({
+          error: "El endpoint Auth admin requiere la SERVICE_ROLE key. Verifica que REPARTO_SUPABASE_SERVICE_ROLE_KEY en Vercel tenga la llave service_role (no la anon). Revisa /api/reparto/_diag.",
+        }, { status: 500 });
+      }
+      // Si el email ya está registrado, busca y reusa el auth_id.
+      if (msg.includes("already") || msg.includes("registered")) {
+        const existing = await repartoAdmin.auth.admin.listUsers({ page: 1, perPage: 200 });
+        const match = existing.data?.users.find((u) => u.email?.toLowerCase() === email);
+        if (match) {
+          auth_id = match.id;
+        } else {
+          return NextResponse.json({ error: `Email ya registrado pero no pude localizarlo: ${authErr.message}` }, { status: 500 });
+        }
+      } else {
         return NextResponse.json({ error: `No pude crear el acceso: ${authErr.message}` }, { status: 500 });
       }
-      auth_id = match.id;
     } else {
       auth_id = created.user?.id ?? null;
       tempPassword = pwd; // devolvemos para que admin la comparta al chofer
