@@ -23,6 +23,7 @@ import {
   ClipboardList,
   Route,
   UserCog,
+  FileSignature,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -44,6 +45,7 @@ const items: Item[] = [
   { href: "/contactos", label: "Contactos", icon: Users },
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2 },
   { href: "/catalogo", label: "Catálogo", icon: Wine },
+  { href: "/cotizaciones", label: "Cotizaciones", icon: FileSignature },
   { href: "/pedidos", label: "Pedidos", icon: FileText },
   { href: "/muestras", label: "Muestras", icon: FlaskConical },
   { href: "/cartera", label: "Cartera", icon: Wallet },
