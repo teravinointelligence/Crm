@@ -1,4 +1,4 @@
-// GET /api/reparto/_diag — diagnóstico admin: verifica que las env vars de Reparto
+// GET /api/reparto/diag — diagnóstico admin: verifica que las env vars de Reparto
 // estén configuradas y que la "service_role key" sea realmente service_role.
 // No expone las llaves, solo metadatos.
 
