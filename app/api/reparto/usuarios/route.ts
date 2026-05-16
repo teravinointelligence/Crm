@@ -58,7 +58,7 @@ export async function POST(req: Request) {
       // Mensaje claro cuando la llave en Vercel no es realmente la service_role.
       if (msg.includes("invalid api key") || msg.includes("permission denied") || msg.includes("not allowed")) {
         return NextResponse.json({
-          error: "El endpoint Auth admin requiere la SERVICE_ROLE key. Verifica que REPARTO_SUPABASE_SERVICE_ROLE_KEY en Vercel tenga la llave service_role (no la anon). Revisa /api/reparto/_diag.",
+          error: "El endpoint Auth admin requiere la SERVICE_ROLE key. Verifica que REPARTO_SUPABASE_SERVICE_ROLE_KEY en Vercel tenga la llave service_role (no la anon). Revisa /api/reparto/diag.",
         }, { status: 500 });
       }
       // Si el email ya está registrado, busca y reusa el auth_id.
