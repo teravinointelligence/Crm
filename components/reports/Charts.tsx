@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -12,6 +13,14 @@ import {
 } from "recharts";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/utils";
+
+// Recharts toca APIs del DOM/ResizeObserver al medir; renderizamos solo en cliente
+// para evitar excepciones server-side al hidratar el RSC padre.
+function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted;
+}
 
 const CARMESI = "#A91E3A";
 const ORO = "#c9a96e";
@@ -35,6 +44,7 @@ export function CategoryBarChart({
   altColor?: string;
   formatValue?: (n: number) => string;
 }) {
+  const mounted = useMounted();
   return (
     <Card>
       <CardContent className="space-y-3 p-6">
@@ -44,6 +54,8 @@ export function CategoryBarChart({
         </div>
         {data.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">{emptyText}</p>
+        ) : !mounted ? (
+          <div className="h-64 w-full animate-pulse rounded-md bg-muted/30" />
         ) : (
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -80,6 +92,7 @@ export function MonthlyBarChart({
   subtitle?: string;
   data: SeriesDatum[];
 }) {
+  const mounted = useMounted();
   return (
     <Card>
       <CardContent className="space-y-3 p-6">
@@ -87,6 +100,9 @@ export function MonthlyBarChart({
           <h3 className="font-display text-lg">{title}</h3>
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
         </div>
+        {!mounted ? (
+          <div className="h-64 w-full animate-pulse rounded-md bg-muted/30" />
+        ) : (
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
@@ -102,6 +118,7 @@ export function MonthlyBarChart({
             </BarChart>
           </ResponsiveContainer>
         </div>
+        )}
       </CardContent>
     </Card>
   );
