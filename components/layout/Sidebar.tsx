@@ -22,6 +22,7 @@ import {
   ChevronRight,
   ClipboardList,
   Route,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -61,6 +62,7 @@ const items: Item[] = [
       { href: "/reparto/pedidos", label: "Pedidos", icon: ClipboardList },
       { href: "/reparto/rutas", label: "Rutas", icon: Route },
       { href: "/reparto/bitacora", label: "Bitácora", icon: FileText },
+      { href: "/reparto/choferes", label: "Choferes", icon: UserCog },
       { href: "/reparto/reportes", label: "Reportes", icon: BarChart3 },
     ],
   },
