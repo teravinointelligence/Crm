@@ -8,6 +8,7 @@ import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PedidosFilters } from "@/components/reparto/PedidosFilters";
+import { UploadCFDI } from "@/components/reparto/UploadCFDI";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -81,9 +82,12 @@ export default async function PedidosPage({
           <h1 className="font-display text-3xl">Pedidos de reparto</h1>
           <p className="text-sm text-muted-foreground">Asignación, ventana horaria y seguimiento.</p>
         </div>
-        <Button asChild>
-          <Link href="/reparto/pedidos/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido</Link>
-        </Button>
+        <div className="flex gap-2">
+          <UploadCFDI />
+          <Button asChild>
+            <Link href="/reparto/pedidos/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido</Link>
+          </Button>
+        </div>
       </div>
 
       <PedidosFilters
