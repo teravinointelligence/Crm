@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileSpreadsheet, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { FileSpreadsheet, AlertTriangle, CheckCircle2, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -13,11 +13,18 @@ import {
   parseInvoicesExcel,
   parsePaymentsExcel,
   type InvoiceParseResult,
+  type InvoiceRowParsed,
   type PaymentRowParsed,
   type ParseResult,
 } from "@/lib/excel/parseCartera";
 
 type Mode = "facturas" | "pagos";
+
+type MissingAccount = {
+  client_number: string;
+  name: string | null;
+  count: number;
+};
 
 export function ImportCarteraClient() {
   const router = useRouter();
@@ -28,12 +35,17 @@ export function ImportCarteraClient() {
   const [invPreview, setInvPreview] = useState<InvoiceParseResult | null>(null);
   const [payPreview, setPayPreview] = useState<ParseResult<PaymentRowParsed> | null>(null);
   const [resolveErrors, setResolveErrors] = useState<string[]>([]);
+  const [missingAccounts, setMissingAccounts] = useState<MissingAccount[]>([]);
+  // Filas que fallaron por cliente faltante — se guardan para reintentar tras crear las cuentas.
+  const [pendingRows, setPendingRows] = useState<InvoiceRowParsed[]>([]);
 
   const reset = () => {
     setFileName(null);
     setInvPreview(null);
     setPayPreview(null);
     setResolveErrors([]);
+    setMissingAccounts([]);
+    setPendingRows([]);
   };
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,94 +61,173 @@ export function ImportCarteraClient() {
       setInvPreview(null);
     }
     setResolveErrors([]);
+    setMissingAccounts([]);
+    setPendingRows([]);
+  };
+
+  /** Resuelve cuentas → arma payload → filtra duplicados → inserta. Devuelve filas que fallaron por cuenta faltante. */
+  const resolveAndInsert = async (
+    rows: InvoiceRowParsed[],
+    isAging: boolean,
+  ): Promise<{ inserted: number; skipped: number; unresolved: InvoiceRowParsed[]; errs: string[] }> => {
+    const { data: accounts } = await supabase
+      .from("accounts")
+      .select("id, client_number, rfc, fiscal_name, business_name")
+      .range(0, 49999);
+    const byClientNum = new Map<string, string>();
+    const byRfc = new Map<string, string>();
+    const byFiscal = new Map<string, string>();
+    const byName = new Map<string, string>();
+    for (const a of accounts ?? []) {
+      const cn = normalizeClientNumber(a.client_number);
+      if (cn) byClientNum.set(cn, a.id);
+      if (a.rfc) byRfc.set(String(a.rfc).toUpperCase().trim(), a.id);
+      if (a.fiscal_name) byFiscal.set(String(a.fiscal_name).toUpperCase().trim(), a.id);
+      if (a.business_name) byName.set(String(a.business_name).toUpperCase().trim(), a.id);
+    }
+
+    const errs: string[] = [];
+    const unresolved: InvoiceRowParsed[] = [];
+    const payload: Record<string, unknown>[] = [];
+    for (const r of rows) {
+      const aid =
+        (r.client_number && byClientNum.get(r.client_number)) ||
+        (r.rfc && byRfc.get(r.rfc.toUpperCase().trim())) ||
+        (r.client && byFiscal.get(r.client.toUpperCase().trim())) ||
+        (r.client && byName.get(r.client.toUpperCase().trim()));
+      if (!aid) {
+        unresolved.push(r);
+        errs.push(`Factura ${r.invoice_number}: cliente no encontrado (${r.client_number ? `# ${r.client_number}` : r.rfc ?? r.client ?? "?"})`);
+        continue;
+      }
+      payload.push({
+        invoice_number: r.invoice_number,
+        account_id: aid,
+        invoice_date: r.invoice_date,
+        due_date: r.due_date,
+        subtotal: r.subtotal,
+        iva: r.iva,
+        total: r.total,
+        uuid_fiscal: r.uuid_fiscal,
+        status: r.due_date && new Date(r.due_date) < new Date() ? "vencida" : "pendiente",
+      });
+    }
+
+    if (!payload.length) return { inserted: 0, skipped: 0, unresolved, errs };
+
+    let toInsert = payload;
+    let skipped = 0;
+    if (isAging) {
+      const folios = payload.map((p) => p.invoice_number as string);
+      const { data: existing } = await supabase
+        .from("invoices")
+        .select("invoice_number")
+        .in("invoice_number", folios);
+      const existingSet = new Set((existing ?? []).map((e) => e.invoice_number));
+      toInsert = payload.filter((p) => !existingSet.has(p.invoice_number as string));
+      skipped = payload.length - toInsert.length;
+    }
+
+    if (!toInsert.length) return { inserted: 0, skipped, unresolved, errs };
+
+    const { error } = isAging
+      ? await supabase.from("invoices").insert(toInsert)
+      : await supabase.from("invoices").upsert(toInsert, { onConflict: "invoice_number" });
+    if (error) throw new Error(error.message);
+    return { inserted: toInsert.length, skipped, unresolved, errs };
+  };
+
+  /** Dedup de filas no resueltas por client_number (toma el primer name visto). */
+  const collectMissing = (unresolved: InvoiceRowParsed[]): MissingAccount[] => {
+    const map = new Map<string, MissingAccount>();
+    for (const r of unresolved) {
+      // Solo agrupamos por client_number — sin él no podemos crear una cuenta enlazable.
+      if (!r.client_number) continue;
+      const existing = map.get(r.client_number);
+      if (existing) {
+        existing.count++;
+        if (!existing.name && r.client) existing.name = r.client;
+      } else {
+        map.set(r.client_number, { client_number: r.client_number, name: r.client ?? null, count: 1 });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
   };
 
   const confirmInvoices = () => {
     if (!invPreview?.rows.length) { toast.error("Sin filas válidas"); return; }
     const isAging = invPreview.format === "aging";
     startTransition(async () => {
-      // Resolve accounts by client_number first (CONTPAQi), then RFC, fiscal_name, business_name
-      const { data: accounts } = await supabase
-        .from("accounts")
-        .select("id, client_number, rfc, fiscal_name, business_name")
-        .range(0, 49999);
-      const byClientNum = new Map<string, string>();
-      const byRfc = new Map<string, string>();
-      const byFiscal = new Map<string, string>();
-      const byName = new Map<string, string>();
-      for (const a of accounts ?? []) {
-        const cn = normalizeClientNumber(a.client_number);
-        if (cn) byClientNum.set(cn, a.id);
-        if (a.rfc) byRfc.set(String(a.rfc).toUpperCase().trim(), a.id);
-        if (a.fiscal_name) byFiscal.set(String(a.fiscal_name).toUpperCase().trim(), a.id);
-        if (a.business_name) byName.set(String(a.business_name).toUpperCase().trim(), a.id);
-      }
-      const errs: string[] = [];
-      const payload: Record<string, unknown>[] = [];
-      for (const r of invPreview.rows) {
-        const aid =
-          (r.client_number && byClientNum.get(r.client_number)) ||
-          (r.rfc && byRfc.get(r.rfc.toUpperCase().trim())) ||
-          (r.client && byFiscal.get(r.client.toUpperCase().trim())) ||
-          (r.client && byName.get(r.client.toUpperCase().trim()));
-        if (!aid) {
-          errs.push(`Factura ${r.invoice_number}: cliente no encontrado (${r.client_number ? `# ${r.client_number}` : r.rfc ?? r.client ?? "?"})`);
-          continue;
+      try {
+        const { inserted, skipped, unresolved, errs } = await resolveAndInsert(invPreview.rows, isAging);
+        setResolveErrors(errs);
+        const missing = collectMissing(unresolved);
+        setMissingAccounts(missing);
+        setPendingRows(unresolved);
+
+        if (!inserted && !skipped && !unresolved.length) {
+          toast.error("Sin filas para importar");
+          return;
         }
-        payload.push({
-          invoice_number: r.invoice_number,
-          account_id: aid,
-          invoice_date: r.invoice_date,
-          due_date: r.due_date,
-          // Cuando el origen es el reporte de antigüedad de CONTPAQi, no
-          // conocemos subtotal/IVA reales (TERAVINO maneja IEPS además de IVA).
-          // El flat path sí los expone si el Excel los trae.
-          subtotal: r.subtotal,
-          iva: r.iva,
-          total: r.total,
-          uuid_fiscal: r.uuid_fiscal,
-          status: r.due_date && new Date(r.due_date) < new Date() ? "vencida" : "pendiente",
-        });
+        if (!inserted && skipped && !unresolved.length) {
+          toast.info("Todas las facturas ya existían — nada que importar");
+          return;
+        }
+        toast.success(
+          `${inserted} facturas importadas` +
+            (skipped ? ` · ${skipped} ya existían` : "") +
+            (unresolved.length ? ` · ${unresolved.length} sin cuenta` : ""),
+        );
+        if (!unresolved.length) {
+          reset();
+          router.push("/cartera");
+          router.refresh();
+        }
+      } catch (e) {
+        toast.error("Error al importar facturas", { description: e instanceof Error ? e.message : String(e) });
       }
-      setResolveErrors(errs);
-      if (!payload.length) { toast.error("Ninguna factura pudo asociarse a un cliente"); return; }
+    });
+  };
 
-      let toInsert = payload;
-      let skipped = 0;
-      if (isAging) {
-        // En aging report el `total` es el saldo abierto del momento, no el total
-        // de la factura. Si reimportamos, NO debemos sobreescribir filas previas
-        // (corrompería balance/total_paid). Filtramos folios ya existentes.
-        const folios = payload.map((p) => p.invoice_number as string);
-        const { data: existing } = await supabase
-          .from("invoices")
-          .select("invoice_number")
-          .in("invoice_number", folios);
-        const existingSet = new Set((existing ?? []).map((e) => e.invoice_number));
-        toInsert = payload.filter((p) => !existingSet.has(p.invoice_number as string));
-        skipped = payload.length - toInsert.length;
-      }
+  const createMissingAndRetry = () => {
+    if (!missingAccounts.length) return;
+    const isAging = invPreview?.format === "aging";
+    startTransition(async () => {
+      try {
+        const payload = missingAccounts.map((m) => ({
+          business_name: m.name?.trim() || `Cliente ${m.client_number}`,
+          client_number: m.client_number,
+          status: "prospecto" as const,
+        }));
+        const { error } = await supabase.from("accounts").insert(payload);
+        if (error) {
+          toast.error("Error al crear cuentas", { description: error.message });
+          return;
+        }
+        toast.success(`${payload.length} cuentas creadas`);
 
-      if (!toInsert.length) {
-        toast.info("Todas las facturas ya existían — nada que importar", {
-          description: "Re-importar el reporte de antigüedad solo agrega facturas nuevas.",
-        });
-        return;
-      }
-
-      const { error } = isAging
-        ? await supabase.from("invoices").insert(toInsert)
-        : await supabase.from("invoices").upsert(toInsert, { onConflict: "invoice_number" });
-      if (error) { toast.error("Error al importar facturas", { description: error.message }); return; }
-      toast.success(
-        `${toInsert.length} facturas importadas` +
-          (skipped ? ` · ${skipped} ya existían` : "") +
-          (errs.length ? ` · ${errs.length} con error` : ""),
-      );
-      if (!errs.length) {
-        reset();
-        router.push("/cartera");
-        router.refresh();
+        // Reintenta con las filas que habían quedado pendientes.
+        if (pendingRows.length) {
+          const { inserted, skipped, unresolved, errs } = await resolveAndInsert(pendingRows, isAging);
+          setResolveErrors(errs);
+          const stillMissing = collectMissing(unresolved);
+          setMissingAccounts(stillMissing);
+          setPendingRows(unresolved);
+          toast.success(
+            `${inserted} facturas adicionales importadas` +
+              (skipped ? ` · ${skipped} ya existían` : "") +
+              (unresolved.length ? ` · ${unresolved.length} aún sin resolver` : ""),
+          );
+          if (!unresolved.length) {
+            reset();
+            router.push("/cartera");
+            router.refresh();
+          }
+        } else {
+          setMissingAccounts([]);
+        }
+      } catch (e) {
+        toast.error("Error en el flujo", { description: e instanceof Error ? e.message : String(e) });
       }
     });
   };
@@ -276,11 +367,53 @@ export function ImportCarteraClient() {
               </ul>
             </details>
           )}
+
+          {missingAccounts.length > 0 && (
+            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div className="flex items-center gap-2 text-amber-900">
+                <UserPlus className="h-4 w-4" />
+                <span className="font-medium">
+                  {missingAccounts.length} {missingAccounts.length === 1 ? "cuenta faltante" : "cuentas faltantes"} en el CRM
+                </span>
+              </div>
+              <p className="text-xs text-amber-900">
+                Se crearán como <em>prospecto</em> con <code># cliente</code> y razón social del Excel.
+                Quedan sin vendedor asignado — luego un admin las completa.
+              </p>
+              <div className="max-h-64 overflow-y-auto rounded border border-amber-200 bg-white">
+                <table className="w-full text-xs">
+                  <thead className="sticky top-0 bg-amber-100 text-amber-900">
+                    <tr>
+                      <th className="px-2 py-1 text-left"># cliente</th>
+                      <th className="px-2 py-1 text-left">Razón social (Excel)</th>
+                      <th className="px-2 py-1 text-right">Partidas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {missingAccounts.map((m) => (
+                      <tr key={m.client_number} className="border-t border-amber-100">
+                        <td className="px-2 py-1 font-mono">{m.client_number}</td>
+                        <td className="px-2 py-1">{m.name ?? <span className="text-muted-foreground">— sin nombre —</span>}</td>
+                        <td className="px-2 py-1 text-right">{m.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={createMissingAndRetry} disabled={pending} size="sm">
+                  {pending ? "Creando…" : `Crear ${missingAccounts.length} cuentas y re-importar`}
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={reset} disabled={pending}>Cancelar</Button>
-            <Button onClick={mode === "facturas" ? confirmInvoices : confirmPayments} disabled={pending || !okCount}>
-              {pending ? "Importando…" : "Confirmar import"}
-            </Button>
+            {missingAccounts.length === 0 && (
+              <Button onClick={mode === "facturas" ? confirmInvoices : confirmPayments} disabled={pending || !okCount}>
+                {pending ? "Importando…" : "Confirmar import"}
+              </Button>
+            )}
           </div>
         </CardContent></Card>
       )}
