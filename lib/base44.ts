@@ -141,20 +141,45 @@ export type Base44Consignacion = {
   updated_date?: string;
 };
 
+export type Base44TomaInventarioItem = {
+  producto_id?: string;
+  producto_nombre?: string;
+  codigo?: string;
+  presentacion?: string;
+  cantidad_anterior?: number;
+  cantidad_contada?: number;
+  diferencia?: number;
+  observacion_item?: string;
+};
+
 export type Base44TomaInventario = {
   id: string;
   numero_toma?: string;
   cliente_id: string;
   cliente_nombre?: string;
+  almacen?: string;
   vendedor_id: string;
   vendedor_nombre?: string;
   fecha_toma: string;
+  items?: Base44TomaInventarioItem[];
   total_botellas?: number;
   total_etiquetas?: number;
+  encargado_nombre?: string;
+  encargado_cargo?: string;
+  firma_encargado?: string; // PNG base64 dataURL
+  firma_vendedor?: string;  // PNG base64 dataURL
+  observaciones_generales?: string;
+  ubicacion_gps?: string;
   estado: "borrador" | "firmado" | "sincronizado_drive" | "anulado";
   pdf_url?: string;
   auditoria_resultado?: "no_evaluada" | "aprobada" | "sospechosa" | "no_auditada" | "requiere_validacion";
   auditoria_score?: number;
+  auditoria_flags?: string[];
+  auditoria_motivo?: string;
+  auditoria_fecha?: string;
+  auditoria_validada_por?: string;
+  created_date?: string;
+  updated_date?: string;
 };
 
 /**

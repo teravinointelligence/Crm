@@ -50,7 +50,16 @@ const items: Item[] = [
   { href: "/pedidos", label: "Pedidos", icon: FileText },
   { href: "/muestras", label: "Muestras", icon: FlaskConical },
   { href: "/cartera", label: "Cartera", icon: Wallet },
-  { href: "/consignaciones", label: "Consignaciones", icon: HandCoins },
+  {
+    kind: "group",
+    label: "Consignaciones",
+    icon: HandCoins,
+    basePath: "/consignaciones",
+    children: [
+      { href: "/consignaciones", label: "Consignaciones", icon: HandCoins },
+      { href: "/consignaciones/tomas", label: "Tomas de inventario", icon: ClipboardList },
+    ],
+  },
   { href: "/restock", label: "Restock", icon: PackageCheck },
   { href: "/transito", label: "Tránsito", icon: Truck },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
