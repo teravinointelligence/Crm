@@ -15,6 +15,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ConsignacionActions } from "@/components/consignaciones/ConsignacionActions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -73,6 +74,7 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
 
   const saldo = (consignacion.total ?? 0) - (consignacion.monto_cobrado ?? 0);
   const items = consignacion.items ?? [];
+  const totalCantidad = items.reduce((s, i) => s + (Number(i.cantidad) || 0), 0);
 
   return (
     <div className="space-y-6">
@@ -98,6 +100,9 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
           {ESTADO_LABEL[consignacion.estado]}
         </Badge>
       </div>
+
+      <ConsignacionActions consignacion={consignacion} totalCantidad={totalCantidad} />
+
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <InfoCard icon={Calendar} label="Fecha" value={formatDate(consignacion.fecha)} />
