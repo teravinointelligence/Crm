@@ -2,7 +2,8 @@
 // Scope: admin ve todo, vendedor ve solo las suyas (match por email).
 
 import Link from "next/link";
-import { Wine, Filter } from "lucide-react";
+import { Wine, Filter, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { requireRep } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -129,6 +130,12 @@ export default async function ConsignacionesPage({
               : `Tus consignaciones activas (${consignaciones.length}).`}
           </p>
         </div>
+        <Button asChild>
+          <Link href="/consignaciones/nueva">
+            <Plus className="mr-1 h-4 w-4" />
+            Nueva consignación
+          </Link>
+        </Button>
       </div>
 
       <Card>
