@@ -71,6 +71,18 @@ export type ParseResult<T> = {
   errors: { row: number; message: string }[];
 };
 
+export type InvoiceParseResult = ParseResult<InvoiceRowParsed> & {
+  format: "aging" | "flat";
+};
+
+/** Normaliza # de cliente: trim, quita ".0" final y ceros a la izquierda. "001" === "1". */
+export function normalizeClientNumber(v: unknown): string | null {
+  const s = String(v ?? "").trim().replace(/\.0+$/, "");
+  if (!s) return null;
+  const stripped = s.replace(/^0+/, "");
+  return stripped || "0";
+}
+
 // Detecta el reporte CONTPAQi "Antigüedad de Saldos de Clientes Detallado"
 // (filas agrupadas: "Cliente: NNN" / "Nombre: ..." / partidas / subtotales).
 function looksLikeAgingReport(matrix: unknown[][]): boolean {
@@ -84,9 +96,9 @@ function looksLikeAgingReport(matrix: unknown[][]): boolean {
   return false;
 }
 
-function parseAgingReport(matrix: unknown[][]): ParseResult<InvoiceRowParsed> {
+function parseAgingReport(matrix: unknown[][]): InvoiceParseResult {
   const rows: InvoiceRowParsed[] = [];
-  const errors: ParseResult<InvoiceRowParsed>["errors"] = [];
+  const errors: InvoiceParseResult["errors"] = [];
   let curClientNum: string | null = null;
   let curClientName: string | null = null;
 
@@ -96,9 +108,7 @@ function parseAgingReport(matrix: unknown[][]): ParseResult<InvoiceRowParsed> {
 
     const cli = /^cliente\s*:\s*(\S+)/i.exec(first);
     if (cli) {
-      // 001 → 1, 98.0 → 98, 0 → 0
-      const raw = cli[1].replace(/\.0+$/, "");
-      curClientNum = raw.replace(/^0+/, "") || "0";
+      curClientNum = normalizeClientNumber(cli[1]);
       curClientName = null;
       continue;
     }
@@ -120,7 +130,8 @@ function parseAgingReport(matrix: unknown[][]): ParseResult<InvoiceRowParsed> {
     if (saldo <= 0) continue;
 
     const invNum = serie ? `${serie}${folio}` : folio;
-    const subtotal = Math.round((saldo / 1.16) * 100) / 100;
+    // No asumimos 16% IVA: TERAVINO vende vino (IEPS 26.5% + IVA 16%).
+    // El aging report no expone subtotal/IVA reales — se dejan null.
     rows.push({
       invoice_number: invNum,
       invoice_date: fecha,
@@ -128,8 +139,8 @@ function parseAgingReport(matrix: unknown[][]): ParseResult<InvoiceRowParsed> {
       client_number: curClientNum,
       rfc: null,
       client: curClientName,
-      subtotal,
-      iva: Math.round((saldo - subtotal) * 100) / 100,
+      subtotal: null,
+      iva: null,
       total: saldo,
       uuid_fiscal: null,
     });
@@ -142,14 +153,14 @@ function parseAgingReport(matrix: unknown[][]): ParseResult<InvoiceRowParsed> {
         "Reconocí el formato de antigüedad de saldos pero no encontré partidas con saldo. Verifica que el reporte traiga columnas de 1-15 / 16-30 / 31-45 / 46+ días.",
     });
   }
-  return { rows, errors };
+  return { rows, errors, format: "aging" };
 }
 
-function parseFlatInvoices(buf: ArrayBuffer): ParseResult<InvoiceRowParsed> {
+function parseFlatInvoices(buf: ArrayBuffer): InvoiceParseResult {
   const wb = XLSX.read(buf, { type: "array", cellDates: true });
   const json = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: "" });
   const rows: InvoiceRowParsed[] = [];
-  const errors: ParseResult<InvoiceRowParsed>["errors"] = [];
+  const errors: InvoiceParseResult["errors"] = [];
   json.forEach((raw, i) => {
     const rowNum = i + 2;
     const m: Record<string, unknown> = {};
@@ -161,14 +172,14 @@ function parseFlatInvoices(buf: ArrayBuffer): ParseResult<InvoiceRowParsed> {
       if (!folio) throw new Error("Folio faltante");
       if (!fecha) throw new Error("Fecha de emisión inválida");
       if (!total || total <= 0) throw new Error("Total inválido");
-      const clientNum = String(
-        m["# cliente"] ?? m["num cliente"] ?? m["numero cliente"] ?? m["no cliente"] ?? m["no. cliente"] ?? m["cliente id"] ?? m["id cliente"] ?? "",
-      ).trim().replace(/\.0+$/, "");
+      const clientNum = normalizeClientNumber(
+        m["# cliente"] ?? m["num cliente"] ?? m["numero cliente"] ?? m["no cliente"] ?? m["no. cliente"] ?? m["cliente id"] ?? m["id cliente"],
+      );
       rows.push({
         invoice_number: folio,
         invoice_date: fecha,
         due_date: parseDate(m["fecha vencimiento"] ?? m["vencimiento"]),
-        client_number: clientNum || null,
+        client_number: clientNum,
         rfc: String(m["rfc"] ?? "").trim().toUpperCase() || null,
         client: String(m["cliente"] ?? m["razon social"] ?? m["nombre fiscal"] ?? m["nombre comercial"] ?? "").trim() || null,
         subtotal: m["subtotal"] ? parseNum(m["subtotal"]) : null,
@@ -180,10 +191,10 @@ function parseFlatInvoices(buf: ArrayBuffer): ParseResult<InvoiceRowParsed> {
       errors.push({ row: rowNum, message: e instanceof Error ? e.message : "Error" });
     }
   });
-  return { rows, errors };
+  return { rows, errors, format: "flat" };
 }
 
-export async function parseInvoicesExcel(buf: ArrayBuffer): Promise<ParseResult<InvoiceRowParsed>> {
+export async function parseInvoicesExcel(buf: ArrayBuffer): Promise<InvoiceParseResult> {
   const wb = XLSX.read(buf, { type: "array", cellDates: true });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
@@ -212,13 +223,13 @@ export async function parsePaymentsExcel(buf: ArrayBuffer): Promise<ParseResult<
       if (!fecha) throw new Error("Fecha de pago inválida");
       if (!folio) throw new Error("Folio de factura faltante");
       if (!monto || monto <= 0) throw new Error("Monto inválido");
-      const clientNum = String(
-        m["# cliente"] ?? m["num cliente"] ?? m["numero cliente"] ?? m["no cliente"] ?? m["no. cliente"] ?? m["cliente id"] ?? m["id cliente"] ?? "",
-      ).trim().replace(/\.0+$/, "");
+      const clientNum = normalizeClientNumber(
+        m["# cliente"] ?? m["num cliente"] ?? m["numero cliente"] ?? m["no cliente"] ?? m["no. cliente"] ?? m["cliente id"] ?? m["id cliente"],
+      );
       rows.push({
         payment_date: fecha,
         invoice_number: folio,
-        client_number: clientNum || null,
+        client_number: clientNum,
         amount: monto,
         method: String(m["metodo"] ?? m["forma de pago"] ?? "").trim().toLowerCase() || null,
         reference: String(m["referencia"] ?? m["ref"] ?? "").trim() || null,
