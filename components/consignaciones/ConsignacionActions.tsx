@@ -3,15 +3,16 @@
 // Acciones disponibles desde la pantalla de detalle de una consignación:
 //   - Registrar movimiento (venta + devolución + cobro, aditivo).
 //   - Cerrar como liquidada o devuelta (estado terminal).
+//   - Asignar / desasignar chofer (disponible incluso en estado terminal por
+//     si hay que corregir el dato histórico).
 //
-// Se muestra solo si la consignación no está en estado terminal. El server
-// vuelve a validar todo (scope, topes, estado), así que este componente
-// puede confiar en feedback "happy path" + manejo de error genérico.
+// El server vuelve a validar todo (scope, topes, estado), así que este
+// componente puede confiar en feedback "happy path" + manejo de error genérico.
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { CheckCircle2, RotateCcw, FileText } from "lucide-react";
+import { CheckCircle2, RotateCcw, FileText, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import type { Base44Consignacion } from "@/lib/base44";
 
@@ -35,13 +43,17 @@ type Props = {
 };
 
 export function ConsignacionActions({ consignacion, totalCantidad }: Props) {
-  if (consignacion.estado === "liquidada" || consignacion.estado === "devuelta") {
-    return null;
-  }
+  const isTerminal =
+    consignacion.estado === "liquidada" || consignacion.estado === "devuelta";
   return (
     <div className="flex flex-wrap gap-2">
-      <MovimientoDialog consignacion={consignacion} totalCantidad={totalCantidad} />
-      <CerrarDialog consignacion={consignacion} />
+      {!isTerminal && (
+        <>
+          <MovimientoDialog consignacion={consignacion} totalCantidad={totalCantidad} />
+          <CerrarDialog consignacion={consignacion} />
+        </>
+      )}
+      <AsignarChoferDialog consignacion={consignacion} />
     </div>
   );
 }
@@ -306,3 +318,139 @@ function CerrarDialog({ consignacion }: { consignacion: Base44Consignacion }) {
     </Dialog>
   );
 }
+
+type Chofer = { id: string; nombre: string };
+
+function AsignarChoferDialog({ consignacion }: { consignacion: Base44Consignacion }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [choferes, setChoferes] = useState<Chofer[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string>(consignacion.chofer_id ?? "");
+
+  // Carga lazy de choferes cuando se abre el dialog.
+  useEffect(() => {
+    if (!open || choferes !== null || loadError) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/consignaciones/choferes");
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (!cancelled) setLoadError(data.error ?? `HTTP ${res.status}`);
+          return;
+        }
+        const { data } = (await res.json()) as { data: Chofer[] };
+        if (!cancelled) setChoferes(data);
+      } catch (e) {
+        if (!cancelled) setLoadError(e instanceof Error ? e.message : "Error al cargar choferes");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, choferes, loadError]);
+
+  const currentLabel = consignacion.chofer_nombre ?? "Sin asignar";
+  const isUnchanged = (consignacion.chofer_id ?? "") === selectedId;
+
+  const submit = (chofer_id: string | null) => {
+    startTransition(async () => {
+      const res = await fetch(`/api/consignaciones/${consignacion.id}/asignar-chofer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chofer_id }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error("No se pudo asignar chofer", { description: data.error ?? `HTTP ${res.status}` });
+        return;
+      }
+      toast.success(chofer_id ? "Chofer asignado" : "Chofer desasignado");
+      setOpen(false);
+      router.refresh();
+    });
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (o) setSelectedId(consignacion.chofer_id ?? "");
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Truck className="mr-1 h-4 w-4" />
+          {consignacion.chofer_id ? "Cambiar chofer" : "Asignar chofer"}
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Asignar chofer</DialogTitle>
+          <DialogDescription>
+            Actualmente: <strong>{currentLabel}</strong>. Los choferes vienen del módulo de Reparto.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          {loadError ? (
+            <p className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+              {loadError}
+            </p>
+          ) : choferes === null ? (
+            <p className="text-sm text-muted-foreground">Cargando choferes…</p>
+          ) : choferes.length === 0 ? (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              No hay choferes activos en el módulo de Reparto. Da uno de alta en
+              <em> /reparto/choferes</em> y vuelve.
+            </p>
+          ) : (
+            <div className="space-y-1">
+              <Label>Chofer</Label>
+              <Select value={selectedId} onValueChange={setSelectedId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un chofer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {choferes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.nombre}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+          {consignacion.chofer_id && (
+            <Button
+              variant="ghost"
+              onClick={() => submit(null)}
+              disabled={pending}
+              className="text-red-700 hover:text-red-800"
+            >
+              Desasignar
+            </Button>
+          )}
+          <div className="flex gap-2 sm:ml-auto">
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={() => submit(selectedId)}
+              disabled={pending || !selectedId || isUnchanged}
+            >
+              {pending ? "Guardando…" : "Asignar"}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
