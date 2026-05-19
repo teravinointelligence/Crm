@@ -24,6 +24,7 @@ import {
   Route,
   UserCog,
   FileSignature,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -49,6 +50,7 @@ const items: Item[] = [
   { href: "/pedidos", label: "Pedidos", icon: FileText },
   { href: "/muestras", label: "Muestras", icon: FlaskConical },
   { href: "/cartera", label: "Cartera", icon: Wallet },
+  { href: "/consignaciones", label: "Consignaciones", icon: HandCoins },
   { href: "/restock", label: "Restock", icon: PackageCheck },
   { href: "/transito", label: "Tránsito", icon: Truck },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
