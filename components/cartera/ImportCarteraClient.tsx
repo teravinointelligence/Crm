@@ -9,10 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import {
+  normalizeClientNumber,
   parseInvoicesExcel,
   parsePaymentsExcel,
-  type InvoiceRowParsed,
+  type InvoiceParseResult,
   type PaymentRowParsed,
+  type ParseResult,
 } from "@/lib/excel/parseCartera";
 
 type Mode = "facturas" | "pagos";
@@ -23,8 +25,8 @@ export function ImportCarteraClient() {
   const [pending, startTransition] = useTransition();
   const [mode, setMode] = useState<Mode>("facturas");
   const [fileName, setFileName] = useState<string | null>(null);
-  const [invPreview, setInvPreview] = useState<{ rows: InvoiceRowParsed[]; errors: { row: number; message: string }[] } | null>(null);
-  const [payPreview, setPayPreview] = useState<{ rows: PaymentRowParsed[]; errors: { row: number; message: string }[] } | null>(null);
+  const [invPreview, setInvPreview] = useState<InvoiceParseResult | null>(null);
+  const [payPreview, setPayPreview] = useState<ParseResult<PaymentRowParsed> | null>(null);
   const [resolveErrors, setResolveErrors] = useState<string[]>([]);
 
   const reset = () => {
@@ -51,17 +53,20 @@ export function ImportCarteraClient() {
 
   const confirmInvoices = () => {
     if (!invPreview?.rows.length) { toast.error("Sin filas válidas"); return; }
+    const isAging = invPreview.format === "aging";
     startTransition(async () => {
       // Resolve accounts by client_number first (CONTPAQi), then RFC, fiscal_name, business_name
       const { data: accounts } = await supabase
         .from("accounts")
-        .select("id, client_number, rfc, fiscal_name, business_name");
+        .select("id, client_number, rfc, fiscal_name, business_name")
+        .range(0, 49999);
       const byClientNum = new Map<string, string>();
       const byRfc = new Map<string, string>();
       const byFiscal = new Map<string, string>();
       const byName = new Map<string, string>();
       for (const a of accounts ?? []) {
-        if (a.client_number) byClientNum.set(String(a.client_number).trim(), a.id);
+        const cn = normalizeClientNumber(a.client_number);
+        if (cn) byClientNum.set(cn, a.id);
         if (a.rfc) byRfc.set(String(a.rfc).toUpperCase().trim(), a.id);
         if (a.fiscal_name) byFiscal.set(String(a.fiscal_name).toUpperCase().trim(), a.id);
         if (a.business_name) byName.set(String(a.business_name).toUpperCase().trim(), a.id);
@@ -70,7 +75,7 @@ export function ImportCarteraClient() {
       const payload: Record<string, unknown>[] = [];
       for (const r of invPreview.rows) {
         const aid =
-          (r.client_number && byClientNum.get(r.client_number.trim())) ||
+          (r.client_number && byClientNum.get(r.client_number)) ||
           (r.rfc && byRfc.get(r.rfc.toUpperCase().trim())) ||
           (r.client && byFiscal.get(r.client.toUpperCase().trim())) ||
           (r.client && byName.get(r.client.toUpperCase().trim()));
@@ -78,15 +83,16 @@ export function ImportCarteraClient() {
           errs.push(`Factura ${r.invoice_number}: cliente no encontrado (${r.client_number ? `# ${r.client_number}` : r.rfc ?? r.client ?? "?"})`);
           continue;
         }
-        const subtotal = r.subtotal ?? Math.round((r.total / 1.16) * 100) / 100;
-        const iva = r.iva ?? Math.round((r.total - subtotal) * 100) / 100;
         payload.push({
           invoice_number: r.invoice_number,
           account_id: aid,
           invoice_date: r.invoice_date,
           due_date: r.due_date,
-          subtotal,
-          iva,
+          // Cuando el origen es el reporte de antigüedad de CONTPAQi, no
+          // conocemos subtotal/IVA reales (TERAVINO maneja IEPS además de IVA).
+          // El flat path sí los expone si el Excel los trae.
+          subtotal: r.subtotal,
+          iva: r.iva,
           total: r.total,
           uuid_fiscal: r.uuid_fiscal,
           status: r.due_date && new Date(r.due_date) < new Date() ? "vencida" : "pendiente",
@@ -94,9 +100,39 @@ export function ImportCarteraClient() {
       }
       setResolveErrors(errs);
       if (!payload.length) { toast.error("Ninguna factura pudo asociarse a un cliente"); return; }
-      const { error } = await supabase.from("invoices").upsert(payload, { onConflict: "invoice_number" });
+
+      let toInsert = payload;
+      let skipped = 0;
+      if (isAging) {
+        // En aging report el `total` es el saldo abierto del momento, no el total
+        // de la factura. Si reimportamos, NO debemos sobreescribir filas previas
+        // (corrompería balance/total_paid). Filtramos folios ya existentes.
+        const folios = payload.map((p) => p.invoice_number as string);
+        const { data: existing } = await supabase
+          .from("invoices")
+          .select("invoice_number")
+          .in("invoice_number", folios);
+        const existingSet = new Set((existing ?? []).map((e) => e.invoice_number));
+        toInsert = payload.filter((p) => !existingSet.has(p.invoice_number as string));
+        skipped = payload.length - toInsert.length;
+      }
+
+      if (!toInsert.length) {
+        toast.info("Todas las facturas ya existían — nada que importar", {
+          description: "Re-importar el reporte de antigüedad solo agrega facturas nuevas.",
+        });
+        return;
+      }
+
+      const { error } = isAging
+        ? await supabase.from("invoices").insert(toInsert)
+        : await supabase.from("invoices").upsert(toInsert, { onConflict: "invoice_number" });
       if (error) { toast.error("Error al importar facturas", { description: error.message }); return; }
-      toast.success(`${payload.length} facturas importadas${errs.length ? ` · ${errs.length} con error` : ""}`);
+      toast.success(
+        `${toInsert.length} facturas importadas` +
+          (skipped ? ` · ${skipped} ya existían` : "") +
+          (errs.length ? ` · ${errs.length} con error` : ""),
+      );
       if (!errs.length) {
         reset();
         router.push("/cartera");
@@ -114,12 +150,40 @@ export function ImportCarteraClient() {
         .select("id, invoice_number, account_id")
         .in("invoice_number", folios);
       const byFolio = new Map((invoices ?? []).map((i) => [i.invoice_number, i]));
+
+      // Dedup: si ya existe un pago con (invoice_id, fecha, monto, referencia),
+      // no lo aplicamos otra vez. Sin esto, re-subir el mismo Excel duplica pagos.
+      const invoiceIds = Array.from(new Set((invoices ?? []).map((i) => i.id)));
+      const dedupKey = (
+        invoiceId: string,
+        date: string,
+        amount: number,
+        reference: string | null,
+      ) => `${invoiceId}|${date}|${amount.toFixed(2)}|${reference ?? ""}`;
+      const existingKeys = new Set<string>();
+      if (invoiceIds.length) {
+        const { data: existing } = await supabase
+          .from("payments")
+          .select("invoice_id, payment_date, amount, reference")
+          .in("invoice_id", invoiceIds);
+        for (const p of existing ?? []) {
+          if (!p.invoice_id) continue;
+          existingKeys.add(dedupKey(p.invoice_id, p.payment_date, Number(p.amount), p.reference));
+        }
+      }
+
       const errs: string[] = [];
       let ok = 0;
+      let dup = 0;
       for (const r of payPreview.rows) {
         const inv = byFolio.get(r.invoice_number);
         if (!inv) {
           errs.push(`Pago ${r.payment_date} ${r.invoice_number}: factura no encontrada`);
+          continue;
+        }
+        const key = dedupKey(inv.id, r.payment_date, r.amount, r.reference);
+        if (existingKeys.has(key)) {
+          dup++;
           continue;
         }
         const { error } = await supabase.rpc("apply_payment", {
@@ -131,11 +195,19 @@ export function ImportCarteraClient() {
           p_notes: "Import Excel",
           p_invoice_id: inv.id,
         });
-        if (error) errs.push(`Pago ${r.invoice_number}: ${error.message}`);
-        else ok++;
+        if (error) {
+          errs.push(`Pago ${r.invoice_number}: ${error.message}`);
+        } else {
+          ok++;
+          existingKeys.add(key); // evita dup dentro del mismo lote
+        }
       }
       setResolveErrors(errs);
-      toast.success(`${ok} pagos aplicados${errs.length ? ` · ${errs.length} con error` : ""}`);
+      toast.success(
+        `${ok} pagos aplicados` +
+          (dup ? ` · ${dup} duplicados omitidos` : "") +
+          (errs.length ? ` · ${errs.length} con error` : ""),
+      );
       if (!errs.length) {
         reset();
         router.push("/cartera");
@@ -163,7 +235,7 @@ export function ImportCarteraClient() {
               <li><strong>Antigüedad de Saldos de Clientes Detallado</strong> (reporte CONTPAQi tal cual lo exporta): agrupado por <em>Cliente: NNN</em>; cada partida tiene Vencimiento, Fecha, Serie, Folio y los buckets 1-15/16-30/31-45/46+ días. El total que se importa es el <strong>saldo abierto</strong> de cada factura.</li>
               <li><strong>Listado plano</strong>: columnas <code># Cliente</code>, <code>Folio</code>, <code>Fecha emisión</code>, <code>Fecha vencimiento</code>, <code>Subtotal</code>, <code>IVA</code>, <code>Total</code>, <code>UUID fiscal</code> (opcional).</li>
             </ul>
-            <p className="text-xs text-muted-foreground">El sistema enlaza la cuenta por <strong># cliente CONTPAQi</strong>, luego por RFC, luego por razón social/nombre exacto. Si una cuenta del CRM no tiene <em># cliente</em>, asígnalo en <em>Cuentas → Sincronizar # cliente</em>. Upsert por Folio (re-importar actualiza el saldo).</p>
+            <p className="text-xs text-muted-foreground">El sistema enlaza la cuenta por <strong># cliente CONTPAQi</strong>, luego por RFC, luego por razón social/nombre exacto. Si una cuenta del CRM no tiene <em># cliente</em>, asígnalo en <em>Cuentas → Sincronizar # cliente</em>. <strong>Re-importar un reporte de antigüedad solo agrega folios nuevos</strong> (no sobreescribe los existentes para no corromper los pagos ya aplicados). El listado plano sí hace upsert por Folio.</p>
           </CardContent></Card>
         </TabsContent>
         <TabsContent value="pagos">
