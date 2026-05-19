@@ -11,6 +11,7 @@ import { AccountHeader } from "@/components/accounts/AccountHeader";
 import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
+import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import type {
@@ -33,7 +34,7 @@ export default async function CuentaDetailPage({
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
-  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "info"];
+  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "consignaciones", "info"];
   const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
@@ -123,6 +124,7 @@ export default async function CuentaDetailPage({
           <TabsTrigger value="contactos">Contactos ({contacts?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="actividades">Actividades ({activityList.length})</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos ({orderList.length})</TabsTrigger>
+          <TabsTrigger value="consignaciones">Consignaciones</TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
         </TabsList>
 
@@ -255,6 +257,14 @@ export default async function CuentaDetailPage({
 
         <TabsContent value="pedidos">
           <OrdersSection orders={orderList} />
+        </TabsContent>
+
+        <TabsContent value="consignaciones">
+          <AccountConsignaciones
+            clientNumber={account.client_number ?? null}
+            isAdmin={me.role === "admin"}
+            repEmail={me.email}
+          />
         </TabsContent>
 
         <TabsContent value="info">
