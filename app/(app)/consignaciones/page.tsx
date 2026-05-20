@@ -15,6 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { RetiroDialog } from "@/components/consignaciones/RetiroDialog";
 
 export const metadata = { title: "Consignaciones — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -195,6 +196,7 @@ export default async function ConsignacionesPage({
                     <th className="px-4 py-2 text-right">Cobrado</th>
                     <th className="px-4 py-2 text-right">Saldo</th>
                     <th className="px-4 py-2 text-left">Estado</th>
+                    <th className="px-4 py-2 text-center">Retiro</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -224,6 +226,13 @@ export default async function ConsignacionesPage({
                         <td className="px-4 py-2 text-right whitespace-nowrap font-medium">{formatCurrency(saldo)}</td>
                         <td className="px-4 py-2">
                           <Badge variant={ESTADO_VARIANT[c.estado]}>{ESTADO_LABEL[c.estado]}</Badge>
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          {c.estado === "pendiente" || c.estado === "parcial" ? (
+                            <RetiroDialog consignacion={c} compact />
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                       </tr>
                     );
