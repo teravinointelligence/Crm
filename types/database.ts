@@ -235,6 +235,24 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["sales_reps"]["Row"]>;
         Relationships: [];
       };
+      sops: {
+        Row: {
+          id: string;
+          title: string;
+          category: string | null;
+          drive_file_id: string;
+          file_kind: string | null;
+          sort_order: number | null;
+          active: boolean | null;
+          created_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sops"]["Row"]> & {
+          title: string;
+          drive_file_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sops"]["Row"]>;
+        Relationships: [];
+      };
       monthly_sales: {
         Row: {
           id: string;
@@ -301,6 +319,8 @@ export type AccountUpdate = Database["public"]["Tables"]["accounts"]["Update"];
 
 export type MonthlySale = Database["public"]["Tables"]["monthly_sales"]["Row"];
 export type MonthlySaleInsert = Database["public"]["Tables"]["monthly_sales"]["Insert"];
+
+export type Sop = Database["public"]["Tables"]["sops"]["Row"];
 
 export type Contact = Database["public"]["Tables"]["contacts"]["Row"];
 export type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];

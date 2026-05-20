@@ -26,6 +26,7 @@ import {
   FileSignature,
   HandCoins,
   TrendingUp,
+  BookOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -66,6 +67,7 @@ const items: Item[] = [
   { href: "/transito", label: "Tránsito", icon: Truck },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
   { href: "/reportes", label: "Reportes", icon: BarChart3, adminOnly: true },
+  { href: "/manuales", label: "Manuales", icon: BookOpen },
   {
     kind: "group",
     label: "Reparto",
