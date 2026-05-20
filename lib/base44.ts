@@ -157,6 +157,8 @@ export type Base44TomaInventario = {
   numero_toma?: string;
   consignacion_id?: string;
   consignacion_numero?: string;
+  consumo_facturado?: boolean;
+  consumo_facturado_fecha?: string;
   cliente_id: string;
   cliente_nombre?: string;
   almacen?: string;
