@@ -141,6 +141,31 @@ export type Base44Consignacion = {
   updated_date?: string;
 };
 
+export type Base44RetiroItem = {
+  producto_id?: string;
+  producto_nombre?: string;
+  codigo?: string;
+  cantidad?: number;
+  motivo?: string;
+};
+
+export type Base44RetiroConsignacion = {
+  id: string;
+  consignacion_id: string;
+  consignacion_numero?: string;
+  cliente_id: string;
+  cliente_nombre?: string;
+  vendedor_id: string;
+  vendedor_nombre?: string;
+  numero_retiro?: string;
+  fecha: string;
+  items?: Base44RetiroItem[];
+  total_unidades?: number;
+  estado: "borrador" | "confirmado" | "recogido" | "cancelado";
+  notas?: string;
+  created_date?: string;
+};
+
 export type Base44TomaInventarioItem = {
   producto_id?: string;
   producto_nombre?: string;
@@ -155,6 +180,10 @@ export type Base44TomaInventarioItem = {
 export type Base44TomaInventario = {
   id: string;
   numero_toma?: string;
+  consignacion_id?: string;
+  consignacion_numero?: string;
+  consumo_facturado?: boolean;
+  consumo_facturado_fecha?: string;
   cliente_id: string;
   cliente_nombre?: string;
   almacen?: string;

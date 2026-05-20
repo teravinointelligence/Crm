@@ -63,6 +63,12 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
       rfc: (formData.get("rfc") as string) || null,
       fiscal_name: (formData.get("fiscal_name") as string) || null,
       client_number: (formData.get("client_number") as string)?.trim() || null,
+      credit_days: (() => {
+        const raw = String(formData.get("credit_days") ?? "").trim();
+        if (raw === "") return null;
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
+      })(),
       price_tier: priceTier,
       assigned_rep_id:
         (formData.get("assigned_rep_id") as string) || defaultRepId || null,
@@ -219,6 +225,19 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
           name="client_number"
           defaultValue={account?.client_number ?? ""}
           placeholder="p. ej. 175"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="credit_days">Días de crédito</Label>
+        <Input
+          id="credit_days"
+          name="credit_days"
+          type="number"
+          min={0}
+          max={365}
+          step={1}
+          defaultValue={account?.credit_days ?? ""}
+          placeholder="0 = contado · ej. 30"
         />
       </div>
 

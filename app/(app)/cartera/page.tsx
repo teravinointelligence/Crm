@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Upload } from "lucide-react";
+import { Upload, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -50,13 +50,22 @@ export default async function CarteraPage() {
             Estado de cuenta por cliente — facturas y pagos.
           </p>
         </div>
-        {isAdmin && (
-          <Button asChild variant="outline">
-            <Link href="/cartera/importar">
-              <Upload className="mr-1 h-4 w-4" /> Importar facturas / pagos
-            </Link>
-          </Button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {rows.length > 0 && (
+            <Button asChild variant="outline">
+              <a href="/api/cartera/export">
+                <Download className="mr-1 h-4 w-4" /> Descargar Excel
+              </a>
+            </Button>
+          )}
+          {isAdmin && (
+            <Button asChild variant="outline">
+              <Link href="/cartera/importar">
+                <Upload className="mr-1 h-4 w-4" /> Importar facturas / pagos
+              </Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -113,6 +122,7 @@ export default async function CarteraPage() {
                       <SemaforoBadge
                         saldoPendiente={b.saldo_pendiente ?? 0}
                         saldoVencido={b.saldo_vencido ?? 0}
+                        diasVencido={b.dias_vencido}
                       />
                     </div>
                   </td>

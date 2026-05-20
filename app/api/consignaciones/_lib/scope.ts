@@ -11,10 +11,15 @@ import {
   base44,
   resolveBase44Vendedor,
   type Base44Consignacion,
+  type Base44TomaInventario,
 } from "@/lib/base44";
 
 export type ScopeResult =
   | { ok: true; isAdmin: boolean; consignacion: Base44Consignacion; repFullName: string; repEmail: string }
+  | { ok: false; response: NextResponse };
+
+export type TomaScopeResult =
+  | { ok: true; isAdmin: boolean; toma: Base44TomaInventario; repFullName: string; repEmail: string }
   | { ok: false; response: NextResponse };
 
 export async function loadConsignacionForRep(consignacionId: string): Promise<ScopeResult> {
@@ -40,6 +45,30 @@ export async function loadConsignacionForRep(consignacionId: string): Promise<Sc
   }
 
   return { ok: true, isAdmin, consignacion, repFullName: rep.full_name, repEmail: rep.email };
+}
+
+export async function loadTomaForRep(tomaId: string): Promise<TomaScopeResult> {
+  const rep = await getCurrentRep();
+  if (!rep) {
+    return { ok: false, response: NextResponse.json({ error: "No autenticado" }, { status: 401 }) };
+  }
+  const isAdmin = rep.role === "admin";
+
+  let toma: Base44TomaInventario;
+  try {
+    toma = await base44.entity<Base44TomaInventario>("TomaInventario").get(tomaId);
+  } catch {
+    return { ok: false, response: NextResponse.json({ error: "Toma no encontrada" }, { status: 404 }) };
+  }
+
+  if (!isAdmin) {
+    const vendedor = await resolveBase44Vendedor(rep.email);
+    if (!vendedor || vendedor.id !== toma.vendedor_id) {
+      return { ok: false, response: NextResponse.json({ error: "Toma no encontrada" }, { status: 404 }) };
+    }
+  }
+
+  return { ok: true, isAdmin, toma, repFullName: rep.full_name, repEmail: rep.email };
 }
 
 /** Suma la cantidad total de unidades de los items (para validar topes de venta/devolución). */

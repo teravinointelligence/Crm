@@ -19,6 +19,7 @@ export type Database = {
           city: string | null;
           client_number: string | null;
           created_at: string | null;
+          credit_days: number | null;
           fiscal_name: string | null;
           id: string;
           notes: string | null;
@@ -224,6 +225,7 @@ export type Database = {
           email: string;
           full_name: string;
           id: string;
+          modules: string[] | null;
           primary_region: string | null;
           role: string | null;
         };
@@ -232,6 +234,68 @@ export type Database = {
           full_name: string;
         };
         Update: Partial<Database["public"]["Tables"]["sales_reps"]["Row"]>;
+        Relationships: [];
+      };
+      sops: {
+        Row: {
+          id: string;
+          title: string;
+          category: string | null;
+          drive_file_id: string;
+          file_kind: string | null;
+          sort_order: number | null;
+          active: boolean | null;
+          created_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["sops"]["Row"]> & {
+          title: string;
+          drive_file_id: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["sops"]["Row"]>;
+        Relationships: [];
+      };
+      monthly_sales: {
+        Row: {
+          id: string;
+          account_id: string;
+          sales_rep_id: string | null;
+          period: string;
+          client_number: string | null;
+          client_name: string | null;
+          vendedor_excel: string | null;
+          venta_bruta: number | null;
+          neto: number | null;
+          descuento: number | null;
+          neto_desc: number | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["monthly_sales"]["Row"]> & {
+          account_id: string;
+          period: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["monthly_sales"]["Row"]>;
+        Relationships: [];
+      };
+      monthly_sales_items: {
+        Row: {
+          id: string;
+          monthly_sale_id: string;
+          codigo: string | null;
+          producto_nombre: string;
+          cantidad: number | null;
+          neto: number | null;
+          descuento: number | null;
+          neto_desc: number | null;
+          impuesto: number | null;
+          total: number | null;
+          created_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["monthly_sales_items"]["Row"]> & {
+          monthly_sale_id: string;
+          producto_nombre: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["monthly_sales_items"]["Row"]>;
         Relationships: [];
       };
     };
@@ -253,6 +317,11 @@ export type Database = {
 export type Account = Database["public"]["Tables"]["accounts"]["Row"];
 export type AccountInsert = Database["public"]["Tables"]["accounts"]["Insert"];
 export type AccountUpdate = Database["public"]["Tables"]["accounts"]["Update"];
+
+export type MonthlySale = Database["public"]["Tables"]["monthly_sales"]["Row"];
+export type MonthlySaleInsert = Database["public"]["Tables"]["monthly_sales"]["Insert"];
+
+export type Sop = Database["public"]["Tables"]["sops"]["Row"];
 
 export type Contact = Database["public"]["Tables"]["contacts"]["Row"];
 export type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
@@ -412,6 +481,7 @@ export type AccountBalance = {
   saldo_pendiente: number | null;
   saldo_vencido: number | null;
   facturas_abiertas: number | null;
+  dias_vencido: number | null;
 };
 
 export const PAYMENT_METHODS = [
