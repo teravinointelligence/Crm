@@ -41,6 +41,7 @@ export function RetiroDialog({ consignacion }: { consignacion: Base44Consignacio
   const [fecha, setFecha] = useState(today());
   const [notas, setNotas] = useState("");
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
   // Pre-llena con los productos de la consignación (cantidad 0 = no se retira).
   const [lines, setLines] = useState<Line[]>(
     (consignacion.items ?? []).map((i) => ({
@@ -65,6 +66,7 @@ export function RetiroDialog({ consignacion }: { consignacion: Base44Consignacio
     setFecha(today());
     setNotas("");
     setCreatedId(null);
+    setWarning(null);
     setLines(
       (consignacion.items ?? []).map((i) => ({
         key: crypto.randomUUID(),
@@ -102,8 +104,18 @@ export function RetiroDialog({ consignacion }: { consignacion: Base44Consignacio
         toast.error("No se pudo registrar el retiro", { description: d.error ?? `HTTP ${res.status}` });
         return;
       }
-      const d = (await res.json()) as { id: string; numero_retiro: string };
-      toast.success(`Retiro ${d.numero_retiro} registrado`);
+      const d = (await res.json()) as {
+        id: string;
+        numero_retiro: string;
+        devolucion_aplicada?: boolean;
+        warning?: string;
+      };
+      if (d.devolucion_aplicada === false) {
+        setWarning(d.warning ?? "El retiro se registró, pero la devolución no se aplicó a la consignación.");
+        toast.warning(`Retiro ${d.numero_retiro} registrado (revisa la devolución)`);
+      } else {
+        toast.success(`Retiro ${d.numero_retiro} registrado · devolución aplicada`);
+      }
       setCreatedId(d.id);
       router.refresh();
     });
@@ -128,8 +140,13 @@ export function RetiroDialog({ consignacion }: { consignacion: Base44Consignacio
         {createdId ? (
           <div className="space-y-4">
             <div className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-              Retiro registrado. Puedes descargar el PDF para firma del cliente.
+              Retiro registrado{warning ? "" : " y descontado de la consignación"}. Puedes descargar el PDF para firma del cliente.
             </div>
+            {warning ? (
+              <div className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+                {warning}
+              </div>
+            ) : null}
             <div className="flex justify-end gap-2">
               <Button variant="outline" asChild>
                 <a href={`/api/consignaciones/retiros/${createdId}/pdf`} target="_blank" rel="noreferrer">
