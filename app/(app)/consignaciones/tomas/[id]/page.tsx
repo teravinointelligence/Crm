@@ -20,11 +20,13 @@ import {
   base44,
   resolveBase44Vendedor,
   type Base44Cliente,
+  type Base44Consignacion,
   type Base44TomaInventario,
 } from "@/lib/base44";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FacturarConsumoDialog } from "@/components/consignaciones/FacturarConsumoDialog";
 import { formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -89,6 +91,16 @@ export default async function TomaDetailPage({ params }: { params: { id: string 
     cliente = null;
   }
 
+  // Consignación vinculada (para precios + acción de facturar consumo).
+  let consignacion: Base44Consignacion | null = null;
+  if (toma.consignacion_id) {
+    try {
+      consignacion = await base44.entity<Base44Consignacion>("Consignacion").get(toma.consignacion_id);
+    } catch {
+      consignacion = null;
+    }
+  }
+
   const supabase = createClient();
   let crmAccount: { id: string; business_name: string } | null = null;
   if (cliente?.numero_cliente) {
@@ -143,14 +155,21 @@ export default async function TomaDetailPage({ params }: { params: { id: string 
 
       {toma.consignacion_id ? (
         <Card>
-          <CardContent className="flex items-center justify-between gap-4 p-6">
-            <div>
-              <p className="text-xs uppercase text-muted-foreground">Reconcilia la consignación</p>
-              <p className="font-medium">{toma.consignacion_numero ?? toma.consignacion_id}</p>
+          <CardContent className="space-y-4 p-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Reconcilia la consignación</p>
+                <p className="font-medium">{toma.consignacion_numero ?? toma.consignacion_id}</p>
+              </div>
+              <Button variant="outline" asChild>
+                <Link href={`/consignaciones/${toma.consignacion_id}`}>Ver consignación →</Link>
+              </Button>
             </div>
-            <Button variant="outline" asChild>
-              <Link href={`/consignaciones/${toma.consignacion_id}`}>Ver consignación →</Link>
-            </Button>
+            {consignacion && (
+              <div className="border-t pt-4">
+                <FacturarConsumoDialog toma={toma} consignacionItems={consignacion.items} />
+              </div>
+            )}
           </CardContent>
         </Card>
       ) : (

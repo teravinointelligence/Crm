@@ -9,12 +9,9 @@
 
 import { NextResponse } from "next/server";
 import { base44, type Base44Consignacion } from "@/lib/base44";
-import {
-  appendNota,
-  loadConsignacionForRep,
-  totalItemsCantidad,
-} from "../../_lib/scope";
+import { appendNota, loadConsignacionForRep } from "../../_lib/scope";
 import { formatCurrencyMxn } from "../../_lib/format";
+import { computeMovimiento } from "../../_lib/movimiento";
 
 type Body = {
   vendidas?: number;
@@ -28,13 +25,6 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!scope.ok) return scope.response;
   const { consignacion, repFullName } = scope;
 
-  if (consignacion.estado === "liquidada" || consignacion.estado === "devuelta") {
-    return NextResponse.json(
-      { error: `La consignación ya está ${consignacion.estado} — no acepta más movimientos.` },
-      { status: 409 },
-    );
-  }
-
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -46,55 +36,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const devueltas = Number(body.devueltas ?? 0);
   const cobrado = Number(body.cobrado ?? 0);
 
-  if (![vendidas, devueltas, cobrado].every((n) => Number.isFinite(n) && n >= 0)) {
-    return NextResponse.json({ error: "Los valores deben ser números ≥ 0" }, { status: 400 });
-  }
-  if (vendidas === 0 && devueltas === 0 && cobrado === 0) {
-    return NextResponse.json({ error: "Registra al menos venta, devolución o cobro" }, { status: 400 });
-  }
-
-  // Validar topes: la suma vendidas+devueltas no puede exceder el total consignado.
-  const totalCantidad = totalItemsCantidad(consignacion);
-  const prevVendidas = Number(consignacion.cantidad_vendida ?? 0);
-  const prevDevueltas = Number(consignacion.cantidad_devuelta ?? 0);
-  const newVendidas = prevVendidas + vendidas;
-  const newDevueltas = prevDevueltas + devueltas;
-
-  if (totalCantidad > 0 && newVendidas + newDevueltas > totalCantidad) {
-    const restante = totalCantidad - prevVendidas - prevDevueltas;
-    return NextResponse.json(
-      {
-        error: `Solo quedan ${restante} unidades disponibles (${totalCantidad} consignadas, ${prevVendidas} vendidas, ${prevDevueltas} devueltas previas).`,
-      },
-      { status: 400 },
-    );
-  }
-
-  // Validar cobro: no debería exceder el total consignado (con cierta tolerancia).
-  const total = Number(consignacion.total ?? 0);
-  const prevCobrado = Number(consignacion.monto_cobrado ?? 0);
-  const newCobrado = Math.round((prevCobrado + cobrado) * 100) / 100;
-  if (total > 0 && newCobrado > total + 0.01) {
-    return NextResponse.json(
-      {
-        error: `El cobro acumulado (${formatCurrencyMxn(newCobrado)}) excede el total de la consignación (${formatCurrencyMxn(total)}).`,
-      },
-      { status: 400 },
-    );
-  }
-
-  // Estado nuevo: si todo cerrado → liquidada/devuelta; si hay movimiento parcial → parcial.
-  // Solo aplicamos automaticamente "liquidada" si además ya se cobró todo. Si vendió todo pero
-  // aún debe → queda parcial.
-  let nuevoEstado: Base44Consignacion["estado"] = consignacion.estado;
-  const todoMovido = totalCantidad > 0 && newVendidas + newDevueltas >= totalCantidad;
-  const todoCobrado = total > 0 && newCobrado + 0.01 >= total;
-  if (todoMovido && newVendidas === 0 && newDevueltas === totalCantidad) {
-    nuevoEstado = "devuelta";
-  } else if (todoMovido && todoCobrado) {
-    nuevoEstado = "liquidada";
-  } else if (newVendidas > 0 || newDevueltas > 0 || newCobrado > 0) {
-    nuevoEstado = "parcial";
+  const result = computeMovimiento(consignacion, { vendidas, devueltas, cobrado });
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: result.status });
   }
 
   // Bitácora en notas.
@@ -108,10 +52,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   try {
     await base44.entity<Base44Consignacion>("Consignacion").update(consignacion.id, {
-      cantidad_vendida: newVendidas,
-      cantidad_devuelta: newDevueltas,
-      monto_cobrado: newCobrado,
-      estado: nuevoEstado,
+      ...result.update,
       notas: newNotas,
     });
   } catch (e) {
@@ -121,5 +62,5 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     );
   }
 
-  return NextResponse.json({ ok: true, estado: nuevoEstado });
+  return NextResponse.json({ ok: true, estado: result.estado });
 }
