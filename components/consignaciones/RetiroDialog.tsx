@@ -34,7 +34,14 @@ type Line = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-export function RetiroDialog({ consignacion }: { consignacion: Base44Consignacion }) {
+export function RetiroDialog({
+  consignacion,
+  compact = false,
+}: {
+  consignacion: Base44Consignacion;
+  /** Render como ícono compacto (para filas de tabla) en vez del botón completo. */
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -124,10 +131,21 @@ export function RetiroDialog({ consignacion }: { consignacion: Base44Consignacio
   return (
     <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <PackageX className="mr-1 h-4 w-4" />
-          Retiro de consignación
-        </Button>
+        {compact ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Retiro de consignación"
+            aria-label="Retiro de consignación"
+          >
+            <PackageX className="h-4 w-4" />
+          </Button>
+        ) : (
+          <Button variant="outline">
+            <PackageX className="mr-1 h-4 w-4" />
+            Retiro de consignación
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
