@@ -118,6 +118,11 @@ export default async function DashboardPage() {
       .gte("order_date", ninetyDaysAgoISO),
   ]);
 
+  // Vendedores para el selector del calendario (solo admin lo usa).
+  const repsForCalendar = isAdmin
+    ? (((await supabase.from("sales_reps").select("id, full_name").eq("active", true).order("full_name")).data ?? []) as { id: string; full_name: string }[])
+    : [];
+
   const pipelineTotal = (pipelineRes.data ?? []).reduce(
     (sum, o) => sum + Number(o.total ?? 0),
     0,
@@ -336,7 +341,7 @@ export default async function DashboardPage() {
 
       <div className="space-y-3">
         <h2 className="font-display text-xl">Calendario de actividades</h2>
-        <ActivityCalendar />
+        <ActivityCalendar isAdmin={isAdmin} reps={repsForCalendar} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
