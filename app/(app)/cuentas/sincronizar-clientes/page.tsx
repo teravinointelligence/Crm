@@ -23,7 +23,7 @@ export default async function Page() {
 
   const supabase = createClient();
 
-  const [{ data: pairsAll }, { data: accountsAll }] = await Promise.all([
+  const [{ data: pairsAll }, { data: accountsAll }, { data: repsAll }] = await Promise.all([
     supabase
       .from("clientes_relacion_raw")
       .select("id, num_cliente, nombre_comercial, razon_social, vendedor, locacion")
@@ -34,7 +34,9 @@ export default async function Page() {
       .from("accounts")
       .select("id, business_name, region, fiscal_name, client_number, status, sales_reps:assigned_rep_id(full_name)")
       .order("business_name"),
+    supabase.from("sales_reps").select("id, full_name").eq("active", true),
   ]);
+  const reps = (repsAll ?? []) as Array<{ id: string; full_name: string }>;
 
   const pairs = (pairsAll ?? []) as Array<{
     id: number; num_cliente: string; nombre_comercial: string; razon_social: string | null; vendedor: string | null; locacion: string | null;
@@ -68,7 +70,7 @@ export default async function Page() {
         </p>
       </div>
 
-      <ClientMatcher pairs={pending} accounts={accounts} totalPairs={pairs.length} />
+      <ClientMatcher pairs={pending} accounts={accounts} reps={reps} totalPairs={pairs.length} />
     </div>
   );
 }
