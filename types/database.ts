@@ -460,6 +460,7 @@ export type AccountBalance = {
   saldo_pendiente: number | null;
   saldo_vencido: number | null;
   facturas_abiertas: number | null;
+  dias_vencido: number | null;
 };
 
 export const PAYMENT_METHODS = [
