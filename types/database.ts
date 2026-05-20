@@ -225,6 +225,7 @@ export type Database = {
           email: string;
           full_name: string;
           id: string;
+          modules: string[] | null;
           primary_region: string | null;
           role: string | null;
         };

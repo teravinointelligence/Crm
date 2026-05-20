@@ -31,43 +31,46 @@ import {
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
 
-type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean };
+type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; moduleKey?: string };
 type GroupItem = {
   kind: "group";
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
+  moduleKey?: string;
   basePath: string;
   children: { href: string; label: string; icon: typeof LayoutDashboard }[];
 };
 type Item = LeafItem | GroupItem;
 
 const items: Item[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/cuentas", label: "Cuentas", icon: Building2 },
-  { href: "/contactos", label: "Contactos", icon: Users },
-  { href: "/actividades", label: "Actividades", icon: CalendarCheck2 },
-  { href: "/catalogo", label: "Catálogo", icon: Wine },
-  { href: "/cotizaciones", label: "Cotizaciones", icon: FileSignature },
-  { href: "/pedidos", label: "Pedidos", icon: FileText },
-  { href: "/muestras", label: "Muestras", icon: FlaskConical },
-  { href: "/ventas", label: "Ventas", icon: TrendingUp },
-  { href: "/cartera", label: "Cartera", icon: Wallet },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard }, // siempre visible
+  { href: "/cuentas", label: "Cuentas", icon: Building2, moduleKey: "cuentas" },
+  { href: "/contactos", label: "Contactos", icon: Users, moduleKey: "contactos" },
+  { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
+  { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
+  { href: "/cotizaciones", label: "Cotizaciones", icon: FileSignature, moduleKey: "cotizaciones" },
+  { href: "/pedidos", label: "Pedidos", icon: FileText, moduleKey: "pedidos" },
+  { href: "/muestras", label: "Muestras", icon: FlaskConical, moduleKey: "muestras" },
+  { href: "/ventas", label: "Ventas", icon: TrendingUp, moduleKey: "ventas" },
+  { href: "/cartera", label: "Cartera", icon: Wallet, moduleKey: "cartera" },
   {
     kind: "group",
     label: "Consignaciones",
     icon: HandCoins,
     basePath: "/consignaciones",
+    moduleKey: "consignaciones",
     children: [
       { href: "/consignaciones", label: "Consignaciones", icon: HandCoins },
       { href: "/consignaciones/tomas", label: "Tomas de inventario", icon: ClipboardList },
     ],
   },
-  { href: "/restock", label: "Restock", icon: PackageCheck },
-  { href: "/transito", label: "Tránsito", icon: Truck },
+  { href: "/restock", label: "Restock", icon: PackageCheck, moduleKey: "restock" },
+  { href: "/transito", label: "Tránsito", icon: Truck, moduleKey: "transito" },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
   { href: "/reportes", label: "Reportes", icon: BarChart3, adminOnly: true },
-  { href: "/manuales", label: "Manuales", icon: BookOpen },
+  { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
+  { href: "/manuales", label: "Manuales", icon: BookOpen, moduleKey: "manuales" },
   {
     kind: "group",
     label: "Reparto",
@@ -85,9 +88,14 @@ const items: Item[] = [
   },
 ];
 
-export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
+export function Sidebar({ isAdmin, modules = [] }: { isAdmin: boolean; modules?: string[] }) {
   const pathname = usePathname();
-  const visible = items.filter((i) => !i.adminOnly || isAdmin);
+  const visible = items.filter((i) => {
+    if (i.adminOnly) return isAdmin;
+    if (isAdmin) return true;
+    if (!i.moduleKey) return true; // dashboard / siempre visible
+    return modules.includes(i.moduleKey);
+  });
 
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r bg-card lg:flex">
