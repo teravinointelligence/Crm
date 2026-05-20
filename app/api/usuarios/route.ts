@@ -6,12 +6,12 @@
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { ALL_MODULE_KEYS } from "@/lib/modules";
+import { ALL_MODULE_KEYS, isValidRole, type UserRole } from "@/lib/modules";
 
 type Body = {
   email: string;
   full_name: string;
-  role: "admin" | "rep";
+  role: UserRole;
   primary_region?: string | null;
   password: string;
   modules?: string[] | null;
@@ -31,16 +31,16 @@ export async function POST(req: Request) {
 
   const email = body.email?.trim().toLowerCase();
   const full_name = body.full_name?.trim();
-  const role = body.role === "admin" ? "admin" : "rep";
+  const role: UserRole = isValidRole(body.role) ? body.role : "rep";
   if (!email || !/.+@.+\..+/.test(email)) return NextResponse.json({ error: "Email inválido" }, { status: 400 });
   if (!full_name) return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
   if (!body.password || body.password.length < 8) {
     return NextResponse.json({ error: "La contraseña temporal debe tener al menos 8 caracteres" }, { status: 400 });
   }
 
-  // Módulos: para rep, validar contra el catálogo; para admin, null (ve todo).
+  // Módulos: para no-admin, validar contra el catálogo; para admin, null (ve todo).
   let modules: string[] | null = null;
-  if (role === "rep") {
+  if (role !== "admin") {
     const sel = Array.isArray(body.modules) ? body.modules.filter((k) => ALL_MODULE_KEYS.includes(k)) : null;
     modules = sel; // null = todos los estándar por defecto
   }

@@ -6,6 +6,28 @@
 
 export type ModuleDef = { key: string; label: string; href: string };
 
+// Roles del CRM. Solo 'admin' es administrador; los demás son no-admin y su
+// visibilidad se controla por módulos.
+export type UserRole = "admin" | "rep" | "chofer" | "jefe_logistica";
+
+export const ROLES: { value: UserRole; label: string }[] = [
+  { value: "rep", label: "Vendedor" },
+  { value: "chofer", label: "Chofer" },
+  { value: "jefe_logistica", label: "Jefe de logística (jefe de choferes)" },
+  { value: "admin", label: "Admin (dirección)" },
+];
+
+export const ROLE_LABEL: Record<UserRole, string> = {
+  rep: "Vendedor",
+  chofer: "Chofer",
+  jefe_logistica: "Jefe logística",
+  admin: "Admin",
+};
+
+export function isValidRole(r: string): r is UserRole {
+  return r === "admin" || r === "rep" || r === "chofer" || r === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },
