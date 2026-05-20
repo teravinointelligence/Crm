@@ -25,6 +25,7 @@ import {
   UserCog,
   FileSignature,
   HandCoins,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -49,6 +50,7 @@ const items: Item[] = [
   { href: "/cotizaciones", label: "Cotizaciones", icon: FileSignature },
   { href: "/pedidos", label: "Pedidos", icon: FileText },
   { href: "/muestras", label: "Muestras", icon: FlaskConical },
+  { href: "/ventas", label: "Ventas", icon: TrendingUp },
   { href: "/cartera", label: "Cartera", icon: Wallet },
   {
     kind: "group",

@@ -234,6 +234,29 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["sales_reps"]["Row"]>;
         Relationships: [];
       };
+      monthly_sales: {
+        Row: {
+          id: string;
+          account_id: string;
+          sales_rep_id: string | null;
+          period: string;
+          client_number: string | null;
+          client_name: string | null;
+          vendedor_excel: string | null;
+          venta_bruta: number | null;
+          neto: number | null;
+          descuento: number | null;
+          neto_desc: number | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["monthly_sales"]["Row"]> & {
+          account_id: string;
+          period: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["monthly_sales"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -253,6 +276,9 @@ export type Database = {
 export type Account = Database["public"]["Tables"]["accounts"]["Row"];
 export type AccountInsert = Database["public"]["Tables"]["accounts"]["Insert"];
 export type AccountUpdate = Database["public"]["Tables"]["accounts"]["Update"];
+
+export type MonthlySale = Database["public"]["Tables"]["monthly_sales"]["Row"];
+export type MonthlySaleInsert = Database["public"]["Tables"]["monthly_sales"]["Insert"];
 
 export type Contact = Database["public"]["Tables"]["contacts"]["Row"];
 export type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
