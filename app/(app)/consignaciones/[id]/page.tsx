@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList } from "lucide-react";
+import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, PackageX, FileDown } from "lucide-react";
 import { requireRep } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -12,6 +12,7 @@ import {
   type Base44Cliente,
   type Base44Consignacion,
   type Base44TomaInventario,
+  type Base44RetiroConsignacion,
 } from "@/lib/base44";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,18 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
     });
   } catch {
     // Si falla, dejamos la lista vacía; el resto de la página sigue.
+  }
+
+  // Retiros de esta consignación.
+  let retiros: Base44RetiroConsignacion[] = [];
+  try {
+    retiros = await base44.entity<Base44RetiroConsignacion>("RetiroConsignacion").list({
+      q: { consignacion_id: consignacion.id },
+      sort_by: "-fecha",
+      limit: 50,
+    });
+  } catch {
+    // sin retiros
   }
 
   return (
@@ -233,6 +246,56 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
                       <td className="px-4 py-2 text-right">{t.total_botellas ?? 0}</td>
                       <td className="px-4 py-2 text-right">{t.total_etiquetas ?? 0}</td>
                       <td className="px-4 py-2 text-xs">{t.estado}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Retiros de consignación */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center gap-2 border-b p-4">
+            <PackageX className="h-4 w-4 text-muted-foreground" />
+            <h2 className="font-display text-lg">Retiros</h2>
+            <span className="text-xs text-muted-foreground">({retiros.length})</span>
+          </div>
+          {retiros.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Sin retiros registrados. Usa “Retiro de consignación” arriba para registrar productos que el cliente devuelve.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Folio</th>
+                    <th className="px-4 py-2 text-left">Fecha</th>
+                    <th className="px-4 py-2 text-right">Unidades</th>
+                    <th className="px-4 py-2 text-left">Estado</th>
+                    <th className="px-4 py-2 text-right">PDF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {retiros.map((r) => (
+                    <tr key={r.id} className="border-t hover:bg-muted/20">
+                      <td className="px-4 py-2 whitespace-nowrap font-medium">{r.numero_retiro ?? r.id.slice(0, 8)}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{formatDate(r.fecha)}</td>
+                      <td className="px-4 py-2 text-right">{r.total_unidades ?? 0}</td>
+                      <td className="px-4 py-2 text-xs">{r.estado}</td>
+                      <td className="px-4 py-2 text-right">
+                        <a
+                          href={`/api/consignaciones/retiros/${r.id}/pdf`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center text-brand-carmesi hover:underline"
+                        >
+                          <FileDown className="mr-1 h-3.5 w-3.5" /> PDF
+                        </a>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
