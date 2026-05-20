@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
+import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Activity } from "@/types/database";
 
@@ -250,6 +251,11 @@ export default async function DashboardPage() {
           )}
         </div>
       )}
+
+      <div className="space-y-3">
+        <h2 className="font-display text-xl">Calendario de actividades</h2>
+        <ActivityCalendar />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
