@@ -62,20 +62,32 @@ export type VentasContpaqResult = {
   periodGuess: string | null;
 };
 
-/** Intenta extraer "01/ABR/2026" o "Abril 2026" del texto del encabezado. */
+function ymdFromEsp(dd: string, mmm: string, yyyy: string): string | null {
+  const mo = ESP_MONTHS[mmm.toLowerCase().slice(0, 3)];
+  return mo ? `${yyyy}-${String(mo).padStart(2, "0")}-01` : null;
+}
+
+/**
+ * Detecta el periodo del reporte. IMPORTANTE: el reporte de CONTPAQ trae la
+ * fecha de generación (ej. "20/MAY/2026") ANTES del periodo real
+ * ("Del 01/ABR/2026 al 30/ABR/2026"). Por eso priorizamos el marcador de
+ * periodo ("Del …" / "Período: …") sobre cualquier fecha suelta.
+ */
 function detectPeriod(matrix: unknown[][]): string | null {
   const text = matrix
-    .slice(0, 4)
+    .slice(0, 8)
     .flat()
     .map((c) => String(c ?? ""))
     .join(" ");
-  // dd/MMM/yyyy
-  const esp = /(\d{1,2})[/-]([a-zA-Z]{3,4})[/-](\d{4})/.exec(text);
-  if (esp) {
-    const mo = ESP_MONTHS[esp[2].toLowerCase().slice(0, 3)];
-    if (mo) return `${esp[3]}-${String(mo).padStart(2, "0")}-01`;
+
+  // 1) Marcador explícito de periodo: "Del 01/ABR/2026" o "Período: 01/ABR/2026".
+  const marcado = /(?:del|per[ií]odo)[:\s]+(\d{1,2})[/-]([a-zA-Z]{3,4})[/-](\d{4})/i.exec(text);
+  if (marcado) {
+    const r = ymdFromEsp(marcado[1], marcado[2], marcado[3]);
+    if (r) return r;
   }
-  // "Abril 2026" / "abril de 2026"
+
+  // 2) Nombre de mes: "Abril 2026" / "abril de 2026".
   const mesNombre: Record<string, number> = {
     enero: 1, febrero: 2, marzo: 3, abril: 4, mayo: 5, junio: 6,
     julio: 7, agosto: 8, septiembre: 9, octubre: 10, noviembre: 11, diciembre: 12,
@@ -84,6 +96,13 @@ function detectPeriod(matrix: unknown[][]): string | null {
   if (nm) {
     const mo = mesNombre[nm[1].toLowerCase()];
     if (mo) return `${nm[2]}-${String(mo).padStart(2, "0")}-01`;
+  }
+
+  // 3) Último recurso: primera fecha dd/MMM/yyyy (puede ser la de generación).
+  const esp = /(\d{1,2})[/-]([a-zA-Z]{3,4})[/-](\d{4})/.exec(text);
+  if (esp) {
+    const r = ymdFromEsp(esp[1], esp[2], esp[3]);
+    if (r) return r;
   }
   return null;
 }
