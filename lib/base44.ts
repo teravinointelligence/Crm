@@ -155,6 +155,8 @@ export type Base44TomaInventarioItem = {
 export type Base44TomaInventario = {
   id: string;
   numero_toma?: string;
+  consignacion_id?: string;
+  consignacion_numero?: string;
   cliente_id: string;
   cliente_nombre?: string;
   almacen?: string;

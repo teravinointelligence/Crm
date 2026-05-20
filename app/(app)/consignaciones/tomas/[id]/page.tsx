@@ -141,6 +141,26 @@ export default async function TomaDetailPage({ params }: { params: { id: string 
         <InfoCard icon={Hash} label="Etiquetas / botellas" value={`${toma.total_etiquetas ?? 0} / ${toma.total_botellas ?? 0}`} />
       </div>
 
+      {toma.consignacion_id ? (
+        <Card>
+          <CardContent className="flex items-center justify-between gap-4 p-6">
+            <div>
+              <p className="text-xs uppercase text-muted-foreground">Reconcilia la consignación</p>
+              <p className="font-medium">{toma.consignacion_numero ?? toma.consignacion_id}</p>
+            </div>
+            <Button variant="outline" asChild>
+              <Link href={`/consignaciones/${toma.consignacion_id}`}>Ver consignación →</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="p-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md">
+            ⚠️ Esta toma no está vinculada a ninguna consignación. Toda toma debería estar sobre una consignación.
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="space-y-3 p-6">
           <h2 className="font-display text-lg">Cliente</h2>
