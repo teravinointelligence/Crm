@@ -171,22 +171,45 @@ export default async function DashboardPage() {
       })()
     : null;
 
-  // Top vinos desde pedidos cerrados del CRM (últimos 90 días).
-  const vinoMap = new Map<string, { name: string; supplier: string; revenue: number; qty: number }>();
-  for (const o of (topVinosRes.data ?? []) as unknown as Array<{
-    order_items: Array<{ product_name: string; supplier: string | null; line_total: number | null; quantity: number | null }> | null;
-  }>) {
-    for (const it of o.order_items ?? []) {
-      const key = `${it.product_name}__${it.supplier ?? ""}`;
-      const e = vinoMap.get(key) ?? { name: it.product_name, supplier: it.supplier ?? "—", revenue: 0, qty: 0 };
-      e.revenue += Number(it.line_total ?? 0);
-      e.qty += Number(it.quantity ?? 0);
-      vinoMap.set(key, e);
+  // Top vinos: preferimos ventas reales (monthly_sales_items del último periodo).
+  // Si no hay detalle de producto cargado, caemos a pedidos cerrados del CRM.
+  let topVinos: { name: string; supplier: string; revenue: number; qty: number }[] = [];
+  let topVinosSource: "ventas" | "pedidos" = "pedidos";
+  if (ventasPeriod) {
+    const { data: prodItems } = await supabase
+      .from("monthly_sales_items")
+      .select("producto_nombre, codigo, cantidad, total, monthly_sales!inner(period)")
+      .eq("monthly_sales.period", ventasPeriod)
+      .limit(5000);
+    if (prodItems && prodItems.length) {
+      const pm = new Map<string, { name: string; supplier: string; revenue: number; qty: number }>();
+      for (const it of prodItems as unknown as Array<{ producto_nombre: string; codigo: string | null; cantidad: number | null; total: number | null }>) {
+        const key = it.producto_nombre;
+        const e = pm.get(key) ?? { name: it.producto_nombre, supplier: "—", revenue: 0, qty: 0 };
+        e.revenue += Number(it.total ?? 0);
+        e.qty += Number(it.cantidad ?? 0);
+        pm.set(key, e);
+      }
+      topVinos = Array.from(pm.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+      topVinosSource = "ventas";
     }
   }
-  const topVinos = Array.from(vinoMap.values())
-    .sort((a, b) => b.revenue - a.revenue)
-    .slice(0, 5);
+  if (!topVinos.length) {
+    const vinoMap = new Map<string, { name: string; supplier: string; revenue: number; qty: number }>();
+    for (const o of (topVinosRes.data ?? []) as unknown as Array<{
+      order_items: Array<{ product_name: string; supplier: string | null; line_total: number | null; quantity: number | null }> | null;
+    }>) {
+      for (const it of o.order_items ?? []) {
+        const key = `${it.product_name}__${it.supplier ?? ""}`;
+        const e = vinoMap.get(key) ?? { name: it.product_name, supplier: it.supplier ?? "—", revenue: 0, qty: 0 };
+        e.revenue += Number(it.line_total ?? 0);
+        e.qty += Number(it.quantity ?? 0);
+        vinoMap.set(key, e);
+      }
+    }
+    topVinos = Array.from(vinoMap.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 5);
+    topVinosSource = "pedidos";
+  }
 
   const carteraPendiente = (balanceRes.data ?? []).reduce((s, b) => s + Number(b.saldo_pendiente ?? 0), 0);
   const carteraVencida = (balanceRes.data ?? []).reduce((s, b) => s + Number(b.saldo_vencido ?? 0), 0);
@@ -369,7 +392,7 @@ export default async function DashboardPage() {
 
       <div className="space-y-3">
         <h2 className="font-display text-xl">
-          Top vinos <span className="text-sm font-normal text-muted-foreground">· pedidos cerrados (90 días)</span>
+          Top vinos <span className="text-sm font-normal text-muted-foreground">· {topVinosSource === "ventas" ? `ventas ${ventasPeriodLabel}` : "pedidos cerrados (90 días)"}</span>
         </h2>
         {topVinos.length ? (
           <Card>

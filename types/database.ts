@@ -257,6 +257,27 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["monthly_sales"]["Row"]>;
         Relationships: [];
       };
+      monthly_sales_items: {
+        Row: {
+          id: string;
+          monthly_sale_id: string;
+          codigo: string | null;
+          producto_nombre: string;
+          cantidad: number | null;
+          neto: number | null;
+          descuento: number | null;
+          neto_desc: number | null;
+          impuesto: number | null;
+          total: number | null;
+          created_at: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["monthly_sales_items"]["Row"]> & {
+          monthly_sale_id: string;
+          producto_nombre: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["monthly_sales_items"]["Row"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
