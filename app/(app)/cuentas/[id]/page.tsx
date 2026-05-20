@@ -279,6 +279,16 @@ export default async function CuentaDetailPage({
               />
               <Detail label="RFC" value={account.rfc ?? "—"} />
               <Detail label="Razón social" value={account.fiscal_name ?? "—"} />
+              <Detail
+                label="Días de crédito"
+                value={
+                  account.credit_days == null
+                    ? "—"
+                    : account.credit_days === 0
+                      ? "Contado"
+                      : `${account.credit_days} días`
+                }
+              />
               <Detail label="Dirección" value={account.address ?? "—"} full />
               {account.notes && (
                 <div className="sm:col-span-2 border-t pt-4">

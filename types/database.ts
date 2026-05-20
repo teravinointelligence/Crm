@@ -19,6 +19,7 @@ export type Database = {
           city: string | null;
           client_number: string | null;
           created_at: string | null;
+          credit_days: number | null;
           fiscal_name: string | null;
           id: string;
           notes: string | null;
