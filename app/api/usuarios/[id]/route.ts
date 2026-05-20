@@ -4,11 +4,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { ALL_MODULE_KEYS } from "@/lib/modules";
+import { ALL_MODULE_KEYS, isValidRole, type UserRole } from "@/lib/modules";
 
 type Body = {
   full_name?: string;
-  role?: "admin" | "rep";
+  role?: UserRole;
   primary_region?: string | null;
   active?: boolean;
   modules?: string[] | null;
@@ -28,11 +28,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
   const update: Record<string, unknown> = {};
   if (typeof body.full_name === "string" && body.full_name.trim()) update.full_name = body.full_name.trim();
-  if (body.role === "admin" || body.role === "rep") update.role = body.role;
+  if (body.role && isValidRole(body.role)) update.role = body.role;
   if (body.primary_region !== undefined) update.primary_region = body.primary_region || null;
   if (typeof body.active === "boolean") update.active = body.active;
   if (body.modules !== undefined) {
-    // Para admin, módulos = null (ve todo). Para rep, filtrar contra el catálogo.
+    // Para admin, módulos = null (ve todo). Para no-admin, filtrar contra el catálogo.
     const effectiveRole = update.role ?? undefined;
     if (effectiveRole === "admin") {
       update.modules = null;

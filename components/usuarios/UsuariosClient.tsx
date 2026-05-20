@@ -18,13 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { SELECTABLE_MODULES, ALL_MODULE_KEYS } from "@/lib/modules";
+import { SELECTABLE_MODULES, ALL_MODULE_KEYS, ROLES, ROLE_LABEL, type UserRole } from "@/lib/modules";
 import { REGIONS, type SalesRep } from "@/types/database";
 
 type Draft = {
   email: string;
   full_name: string;
-  role: "admin" | "rep";
+  role: UserRole;
   primary_region: string;
   password: string;
   modules: string[];
@@ -46,7 +46,7 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
   const [draft, setDraft] = useState<Draft>(emptyDraft());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editModules, setEditModules] = useState<string[]>([]);
-  const [editRole, setEditRole] = useState<"admin" | "rep">("rep");
+  const [editRole, setEditRole] = useState<UserRole>("rep");
   const [editRegion, setEditRegion] = useState<string>("");
 
   const toggle = (list: string[], key: string) =>
@@ -63,7 +63,7 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
           role: draft.role,
           primary_region: draft.primary_region || null,
           password: draft.password,
-          modules: draft.role === "rep" ? draft.modules : null,
+          modules: draft.role !== "admin" ? draft.modules : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -80,7 +80,7 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
 
   const startEdit = (u: SalesRep) => {
     setEditingId(u.id);
-    setEditRole((u.role as "admin" | "rep") ?? "rep");
+    setEditRole((u.role as UserRole) ?? "rep");
     setEditRegion(u.primary_region ?? "");
     setEditModules(u.modules ?? [...ALL_MODULE_KEYS]);
   };
@@ -93,7 +93,7 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
         body: JSON.stringify({
           role: editRole,
           primary_region: editRegion || null,
-          modules: editRole === "rep" ? editModules : null,
+          modules: editRole !== "admin" ? editModules : null,
         }),
       });
       const data = await res.json().catch(() => ({}));
@@ -153,11 +153,12 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
               </div>
               <div className="space-y-1">
                 <Label>Rol</Label>
-                <Select value={draft.role} onValueChange={(v) => setDraft({ ...draft, role: v as "admin" | "rep" })}>
+                <Select value={draft.role} onValueChange={(v) => setDraft({ ...draft, role: v as UserRole })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="rep">Vendedor</SelectItem>
-                    <SelectItem value="admin">Admin (dirección)</SelectItem>
+                    {ROLES.map((r) => (
+                      <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -176,7 +177,7 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
               </div>
             </div>
 
-            {draft.role === "rep" && (
+            {draft.role !== "admin" && (
               <div className="space-y-2">
                 <Label>Módulos visibles</Label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -230,15 +231,18 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
                       <td className="px-4 py-2 text-muted-foreground">{u.email}</td>
                       <td className="px-4 py-2">
                         {isEditing ? (
-                          <Select value={editRole} onValueChange={(v) => setEditRole(v as "admin" | "rep")}>
-                            <SelectTrigger className="h-8 w-28"><SelectValue /></SelectTrigger>
+                          <Select value={editRole} onValueChange={(v) => setEditRole(v as UserRole)}>
+                            <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="rep">Vendedor</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
+                              {ROLES.map((r) => (
+                                <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>
+                              ))}
                             </SelectContent>
                           </Select>
                         ) : (
-                          <Badge variant={u.role === "admin" ? "accent" : "muted"}>{u.role === "admin" ? "Admin" : "Vendedor"}</Badge>
+                          <Badge variant={u.role === "admin" ? "accent" : "muted"}>
+                            {ROLE_LABEL[(u.role as UserRole) ?? "rep"] ?? u.role}
+                          </Badge>
                         )}
                       </td>
                       <td className="px-4 py-2">
@@ -254,7 +258,7 @@ export function UsuariosClient({ users }: { users: SalesRep[] }) {
                         )}
                       </td>
                       <td className="px-4 py-2 max-w-xs">
-                        {isEditing && editRole === "rep" ? (
+                        {isEditing && editRole !== "admin" ? (
                           <div className="grid grid-cols-2 gap-1">
                             {SELECTABLE_MODULES.map((m) => (
                               <label key={m.key} className="flex items-center gap-1 text-xs">
