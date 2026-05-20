@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/utils";
 import type { Base44Consignacion } from "@/lib/base44";
+import { ReposicionDialog } from "./ReposicionDialog";
 
 type Props = {
   consignacion: Base44Consignacion;
@@ -51,6 +52,7 @@ export function ConsignacionActions({ consignacion, totalCantidad }: Props) {
         <>
           <MovimientoDialog consignacion={consignacion} totalCantidad={totalCantidad} />
           <CerrarDialog consignacion={consignacion} />
+          <ReposicionDialog consignacion={consignacion} />
         </>
       )}
       <AsignarChoferDialog consignacion={consignacion} />
