@@ -24,6 +24,13 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type ApiActivity = {
   id: string;
@@ -34,8 +41,12 @@ type ApiActivity = {
   outcome: string | null;
   notes: string | null;
   account_id: string;
+  sales_rep_id: string | null;
   accounts: { business_name: string | null } | null;
+  sales_reps: { full_name: string | null } | null;
 };
+
+type RepOption = { id: string; full_name: string };
 
 type DayEvent = {
   kind: "realizada" | "proximo";
@@ -77,10 +88,17 @@ function mondayIndex(jsDay: number) {
   return (jsDay + 6) % 7;
 }
 
-export function ActivityCalendar() {
+export function ActivityCalendar({
+  isAdmin = false,
+  reps = [],
+}: {
+  isAdmin?: boolean;
+  reps?: RepOption[];
+}) {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth()); // 0-11
+  const [repFilter, setRepFilter] = useState<string>("all"); // admin: "all" | rep id
   const [activities, setActivities] = useState<ApiActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -95,7 +113,8 @@ export function ActivityCalendar() {
     setSelectedDay(null);
     (async () => {
       try {
-        const res = await fetch(`/api/activities/calendar?month=${monthParam}`);
+        const repQ = isAdmin ? `&rep=${encodeURIComponent(repFilter)}` : "";
+        const res = await fetch(`/api/activities/calendar?month=${monthParam}${repQ}`);
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
           if (!cancelled) setError(d.error ?? `HTTP ${res.status}`);
@@ -112,7 +131,7 @@ export function ActivityCalendar() {
     return () => {
       cancelled = true;
     };
-  }, [monthParam]);
+  }, [monthParam, repFilter, isAdmin]);
 
   // Agrupa eventos por día (YYYY-MM-DD).
   const eventsByDay = useMemo(() => {
@@ -178,6 +197,19 @@ export function ActivityCalendar() {
             )}
           </div>
           <div className="flex items-center gap-1">
+            {isAdmin && reps.length > 0 && (
+              <Select value={repFilter} onValueChange={setRepFilter}>
+                <SelectTrigger className="h-8 w-44 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los vendedores</SelectItem>
+                  {reps.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.full_name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button variant="outline" size="sm" onClick={goToday}>Hoy</Button>
             <Button variant="ghost" size="icon" onClick={goPrev} aria-label="Mes anterior">
               <ChevronLeft className="h-4 w-4" />
@@ -271,12 +303,15 @@ export function ActivityCalendar() {
                       >
                         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-carmesi" />
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{a.accounts?.business_name ?? "—"}</span>
                             {e.kind === "proximo" ? (
                               <Badge variant="warning">Próximo paso</Badge>
                             ) : (
                               <Badge variant="muted">{TYPE_LABEL[a.activity_type ?? "visita"] ?? "Actividad"}</Badge>
+                            )}
+                            {isAdmin && repFilter === "all" && a.sales_reps?.full_name && (
+                              <Badge variant="accent">{a.sales_reps.full_name.split(" ")[0]}</Badge>
                             )}
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
