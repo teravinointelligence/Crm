@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
+import { effectiveModules } from "@/lib/modules";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
@@ -14,10 +15,11 @@ export default async function AppLayout({
   if (!rep) redirect("/login");
 
   const isAdmin = rep.role === "admin";
+  const modules = isAdmin ? [] : effectiveModules(rep.modules);
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar isAdmin={isAdmin} />
+      <Sidebar isAdmin={isAdmin} modules={modules} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} />
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
