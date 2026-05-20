@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList } from "lucide-react";
 import { requireRep } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -11,6 +11,7 @@ import {
   resolveBase44Vendedor,
   type Base44Cliente,
   type Base44Consignacion,
+  type Base44TomaInventario,
 } from "@/lib/base44";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,6 +76,18 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
   const saldo = (consignacion.total ?? 0) - (consignacion.monto_cobrado ?? 0);
   const items = consignacion.items ?? [];
   const totalCantidad = items.reduce((s, i) => s + (Number(i.cantidad) || 0), 0);
+
+  // Tomas de inventario vinculadas a esta consignación.
+  let tomas: Base44TomaInventario[] = [];
+  try {
+    tomas = await base44.entity<Base44TomaInventario>("TomaInventario").list({
+      q: { consignacion_id: consignacion.id },
+      sort_by: "-fecha_toma",
+      limit: 50,
+    });
+  } catch {
+    // Si falla, dejamos la lista vacía; el resto de la página sigue.
+  }
 
   return (
     <div className="space-y-6">
@@ -170,6 +183,56 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
                       <td className="px-4 py-2 text-right">{it.cantidad}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(it.precio_unitario)}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(it.subtotal)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex items-center justify-between border-b p-4">
+            <div className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4 text-muted-foreground" />
+              <h2 className="font-display text-lg">Tomas de inventario</h2>
+              <span className="text-xs text-muted-foreground">({tomas.length})</span>
+            </div>
+            <span className="text-xs text-muted-foreground">Reconciliaciones físicas del producto consignado.</span>
+          </div>
+          {tomas.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">
+              Aún no se han registrado tomas de inventario para esta consignación.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Folio</th>
+                    <th className="px-4 py-2 text-left">Fecha</th>
+                    <th className="px-4 py-2 text-right">Botellas</th>
+                    <th className="px-4 py-2 text-right">Etiquetas</th>
+                    <th className="px-4 py-2 text-left">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tomas.map((t) => (
+                    <tr key={t.id} className="border-t hover:bg-muted/20">
+                      <td className="px-4 py-2 whitespace-nowrap">
+                        <Link
+                          href={`/consignaciones/tomas/${t.id}`}
+                          className="text-brand-carmesi hover:underline"
+                        >
+                          {t.numero_toma ?? t.id.slice(0, 8)}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2 whitespace-nowrap">{formatDate(t.fecha_toma)}</td>
+                      <td className="px-4 py-2 text-right">{t.total_botellas ?? 0}</td>
+                      <td className="px-4 py-2 text-right">{t.total_etiquetas ?? 0}</td>
+                      <td className="px-4 py-2 text-xs">{t.estado}</td>
                     </tr>
                   ))}
                 </tbody>

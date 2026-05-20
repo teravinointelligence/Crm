@@ -192,6 +192,7 @@ export default async function TomasPage({
                     <th className="px-4 py-2 text-left">Folio</th>
                     <th className="px-4 py-2 text-left">Fecha</th>
                     <th className="px-4 py-2 text-left">Cliente</th>
+                    <th className="px-4 py-2 text-left">Consignación</th>
                     {isAdmin && <th className="px-4 py-2 text-left">Vendedor</th>}
                     <th className="px-4 py-2 text-right">Botellas</th>
                     <th className="px-4 py-2 text-right">Etiquetas</th>
@@ -212,6 +213,18 @@ export default async function TomasPage({
                       </td>
                       <td className="px-4 py-2 whitespace-nowrap">{formatDateTime(t.fecha_toma)}</td>
                       <td className="px-4 py-2">{t.cliente_nombre ?? "—"}</td>
+                      <td className="px-4 py-2 text-xs">
+                        {t.consignacion_id ? (
+                          <Link
+                            href={`/consignaciones/${t.consignacion_id}`}
+                            className="text-brand-carmesi hover:underline"
+                          >
+                            {t.consignacion_numero ?? "Ver →"}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">— sin vincular —</span>
+                        )}
+                      </td>
                       {isAdmin && <td className="px-4 py-2">{t.vendedor_nombre ?? "—"}</td>}
                       <td className="px-4 py-2 text-right">{t.total_botellas ?? 0}</td>
                       <td className="px-4 py-2 text-right">{t.total_etiquetas ?? 0}</td>
