@@ -122,6 +122,7 @@ export default async function CarteraPage() {
                       <SemaforoBadge
                         saldoPendiente={b.saldo_pendiente ?? 0}
                         saldoVencido={b.saldo_vencido ?? 0}
+                        diasVencido={b.dias_vencido}
                       />
                     </div>
                   </td>

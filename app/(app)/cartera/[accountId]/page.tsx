@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { RegisterPaymentDialog } from "@/components/cartera/RegisterPaymentDialog";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
+import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Invoice, Payment } from "@/types/database";
 
@@ -81,6 +82,7 @@ export default async function EstadoCuentaPage({
             <SemaforoBadge
               saldoPendiente={balance?.saldo_pendiente ?? 0}
               saldoVencido={balance?.saldo_vencido ?? 0}
+              diasVencido={balance?.dias_vencido}
             />
           </div>
           <p className="text-sm text-muted-foreground">
@@ -99,6 +101,9 @@ export default async function EstadoCuentaPage({
               <FileDown className="mr-1 h-4 w-4" /> Estado de cuenta PDF
             </a>
           </Button>
+          {(balance?.saldo_pendiente ?? 0) > 0 && (
+            <EnviarRecordatorioButton accountId={account.id} />
+          )}
           <RegisterPaymentDialog accountId={account.id} openInvoices={openInvoices} />
         </div>
       </div>
