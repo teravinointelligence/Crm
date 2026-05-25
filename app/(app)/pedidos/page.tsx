@@ -13,7 +13,7 @@ export default async function PedidosPage() {
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, order_number, order_type, status, order_date, total, accounts:account_id(business_name, region)",
+      "id, order_number, order_type, status, order_date, total, accounts:account_id(business_name, region, client_number)",
     )
     .order("order_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -26,7 +26,11 @@ export default async function PedidosPage() {
     status: string | null;
     order_date: string;
     total: number | null;
-    accounts: { business_name: string | null; region: string | null } | null;
+    accounts: {
+      business_name: string | null;
+      region: string | null;
+      client_number: string | null;
+    } | null;
   }>;
 
   return (
@@ -82,9 +86,11 @@ export default async function PedidosPage() {
                   </td>
                   <td className="px-4 py-3">
                     {o.accounts?.business_name ?? "—"}
-                    {o.accounts?.region && (
+                    {(o.accounts?.client_number || o.accounts?.region) && (
                       <div className="text-xs text-muted-foreground">
-                        {o.accounts.region}
+                        {o.accounts?.client_number ? `# ${o.accounts.client_number}` : ""}
+                        {o.accounts?.client_number && o.accounts?.region ? " · " : ""}
+                        {o.accounts?.region ?? ""}
                       </div>
                     )}
                   </td>

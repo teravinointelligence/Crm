@@ -24,13 +24,13 @@ export default async function MuestrasPage() {
 
   const { data } = await supabase
     .from("sample_requests")
-    .select("id, request_number, reason, status, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name)")
+    .select("id, request_number, reason, status, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name, client_number)")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as unknown as Array<{
     id: string; request_number: string; reason: string | null; status: string | null; created_at: string | null; account_id: string | null;
     sales_reps: { full_name: string | null } | null;
-    accounts: { business_name: string | null } | null;
+    accounts: { business_name: string | null; client_number: string | null } | null;
   }>;
   const pendientes = rows.filter((r) => r.status === "enviada").length;
 
@@ -77,7 +77,12 @@ export default async function MuestrasPage() {
                     <Link href={`/muestras/${r.id}`} className="hover:text-brand-carmesi">{r.request_number}</Link>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.sales_reps?.full_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.accounts?.business_name ?? "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {r.accounts?.business_name ?? "—"}
+                    {r.accounts?.client_number && (
+                      <div className="text-xs"># {r.accounts.client_number}</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.reason ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3"><Badge variant={statusVariant[r.status ?? ""] ?? "muted"}>{r.status}</Badge></td>
