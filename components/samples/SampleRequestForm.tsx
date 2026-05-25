@@ -9,13 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { AccountCombobox } from "@/components/accounts/AccountCombobox";
 import { createClient } from "@/lib/supabase/client";
 import type { Account, Product } from "@/types/database";
 
@@ -97,17 +91,14 @@ export function SampleRequestForm({
       <Card><CardContent className="grid gap-4 p-6 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Cliente / cuenta (opcional)</Label>
-          <Select value={accountId} onValueChange={setAccountId}>
-            <SelectTrigger><SelectValue placeholder="Para qué cliente" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>— Sin cliente específico —</SelectItem>
-              {accounts.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.business_name}{a.region ? ` · ${a.region}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AccountCombobox
+            accounts={accounts}
+            value={accountId}
+            onChange={setAccountId}
+            placeholder="Para qué cliente"
+            noneValue={NONE}
+            noneLabel="— Sin cliente específico —"
+          />
         </div>
         <div className="space-y-2">
           <Label htmlFor="reason">Motivo</Label>

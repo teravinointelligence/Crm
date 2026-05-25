@@ -16,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
+import { AccountCombobox } from "@/components/accounts/AccountCombobox";
 import { cn } from "@/lib/utils";
 import {
   ACTIVITY_TYPES,
@@ -146,18 +147,12 @@ export function ActivityForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="account_id">Cuenta *</Label>
-          <Select value={accountId} onValueChange={setAccountId} name="account_id">
-            <SelectTrigger id="account_id">
-              <SelectValue placeholder="Selecciona cuenta" />
-            </SelectTrigger>
-            <SelectContent>
-              {accounts.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {a.business_name} {a.region ? `· ${a.region}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <AccountCombobox
+            id="account_id"
+            accounts={accounts}
+            value={accountId}
+            onChange={setAccountId}
+          />
         </div>
 
         {filteredContacts.length > 0 && (
