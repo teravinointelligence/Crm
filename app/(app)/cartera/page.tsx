@@ -16,16 +16,23 @@ export default async function CarteraPage() {
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
 
-  const [{ data: balances }, { data: reps }] = await Promise.all([
+  const [{ data: balances }, { data: reps }, { data: accts }] = await Promise.all([
     supabase
       .from("v_account_balance")
       .select("*")
       .order("saldo_vencido", { ascending: false })
       .order("saldo_pendiente", { ascending: false }),
     supabase.from("sales_reps").select("id, full_name"),
+    supabase.from("accounts").select("id, client_number"),
   ]);
 
   const repName = new Map((reps ?? []).map((r) => [r.id, r.full_name]));
+  const clientNum = new Map(
+    ((accts ?? []) as { id: string; client_number: string | null }[]).map((a) => [
+      a.id,
+      a.client_number,
+    ]),
+  );
   const rows = ((balances ?? []) as AccountBalance[]).filter(
     (b) => (b.total_facturado ?? 0) > 0,
   );
@@ -118,6 +125,11 @@ export default async function CarteraPage() {
                     >
                       {b.business_name}
                     </Link>
+                    {clientNum.get(b.account_id) && (
+                      <div className="text-xs text-muted-foreground">
+                        # {clientNum.get(b.account_id)}
+                      </div>
+                    )}
                     <div className="mt-1">
                       <SemaforoBadge
                         saldoPendiente={b.saldo_pendiente ?? 0}
