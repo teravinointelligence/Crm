@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
+import { AccountCombobox } from "@/components/accounts/AccountCombobox";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice, ivaAmount, withIVA } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
@@ -224,20 +225,11 @@ export function OrderForm({
         <CardContent className="grid gap-4 p-6 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>Cliente *</Label>
-            <Select value={accountId} onValueChange={setAccountId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecciona cuenta" />
-              </SelectTrigger>
-              <SelectContent>
-                {accounts.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.business_name}
-                    {a.region ? ` · ${a.region}` : ""}
-                    {a.price_tier === "+10" ? " (+10%)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AccountCombobox
+              accounts={accounts}
+              value={accountId}
+              onChange={setAccountId}
+            />
             {account && (
               <p className="text-xs text-muted-foreground">
                 Región: <strong>{account.region ?? "—"}</strong> · Tier:{" "}
