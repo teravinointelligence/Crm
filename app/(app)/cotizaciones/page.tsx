@@ -26,7 +26,7 @@ export default async function CotizacionesPage() {
   const { data } = await supabase
     .from("orders")
     .select(
-      "id, order_number, order_type, status, order_date, total, accounts:account_id(business_name, region)",
+      "id, order_number, order_type, status, order_date, total, accounts:account_id(business_name, region, client_number)",
     )
     .eq("order_type", "cotizacion")
     .order("order_date", { ascending: false })
@@ -40,7 +40,11 @@ export default async function CotizacionesPage() {
     status: string | null;
     order_date: string;
     total: number | null;
-    accounts: { business_name: string | null; region: string | null } | null;
+    accounts: {
+      business_name: string | null;
+      region: string | null;
+      client_number: string | null;
+    } | null;
   }>;
 
   return (
@@ -91,7 +95,14 @@ export default async function CotizacionesPage() {
                       {o.order_number}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{o.accounts?.business_name ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {o.accounts?.business_name ?? "—"}
+                    {o.accounts?.client_number && (
+                      <div className="text-xs text-muted-foreground">
+                        # {o.accounts.client_number}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{o.accounts?.region ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(o.order_date)}</td>
                   <td className="px-4 py-3">
