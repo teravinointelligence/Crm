@@ -46,9 +46,11 @@ export type Database = {
           id: string;
           next_step: string | null;
           next_step_date: string | null;
+          next_step_done: boolean;
           notes: string | null;
           outcome: string | null;
           sales_rep_id: string | null;
+          status: string;
         };
         Insert: Partial<Database["public"]["Tables"]["activities"]["Row"]> & {
           account_id: string;
@@ -405,6 +407,14 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   "degustacion",
   "reunion",
   "evento",
+];
+
+export type ActivityStatus = "agendada" | "realizada" | "cancelada";
+
+export const ACTIVITY_STATUSES: ActivityStatus[] = [
+  "agendada",
+  "realizada",
+  "cancelada",
 ];
 
 export type ProductCategory =

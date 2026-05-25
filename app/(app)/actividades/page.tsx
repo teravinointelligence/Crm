@@ -3,6 +3,7 @@ import { Plus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Button } from "@/components/ui/button";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
+import { ActivityViewTabs } from "@/components/activities/ActivityViewTabs";
 import type { Activity } from "@/types/database";
 
 export const metadata = { title: "Actividades — TERAVINO CRM" };
@@ -30,6 +31,7 @@ export default async function ActividadesPage() {
           </Link>
         </Button>
       </div>
+      <ActivityViewTabs />
       <ActivityTimeline
         activities={(data ?? []) as Activity[]}
         showAccount
