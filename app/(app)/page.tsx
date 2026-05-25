@@ -9,6 +9,7 @@ import {
   PackageCheck,
   Banknote,
   Wine,
+  AlarmClock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
@@ -19,7 +20,13 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { staleUrgency } from "@/lib/colors";
 import type { Activity } from "@/types/database";
+
+function daysSince(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+}
 
 export const metadata = { title: "Dashboard — TERAVINO CRM" };
 
@@ -38,6 +45,10 @@ export default async function DashboardPage() {
   const ninetyDaysAgo = new Date();
   ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
   const ninetyDaysAgoISO = ninetyDaysAgo.toISOString().slice(0, 10);
+  const staleDate = new Date();
+  staleDate.setDate(staleDate.getDate() - 30);
+  staleDate.setHours(0, 0, 0, 0);
+  const staleISO = staleDate.toISOString();
 
   const isAdmin = rep.role === "admin";
 
@@ -75,6 +86,7 @@ export default async function DashboardPage() {
     supabase
       .from("activities")
       .select("*, accounts:account_id(business_name)")
+      .eq("next_step_done", false)
       .gte("next_step_date", todayISO)
       .lte("next_step_date", sevenDaysOut.toISOString().slice(0, 10))
       .order("next_step_date", { ascending: true })
@@ -122,6 +134,29 @@ export default async function DashboardPage() {
   const repsForCalendar = isAdmin
     ? (((await supabase.from("sales_reps").select("id, full_name").eq("active", true).order("full_name")).data ?? []) as { id: string; full_name: string }[])
     : [];
+
+  // Cuentas sin actividad reciente (>30 días) para el recordatorio "Visitar pronto".
+  const staleRes = await supabase
+    .from("v_account_last_activity")
+    .select(
+      "account_id, business_name, region, status, assigned_rep_id, last_activity_date",
+    )
+    .in("status", ["prospecto", "activo"])
+    .or(`last_activity_date.is.null,last_activity_date.lt.${staleISO}`)
+    .order("last_activity_date", { ascending: true, nullsFirst: true })
+    .limit(12);
+  type StaleRow = {
+    account_id: string;
+    business_name: string | null;
+    region: string | null;
+    status: string | null;
+    assigned_rep_id: string | null;
+    last_activity_date: string | null;
+  };
+  const stale = (staleRes.data ?? []) as unknown as StaleRow[];
+  const repFirst: Record<string, string> = Object.fromEntries(
+    repsForCalendar.map((r) => [r.id, r.full_name.split(" ")[0]]),
+  );
 
   const pipelineTotal = (pipelineRes.data ?? []).reduce(
     (sum, o) => sum + Number(o.total ?? 0),
@@ -342,6 +377,57 @@ export default async function DashboardPage() {
       <div className="space-y-3">
         <h2 className="font-display text-xl">Calendario de actividades</h2>
         <ActivityCalendar isAdmin={isAdmin} reps={repsForCalendar} />
+      </div>
+
+      <div className="space-y-3">
+        <h2 className="flex flex-wrap items-center gap-2 font-display text-xl">
+          <AlarmClock className="h-5 w-5 text-amber-600" /> Visitar pronto
+          <span className="text-sm font-normal text-muted-foreground">
+            · prospectos y clientes sin actividad en 30+ días
+          </span>
+        </h2>
+        {stale.length ? (
+          <Card>
+            <CardContent className="grid gap-2 p-3 sm:grid-cols-2">
+              {stale.map((s) => {
+                const days = daysSince(s.last_activity_date);
+                const u = staleUrgency(days);
+                return (
+                  <Link
+                    key={s.account_id}
+                    href={`/actividades/nueva?estado=agendada&account=${s.account_id}`}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-card p-2.5 hover:border-brand-carmesi"
+                  >
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">
+                        {s.business_name ?? "—"}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {s.status === "prospecto" ? "Prospecto" : "Cliente"}
+                        {s.region ? ` · ${s.region}` : ""}
+                        {isAdmin && s.assigned_rep_id && repFirst[s.assigned_rep_id]
+                          ? ` · ${repFirst[s.assigned_rep_id]}`
+                          : ""}
+                      </div>
+                    </div>
+                    <span
+                      className="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{ backgroundColor: u.bg, color: u.fg }}
+                    >
+                      {u.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </CardContent>
+          </Card>
+        ) : (
+          <EmptyState
+            icon={CalendarCheck2}
+            title="Todo al día"
+            description="No hay cuentas sin actividad reciente."
+          />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
