@@ -24,13 +24,14 @@ export default async function MuestrasPage() {
 
   const { data } = await supabase
     .from("sample_requests")
-    .select("id, request_number, reason, status, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name, client_number)")
+    .select("id, request_number, reason, status, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name, client_number), sample_request_activities(activities:activity_id(account_id))")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as unknown as Array<{
     id: string; request_number: string; reason: string | null; status: string | null; created_at: string | null; account_id: string | null;
     sales_reps: { full_name: string | null } | null;
     accounts: { business_name: string | null; client_number: string | null } | null;
+    sample_request_activities: Array<{ activities: { account_id: string | null } | null }> | null;
   }>;
   const pendientes = rows.filter((r) => r.status === "enviada").length;
 
@@ -64,6 +65,7 @@ export default async function MuestrasPage() {
                 <th className="px-4 py-3">Folio</th>
                 <th className="px-4 py-3">Vendedor</th>
                 <th className="px-4 py-3">Cliente</th>
+                <th className="px-4 py-3">Clientes en citas</th>
                 <th className="px-4 py-3">Motivo</th>
                 <th className="px-4 py-3">Fecha</th>
                 <th className="px-4 py-3">Status</th>
@@ -71,7 +73,11 @@ export default async function MuestrasPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {rows.map((r) => {
+                const distinctClients = new Set(
+                  (r.sample_request_activities ?? []).map((x) => x.activities?.account_id).filter(Boolean),
+                ).size;
+                return (
                 <tr key={r.id} className="border-b last:border-b-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">
                     <Link href={`/muestras/${r.id}`} className="hover:text-brand-carmesi">{r.request_number}</Link>
@@ -83,12 +89,22 @@ export default async function MuestrasPage() {
                       <div className="text-xs"># {r.accounts.client_number}</div>
                     )}
                   </td>
+                  <td className="px-4 py-3">
+                    {distinctClients > 0 ? (
+                      <span className={distinctClients >= 3 ? "font-medium text-green-700" : "font-medium text-amber-700"}>
+                        {distinctClients}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.reason ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3"><Badge variant={statusVariant[r.status ?? ""] ?? "muted"}>{r.status}</Badge></td>
                   <td className="px-4 py-3 text-right"><Button asChild size="sm" variant="ghost"><Link href={`/muestras/${r.id}`}>Ver</Link></Button></td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

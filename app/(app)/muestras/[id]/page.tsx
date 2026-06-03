@@ -18,7 +18,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes)",
+      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes), sample_request_activities(id, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
     )
     .eq("id", params.id)
     .single();
@@ -27,6 +27,19 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const items = (req.sample_request_items ?? []) as Array<{
     id: string; product_id: string | null; product_name: string; supplier: string | null; quantity: number; notes: string | null;
   }>;
+  const citas = ((req.sample_request_activities ?? []) as Array<{
+    id: string;
+    activities: {
+      id: string; activity_date: string; activity_type: string; status: string;
+      accounts: { id: string; business_name: string | null; client_number: string | null } | null;
+    } | null;
+  }>)
+    .map((x) => x.activities)
+    .filter((a): a is NonNullable<typeof a> => Boolean(a))
+    .sort((a, b) => a.activity_date.localeCompare(b.activity_date));
+  const distinctAccountIds = Array.from(
+    new Set(citas.map((c) => c.accounts?.id).filter((id): id is string => Boolean(id))),
+  );
   const r = req as typeof req & {
     sales_reps: { full_name: string | null } | null;
     reviewer: { full_name: string | null } | null;
@@ -45,6 +58,8 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
     ...items.map((i) => `• ${i.quantity} × ${i.product_name}${i.supplier ? ` (${i.supplier})` : ""}${i.notes ? ` — ${i.notes}` : ""}`),
     "",
     `Total de botellas: ${totalBottles}`,
+    citas.length ? `\nCitas que cubre (${distinctAccountIds.length} cliente(s)):` : null,
+    ...citas.map((c) => `• ${c.accounts?.business_name ?? "Sin cliente"} — ${formatDateTime(c.activity_date)} (${c.activity_type})`),
     r.notes ? `\nNotas: ${r.notes}` : null,
     r.review_notes ? `Revisión: ${r.review_notes}` : null,
     "",
@@ -116,12 +131,42 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
         </table>
       </CardContent></Card>
 
+      {citas.length > 0 && (
+        <Card><CardContent className="space-y-3 p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-lg">Citas que cubre esta muestra</h3>
+            <Badge variant="muted">{distinctAccountIds.length} cliente(s)</Badge>
+          </div>
+          <ul className="divide-y">
+            {citas.map((c) => (
+              <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                <div className="min-w-0">
+                  {c.accounts ? (
+                    <Link href={`/cuentas/${c.accounts.id}`} className="font-medium hover:text-brand-carmesi">
+                      {c.accounts.business_name ?? "Sin cliente"}
+                    </Link>
+                  ) : (
+                    <span className="font-medium">Sin cliente</span>
+                  )}
+                  {c.accounts?.client_number && <span className="text-xs text-muted-foreground"> · #{c.accounts.client_number}</span>}
+                </div>
+                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                  {formatDateTime(c.activity_date)} · {c.activity_type}
+                  {c.status !== "agendada" && <span className="ml-1 text-amber-600">({c.status})</span>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </CardContent></Card>
+      )}
+
       {isAdmin && (
         <SampleReviewActions
           requestId={r.id}
           repId={rep.id}
           status={r.status ?? "borrador"}
           accountId={r.account_id}
+          accountIds={distinctAccountIds}
           items={items.map((i) => ({ product_id: i.product_id, product_name: i.product_name }))}
         />
       )}

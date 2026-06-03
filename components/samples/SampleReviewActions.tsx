@@ -17,12 +17,14 @@ export function SampleReviewActions({
   repId,
   status,
   accountId,
+  accountIds = [],
   items,
 }: {
   requestId: string;
   repId: string;
   status: string;
   accountId: string | null;
+  accountIds?: string[];
   items: Item[];
 }) {
   const router = useRouter();
@@ -43,10 +45,13 @@ export function SampleReviewActions({
         .eq("id", requestId);
       if (error) { toast.error("No se pudo actualizar", { description: error.message }); return; }
 
-      if (next === "entregada" && accountId && addToAccount) {
-        const rows = items
-          .filter((i) => i.product_id)
-          .map((i) => ({ account_id: accountId, product_id: i.product_id, status: "muestra", added_by: repId }));
+      if (next === "entregada" && addToAccount) {
+        const targets = accountIds.length ? accountIds : accountId ? [accountId] : [];
+        const rows = targets.flatMap((acc) =>
+          items
+            .filter((i) => i.product_id)
+            .map((i) => ({ account_id: acc, product_id: i.product_id, status: "muestra", added_by: repId })),
+        );
         if (rows.length) {
           await supabase.from("account_products").upsert(rows, { onConflict: "account_id,product_id", ignoreDuplicates: true });
         }
@@ -78,10 +83,10 @@ export function SampleReviewActions({
       )}
       {status === "aprobada" && (
         <div className="space-y-3">
-          {accountId && (
+          {(accountIds.length > 0 || accountId) && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={addToAccount} onChange={(e) => setAddToAccount(e.target.checked)} className="h-4 w-4 rounded border-input" />
-              Al entregar, registrar estos vinos como «muestra» en la cuenta
+              Al entregar, registrar estos vinos como «muestra» en {accountIds.length > 1 ? `las ${accountIds.length} cuentas de las citas` : "la cuenta"}
             </label>
           )}
           <Button disabled={pending} onClick={() => setState("entregada")}>Marcar como entregada</Button>
