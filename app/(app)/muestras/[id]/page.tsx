@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SampleReviewActions } from "@/components/samples/SampleReviewActions";
+import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
@@ -45,6 +46,33 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
     reviewer: { full_name: string | null } | null;
     accounts: { id: string; business_name: string | null } | null;
   };
+  // Citas que el dueño (o un admin) puede sumar para registrar el uso de la muestra.
+  const linkedIds = new Set(citas.map((c) => c.id));
+  const canEdit = rep.id === r.sales_rep_id || isAdmin;
+  let attachableCitas: Array<{ id: string; activity_date: string; activity_type: string; account_id: string | null; account_name: string | null; client_number: string | null }> = [];
+  if (canEdit && r.status !== "rechazada" && distinctAccountIds.length < 3) {
+    const { data: repCitasRaw } = await supabase
+      .from("activities")
+      .select("id, activity_date, activity_type, account_id, status, accounts:account_id(business_name, client_number)")
+      .eq("sales_rep_id", r.sales_rep_id)
+      .in("activity_type", ["visita", "degustacion", "reunion", "evento"])
+      .neq("status", "cancelada")
+      .order("activity_date", { ascending: false })
+      .limit(60);
+    attachableCitas = (repCitasRaw ?? [])
+      .filter((c) => !linkedIds.has(c.id as string))
+      .map((c) => {
+        const acc = (Array.isArray(c.accounts) ? c.accounts[0] : c.accounts) as unknown as { business_name: string | null; client_number: string | null } | null;
+        return {
+          id: c.id as string,
+          activity_date: c.activity_date as string,
+          activity_type: c.activity_type as string,
+          account_id: (c.account_id as string | null) ?? null,
+          account_name: acc?.business_name ?? null,
+          client_number: acc?.client_number ?? null,
+        };
+      });
+  }
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
   const canExport = r.status === "aprobada" || r.status === "entregada";
   const mailSubject = `Solicitud de muestras ${r.request_number} — TERAVINO`;
@@ -158,6 +186,10 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
             ))}
           </ul>
         </CardContent></Card>
+      )}
+
+      {canEdit && r.status !== "rechazada" && (
+        <AddCitasToSample requestId={r.id} citas={attachableCitas} linkedAccountIds={distinctAccountIds} />
       )}
 
       {isAdmin && (

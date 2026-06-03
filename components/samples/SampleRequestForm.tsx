@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, CalendarPlus, Check, Users } from "lucide-react";
+import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,21 +24,23 @@ type Cita = {
   client_number: string | null;
 };
 
-// Mínimo de clientes distintos que debe cubrir cada muestra. Igual al candado en
-// la base de datos (trigger tg_sample_requires_citas).
-const MIN_CLIENTES = 3;
+// Mínimo de citas (clientes) para PEDIR una muestra. Para volver a pedir el mismo
+// vino hacen falta 3 clientes distintos, pero eso se acumula después en la muestra.
+const MIN_PEDIR = 1;
 
 export function SampleRequestForm({
   products,
   repId,
   isAdmin,
   citas,
+  lockedProductIds,
   preselectAccountId,
 }: {
   products: Pick<Product, "id" | "name" | "supplier" | "varietal" | "vintage" | "active" | "country" | "region_origin">[];
   repId: string;
   isAdmin: boolean;
   citas: Cita[];
+  lockedProductIds: string[];
   preselectAccountId?: string;
 }) {
   const router = useRouter();
@@ -51,6 +53,9 @@ export function SampleRequestForm({
   const [selected, setSelected] = useState<string[]>(() =>
     preselectAccountId ? citas.filter((c) => c.account_id === preselectAccountId).map((c) => c.id) : [],
   );
+
+  // Los vinos "en uso" solo bloquean a los vendedores; el Admin queda exento.
+  const lockedSet = useMemo(() => new Set(isAdmin ? [] : lockedProductIds), [isAdmin, lockedProductIds]);
 
   const active = useMemo(() => products.filter((p) => p.active !== false), [products]);
   const filtered = useMemo(() => {
@@ -74,13 +79,17 @@ export function SampleRequestForm({
     () => new Set(selectedCitas.map((c) => c.account_id).filter(Boolean)).size,
     [selectedCitas],
   );
-  const meetsRule = distinctClients >= MIN_CLIENTES;
+  const canPedir = distinctClients >= MIN_PEDIR;
   const primaryAccountId = selectedCitas[0]?.account_id ?? null;
 
   const toggleCita = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   const add = (p: { id: string; name: string; supplier: string }) => {
+    if (lockedSet.has(p.id)) {
+      toast.error("Ya tienes esta muestra en uso", { description: "Complétala con 3 clientes (agrégale citas en la muestra) antes de volver a pedirla." });
+      return;
+    }
     setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, supplier: p.supplier, qty: 1, notes: "" }]);
     setQuery("");
   };
@@ -91,8 +100,13 @@ export function SampleRequestForm({
   const submit = (status: "borrador" | "enviada") => {
     if (!lines.length) { toast.error("Agrega al menos un vino"); return; }
     if (lines.some((l) => !l.product_name.trim() || l.qty <= 0)) { toast.error("Revisa nombre y cantidad de cada vino"); return; }
-    if (status === "enviada" && !isAdmin && !meetsRule) {
-      toast.error(`Necesitas al menos ${MIN_CLIENTES} citas agendadas con clientes distintos`, { description: `Llevas ${distinctClients}.` });
+    const lockedInLines = lines.filter((l) => l.product_id && lockedSet.has(l.product_id));
+    if (lockedInLines.length) {
+      toast.error("Tienes vinos que aún están en uso", { description: `${lockedInLines.map((l) => l.product_name).join(", ")} — complétalas con 3 clientes antes de volver a pedirlas.` });
+      return;
+    }
+    if (status === "enviada" && !isAdmin && !canPedir) {
+      toast.error(`Necesitas al menos ${MIN_PEDIR} cita agendada con un cliente para enviar`);
       return;
     }
     startTransition(async () => {
@@ -116,7 +130,7 @@ export function SampleRequestForm({
       const { error: itemsErr } = await supabase.from("sample_request_items").insert(
         lines.map((l) => ({ request_id: req.id, product_id: l.product_id, product_name: l.product_name, supplier: l.supplier, quantity: l.qty, notes: l.notes || null })),
       );
-      if (itemsErr) { toast.error("Los vinos no se guardaron", { description: itemsErr.message }); return; }
+      if (itemsErr) { toast.error("No se pudieron guardar los vinos", { description: itemsErr.message }); return; }
       if (selected.length) {
         const { error: citErr } = await supabase
           .from("sample_request_activities")
@@ -138,7 +152,7 @@ export function SampleRequestForm({
     });
   };
 
-  const sendDisabled = pending || (!isAdmin && !meetsRule);
+  const sendDisabled = pending || (!isAdmin && !canPedir);
 
   return (
     <div className="space-y-6">
@@ -150,21 +164,21 @@ export function SampleRequestForm({
       <Card><CardContent className="space-y-4 p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="font-display text-lg">Citas que cubrirá la muestra</h3>
-            <p className="text-sm text-muted-foreground">Cada muestra debe alcanzar para al menos {MIN_CLIENTES} citas con clientes distintos.</p>
+            <h3 className="font-display text-lg">Citas con clientes</h3>
+            <p className="text-sm text-muted-foreground">Necesitas al menos {MIN_PEDIR} cita agendada para pedir la muestra. Luego suma más citas desde la muestra (hasta 3 clientes) para volver a pedir el mismo vino.</p>
           </div>
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium",
-            meetsRule ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800",
+            canPedir ? "bg-green-100 text-green-800" : "bg-amber-100 text-amber-800",
           )}>
-            <Users className="h-4 w-4" /> {distinctClients}/{MIN_CLIENTES} clientes
+            <Users className="h-4 w-4" /> {distinctClients} cliente{distinctClients === 1 ? "" : "s"}
           </span>
         </div>
 
         {citas.length === 0 ? (
           <div className="rounded-md border border-dashed bg-muted/20 p-6 text-center text-sm text-muted-foreground">
             <CalendarPlus className="mx-auto mb-2 h-6 w-6" />
-            No tienes citas agendadas a futuro. Primero agenda tus visitas y luego solicita la muestra.
+            No tienes citas agendadas a futuro. Primero agenda una visita y luego solicita la muestra.
             <div className="mt-3">
               <Button asChild variant="outline" size="sm"><Link href="/actividades/nueva">Agendar una cita</Link></Button>
             </div>
@@ -201,11 +215,11 @@ export function SampleRequestForm({
           </div>
         )}
 
-        {!meetsRule && citas.length > 0 && (
+        {!canPedir && citas.length > 0 && (
           <p className="text-xs text-muted-foreground">
             {isAdmin
-              ? `Como Admin puedes enviar aunque falten clientes (llevas ${distinctClients} de ${MIN_CLIENTES}).`
-              : `Selecciona citas de ${MIN_CLIENTES} clientes distintos para poder enviar (llevas ${distinctClients}).`}
+              ? "Como Admin puedes enviar aunque no selecciones citas."
+              : `Selecciona al menos ${MIN_PEDIR} cita para poder enviar.`}
           </p>
         )}
       </CardContent></Card>
@@ -218,12 +232,20 @@ export function SampleRequestForm({
         <div className="relative"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar vino del catálogo…" value={query} onChange={(e) => setQuery(e.target.value)} className="pl-9" /></div>
         {filtered.length > 0 && (
           <div className="grid max-h-72 gap-2 overflow-y-auto rounded-md border bg-muted/20 p-2 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((p) => (
-              <button key={p.id} type="button" onClick={() => add(p)} className="rounded-md border bg-card p-2 text-left text-sm hover:border-brand-carmesi">
-                <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-muted-foreground">{[p.supplier, p.varietal, p.vintage].filter(Boolean).join(" · ")}</div>
-              </button>
-            ))}
+            {filtered.map((p) => {
+              const locked = lockedSet.has(p.id);
+              return locked ? (
+                <div key={p.id} className="rounded-md border bg-muted/40 p-2 text-left text-sm opacity-70" title="Ya tienes esta muestra en uso; complétala con 3 clientes para liberarla.">
+                  <div className="flex items-center gap-1 font-medium"><Lock className="h-3 w-3" /> {p.name}</div>
+                  <div className="text-xs text-amber-700">En uso — agrégale citas para liberarla</div>
+                </div>
+              ) : (
+                <button key={p.id} type="button" onClick={() => add(p)} className="rounded-md border bg-card p-2 text-left text-sm hover:border-brand-carmesi">
+                  <div className="font-medium">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">{[p.supplier, p.varietal, p.vintage].filter(Boolean).join(" · ")}</div>
+                </button>
+              );
+            })}
           </div>
         )}
         {lines.length === 0 ? <p className="text-sm text-muted-foreground">Aún no agregaste vinos.</p> : (

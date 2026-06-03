@@ -88,7 +88,15 @@ const items: Item[] = [
   },
 ];
 
-export function Sidebar({ isAdmin, modules = [] }: { isAdmin: boolean; modules?: string[] }) {
+export function Sidebar({
+  isAdmin,
+  modules = [],
+  badges = {},
+}: {
+  isAdmin: boolean;
+  modules?: string[];
+  badges?: Record<string, number>;
+}) {
   const pathname = usePathname();
   const visible = items.filter((i) => {
     if (i.adminOnly) return isAdmin;
@@ -107,7 +115,7 @@ export function Sidebar({ isAdmin, modules = [] }: { isAdmin: boolean; modules?:
           item.kind === "group" ? (
             <NavGroup key={item.basePath} item={item} pathname={pathname} />
           ) : (
-            <NavLeaf key={item.href} item={item} pathname={pathname} />
+            <NavLeaf key={item.href} item={item} pathname={pathname} badge={badges[item.href]} />
           ),
         )}
       </nav>
@@ -118,7 +126,7 @@ export function Sidebar({ isAdmin, modules = [] }: { isAdmin: boolean; modules?:
   );
 }
 
-function NavLeaf({ item, pathname }: { item: LeafItem; pathname: string }) {
+function NavLeaf({ item, pathname, badge }: { item: LeafItem; pathname: string; badge?: number }) {
   const { href, label, icon: Icon } = item;
   const active =
     href === "/"
@@ -135,7 +143,17 @@ function NavLeaf({ item, pathname }: { item: LeafItem; pathname: string }) {
       )}
     >
       <Icon className="h-4 w-4" />
-      {label}
+      <span className="flex-1">{label}</span>
+      {badge ? (
+        <span
+          className={cn(
+            "inline-flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-semibold",
+            active ? "bg-white text-brand-carmesi" : "bg-brand-carmesi text-white",
+          )}
+        >
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }

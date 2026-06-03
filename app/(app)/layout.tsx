@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
 import { effectiveModules } from "@/lib/modules";
+import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
@@ -17,9 +18,20 @@ export default async function AppLayout({
   const isAdmin = rep.role === "admin";
   const modules = isAdmin ? [] : effectiveModules(rep.modules);
 
+  // Indicador de "muestras por revisar" (solicitudes enviadas) para admins.
+  let badges: Record<string, number> = {};
+  if (isAdmin) {
+    const supabase = createClient();
+    const { count } = await supabase
+      .from("sample_requests")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "enviada");
+    if (count) badges = { "/muestras": count };
+  }
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar isAdmin={isAdmin} modules={modules} />
+      <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} />
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
