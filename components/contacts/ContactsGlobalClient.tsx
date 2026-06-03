@@ -173,9 +173,9 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
                     href={`https://wa.me/${c.whatsapp.replace(/\D/g, "")}`}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 hover:bg-muted"
+                    className="inline-flex items-center gap-1 rounded-md border border-green-600/30 px-2 py-1 text-green-700 hover:bg-green-50"
                   >
-                    <MessageCircle className="h-3 w-3" /> WhatsApp
+                    <MessageCircle className="h-3 w-3" /> {c.whatsapp}
                   </a>
                 )}
               </div>
