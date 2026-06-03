@@ -30,13 +30,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
+import { canSeeFinance } from "@/lib/modules";
 
-type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; moduleKey?: string };
+type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; moduleKey?: string };
 type GroupItem = {
   kind: "group";
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
+  finance?: boolean;
   moduleKey?: string;
   basePath: string;
   children: { href: string; label: string; icon: typeof LayoutDashboard }[];
@@ -67,8 +69,8 @@ const items: Item[] = [
   },
   { href: "/restock", label: "Restock", icon: PackageCheck, moduleKey: "restock" },
   { href: "/transito", label: "Tránsito", icon: Truck, moduleKey: "transito" },
-  { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, adminOnly: true },
-  { href: "/reportes", label: "Reportes", icon: BarChart3, adminOnly: true },
+  { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, finance: true },
+  { href: "/reportes", label: "Reportes", icon: BarChart3, finance: true },
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
   { href: "/manuales", label: "Manuales", icon: BookOpen, moduleKey: "manuales" },
   {
@@ -92,13 +94,16 @@ export function Sidebar({
   isAdmin,
   modules = [],
   badges = {},
+  role,
 }: {
   isAdmin: boolean;
   modules?: string[];
   badges?: Record<string, number>;
+  role?: string | null;
 }) {
   const pathname = usePathname();
   const visible = items.filter((i) => {
+    if (i.finance) return canSeeFinance(role);
     if (i.adminOnly) return isAdmin;
     if (isAdmin) return true;
     if (!i.moduleKey) return true; // dashboard / siempre visible

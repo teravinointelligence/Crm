@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canSeeFinance } from "@/lib/modules";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -13,7 +14,8 @@ export const metadata = { title: "Cuentas por pagar — TERAVINO CRM" };
 export default async function CuentasPagarPage() {
   const supabase = createClient();
   const rep = await getCurrentRep();
-  if (!rep || rep.role !== "admin") redirect("/");
+  if (!rep || !canSeeFinance(rep.role)) redirect("/");
+  const isAdmin = rep.role === "admin";
 
   const [{ data: balances }, { data: pos }] = await Promise.all([
     supabase.from("v_supplier_balance").select("*").order("saldo_vencido", { ascending: false }),
@@ -91,7 +93,7 @@ export default async function CuentasPagarPage() {
                       <td className="px-4 py-3 text-right text-muted-foreground">{formatCurrency(p.total_paid)}</td>
                       <td className="px-4 py-3 text-right font-medium">{formatCurrency(p.balance)}</td>
                       <td className="px-4 py-3 text-right">
-                        {(p.balance ?? 0) > 0 && <SupplierPaymentDialog poId={p.id} poNumber={p.po_number} repId={rep.id} balance={Number(p.balance ?? 0)} />}
+                        {isAdmin && (p.balance ?? 0) > 0 && <SupplierPaymentDialog poId={p.id} poNumber={p.po_number} repId={rep.id} balance={Number(p.balance ?? 0)} />}
                       </td>
                     </tr>
                   );

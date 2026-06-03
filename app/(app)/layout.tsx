@@ -31,7 +31,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} />
+      <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} />
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canSeeFinance } from "@/lib/modules";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategoryBarChart, MonthlyBarChart } from "@/components/reports/Charts";
 import { formatCurrency } from "@/lib/utils";
@@ -65,7 +66,7 @@ export default async function ReportesPage({
 }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canSeeFinance(rep.role)) redirect("/");
 
   const supabase = createClient();
   const period: Period = searchParams.period ?? "ytd";

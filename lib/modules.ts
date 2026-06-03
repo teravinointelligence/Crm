@@ -2,18 +2,21 @@
 // Lo comparten el sidebar y la pantalla de Usuarios para mantener consistencia.
 //
 // Los módulos admin-only (Reportes, Cuentas por pagar, Reparto, Usuarios) no
-// se listan aquí: solo los admin los ven, siempre.
+// se listan aquí: solo los admin los ven, siempre. Excepción: el Contador
+// también ve Reportes y Cuentas por pagar (ver canSeeFinance).
 
 export type ModuleDef = { key: string; label: string; href: string };
 
 // Roles del CRM. Solo 'admin' es administrador; los demás son no-admin y su
-// visibilidad se controla por módulos.
-export type UserRole = "admin" | "rep" | "chofer" | "jefe_logistica";
+// visibilidad se controla por módulos. 'contador' es solo-lectura global y
+// además ve las páginas financieras (Cuentas por pagar, Reportes).
+export type UserRole = "admin" | "rep" | "chofer" | "jefe_logistica" | "contador";
 
 export const ROLES: { value: UserRole; label: string }[] = [
   { value: "rep", label: "Vendedor" },
   { value: "chofer", label: "Chofer" },
   { value: "jefe_logistica", label: "Jefe de logística (jefe de choferes)" },
+  { value: "contador", label: "Contador (contabilidad)" },
   { value: "admin", label: "Admin (dirección)" },
 ];
 
@@ -21,11 +24,22 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   rep: "Vendedor",
   chofer: "Chofer",
   jefe_logistica: "Jefe logística",
+  contador: "Contador",
   admin: "Admin",
 };
 
 export function isValidRole(r: string): r is UserRole {
-  return r === "admin" || r === "rep" || r === "chofer" || r === "jefe_logistica";
+  return (
+    r === "admin" || r === "rep" || r === "chofer" || r === "jefe_logistica" || r === "contador"
+  );
+}
+
+/**
+ * Roles que ven las páginas financieras que normalmente son admin-only
+ * (Cuentas por pagar, Reportes). Espejo del predicado SQL can_read_all().
+ */
+export function canSeeFinance(role: string | null | undefined): boolean {
+  return role === "admin" || role === "contador";
 }
 
 export const SELECTABLE_MODULES: ModuleDef[] = [
