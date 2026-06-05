@@ -20,12 +20,15 @@ const statusVariant: Record<string, "muted" | "warning" | "success" | "danger" |
 export default async function MuestrasPage() {
   const supabase = createClient();
   const rep = await getCurrentRep();
-  const isAdmin = rep?.role === "admin";
+  // Admin y contador ven las solicitudes de todos los vendedores; cada rep solo las suyas.
+  const canSeeAll = rep?.role === "admin" || rep?.role === "contador";
 
-  const { data } = await supabase
+  let query = supabase
     .from("sample_requests")
     .select("id, request_number, reason, status, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name, client_number)")
     .order("created_at", { ascending: false });
+  if (rep && !canSeeAll) query = query.eq("sales_rep_id", rep.id);
+  const { data } = await query;
 
   const rows = (data ?? []) as unknown as Array<{
     id: string; request_number: string; reason: string | null; status: string | null; created_at: string | null; account_id: string | null;
@@ -40,8 +43,8 @@ export default async function MuestrasPage() {
         <div>
           <h1 className="font-display text-3xl">Muestras solicitadas</h1>
           <p className="text-sm text-muted-foreground">
-            {isAdmin
-              ? `Botellas de muestra pedidas por los vendedores${pendientes ? ` · ${pendientes} por revisar` : ""}`
+            {canSeeAll
+              ? `Solicitudes de todos los vendedores${pendientes ? ` · ${pendientes} por revisar` : ""}`
               : "Tus solicitudes de botellas para catas / clientes."}
           </p>
         </div>
