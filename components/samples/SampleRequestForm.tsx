@@ -139,9 +139,9 @@ export function SampleRequestForm({
       if (status === "enviada") {
         const { error: sendErr } = await supabase.from("sample_requests").update({ status: "enviada" }).eq("id", req.id);
         if (sendErr) {
-          toast.warning("Guardamos el borrador, pero no se pudo enviar", { description: sendErr.message });
-          router.push(`/muestras/${req.id}`);
-          router.refresh();
+          // No dejar un borrador a medias: limpiamos la solicitud recién creada.
+          await supabase.from("sample_requests").delete().eq("id", req.id);
+          toast.error("No se pudo enviar la solicitud", { description: sendErr.message });
           return;
         }
       }
