@@ -23,6 +23,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { formatCurrency, formatDate, formatBirthday } from "@/lib/utils";
+import { OnlinePill } from "@/components/equipo/OnlinePill";
 import { staleUrgency } from "@/lib/colors";
 import type { Activity, UpcomingBirthday } from "@/types/database";
 
@@ -170,6 +171,15 @@ export default async function DashboardPage() {
     .limit(12);
   const birthdays = (birthdaysRes.data ?? []) as unknown as UpcomingBirthday[];
 
+  // Conteo inicial de "en línea" (activos en los últimos 5 min) para el header.
+  const presenceRes = await supabase
+    .from("sales_reps")
+    .select("last_seen_at")
+    .eq("active", true);
+  const onlineNow = (presenceRes.data ?? []).filter(
+    (r) => r.last_seen_at && Date.now() - new Date(r.last_seen_at).getTime() < 5 * 60_000,
+  ).length;
+
   const pipelineTotal = (pipelineRes.data ?? []).reduce(
     (sum, o) => sum + Number(o.total ?? 0),
     0,
@@ -277,9 +287,12 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">
-            Hola, {rep.full_name.split(" ")[0]}
-          </h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="font-display text-3xl">
+              Hola, {rep.full_name.split(" ")[0]}
+            </h1>
+            <OnlinePill initialOnline={onlineNow} />
+          </div>
           <p className="text-sm text-muted-foreground">
             {rep.role === "admin"
               ? "Vista de dirección · todas las regiones"
