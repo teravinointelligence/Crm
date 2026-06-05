@@ -81,6 +81,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
     `Solicitante: ${r.sales_reps?.full_name ?? "—"}`,
     r.accounts ? `Cliente: ${r.accounts.business_name}` : null,
     r.reason ? `Motivo: ${r.reason}` : null,
+    r.training_people ? `Capacitación para ${r.training_people} persona(s)` : null,
     "",
     "Vinos:",
     ...items.map((i) => `• ${i.quantity} × ${i.product_name}${i.supplier ? ` (${i.supplier})` : ""}${i.notes ? ` — ${i.notes}` : ""}`),
@@ -108,6 +109,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
           <h1 className="font-display text-3xl">{r.request_number}</h1>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="muted">{r.status}</Badge>
+            {r.training_people ? <Badge variant="accent">Capacitación · {r.training_people} personas</Badge> : null}
             {canExport && (
               <>
                 <Button asChild size="sm" variant="outline">
