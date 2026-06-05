@@ -18,7 +18,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes)",
+      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name, region), sample_request_items(id, product_id, product_name, supplier, quantity, notes)",
     )
     .eq("id", params.id)
     .single();
@@ -30,7 +30,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const r = req as typeof req & {
     sales_reps: { full_name: string | null } | null;
     reviewer: { full_name: string | null } | null;
-    accounts: { id: string; business_name: string | null } | null;
+    accounts: { id: string; business_name: string | null; region: string | null } | null;
   };
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
   const canExport = r.status === "aprobada" || r.status === "entregada";
@@ -122,7 +122,8 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
           repId={rep.id}
           status={r.status ?? "borrador"}
           accountId={r.account_id}
-          items={items.map((i) => ({ product_id: i.product_id, product_name: i.product_name }))}
+          accountRegion={r.accounts?.region ?? null}
+          items={items.map((i) => ({ product_id: i.product_id, product_name: i.product_name, supplier: i.supplier, quantity: i.quantity }))}
         />
       )}
     </div>
