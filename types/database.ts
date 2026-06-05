@@ -228,6 +228,7 @@ export type Database = {
           email: string;
           full_name: string;
           id: string;
+          last_seen_at: string | null;
           modules: string[] | null;
           primary_region: string | null;
           role: string | null;

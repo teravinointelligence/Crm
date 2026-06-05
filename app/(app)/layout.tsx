@@ -6,6 +6,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Fab } from "@/components/layout/Fab";
+import { PresenceHeartbeat } from "@/components/layout/PresenceHeartbeat";
 
 export default async function AppLayout({
   children,
@@ -31,6 +32,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen">
+      <PresenceHeartbeat />
       <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} />

@@ -27,6 +27,7 @@ import {
   HandCoins,
   TrendingUp,
   BookOpen,
+  Radio,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Wordmark } from "@/components/brand/Wordmark";
@@ -47,6 +48,7 @@ type Item = LeafItem | GroupItem;
 
 const items: Item[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard }, // siempre visible
+  { href: "/equipo", label: "Equipo en línea", icon: Radio }, // siempre visible
   { href: "/cuentas", label: "Cuentas", icon: Building2, moduleKey: "cuentas" },
   { href: "/contactos", label: "Contactos", icon: Users, moduleKey: "contactos" },
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
