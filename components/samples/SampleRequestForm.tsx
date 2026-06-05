@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock } from "lucide-react";
+import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock, GraduationCap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,10 @@ type Cita = {
 // vino hacen falta 3 clientes distintos, pero eso se acumula después en la muestra.
 const MIN_PEDIR = 1;
 
+// Capacitaciones: 1 botella de 750 ml alcanza para 8 tastings (personas).
+const TASTINGS_POR_BOTELLA = 8;
+const botellasParaPersonas = (personas: number) => Math.max(1, Math.ceil(personas / TASTINGS_POR_BOTELLA));
+
 export function SampleRequestForm({
   products,
   repId,
@@ -48,6 +52,8 @@ export function SampleRequestForm({
   const [pending, startTransition] = useTransition();
   const [reason, setReason] = useState("");
   const [notes, setNotes] = useState("");
+  const [isTraining, setIsTraining] = useState(false);
+  const [trainingPeople, setTrainingPeople] = useState<number>(8);
   const [lines, setLines] = useState<Line[]>([]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(() =>
@@ -85,15 +91,30 @@ export function SampleRequestForm({
   const toggleCita = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  // En capacitación, las botellas por vino se calculan por personas (8 por botella).
+  const botellasPorVino = isTraining && trainingPeople > 0 ? botellasParaPersonas(trainingPeople) : null;
+  const defaultQty = () => botellasPorVino ?? 1;
+  // Autocompleta las botellas de todos los vinos según las personas (editable después).
+  const aplicarBotellas = (personas: number) =>
+    setLines((prev) => prev.map((l) => ({ ...l, qty: botellasParaPersonas(personas) })));
+  const toggleTraining = (on: boolean) => {
+    setIsTraining(on);
+    if (on && trainingPeople > 0) aplicarBotellas(trainingPeople);
+  };
+  const setPeople = (n: number) => {
+    setTrainingPeople(n);
+    if (isTraining && n > 0) aplicarBotellas(n);
+  };
+
   const add = (p: { id: string; name: string; supplier: string }) => {
     if (lockedSet.has(p.id)) {
       toast.error("Ya tienes esta muestra en uso", { description: "Complétala con 3 clientes (agrégale citas en la muestra) antes de volver a pedirla." });
       return;
     }
-    setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, supplier: p.supplier, qty: 1, notes: "" }]);
+    setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, supplier: p.supplier, qty: defaultQty(), notes: "" }]);
     setQuery("");
   };
-  const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", supplier: null, qty: 1, notes: "" }]);
+  const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", supplier: null, qty: defaultQty(), notes: "" }]);
   const upd = (k: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === k ? { ...l, ...patch } : l)));
   const rm = (k: string) => setLines((prev) => prev.filter((l) => l.key !== k));
 
@@ -109,6 +130,10 @@ export function SampleRequestForm({
       toast.error(`Necesitas al menos ${MIN_PEDIR} cita agendada con un cliente para enviar`);
       return;
     }
+    if (isTraining && (!trainingPeople || trainingPeople < 1)) {
+      toast.error("Indica para cuántas personas es la capacitación");
+      return;
+    }
     startTransition(async () => {
       // El folio (request_number) lo asigna la BD en el INSERT, de forma atómica,
       // para evitar folios duplicados por envíos concurrentes.
@@ -121,6 +146,7 @@ export function SampleRequestForm({
           account_id: primaryAccountId,
           reason: reason || null,
           notes: notes || null,
+          training_people: isTraining ? trainingPeople : null,
           status: "borrador",
         })
         .select("id, request_number")
@@ -155,9 +181,44 @@ export function SampleRequestForm({
 
   return (
     <div className="space-y-6">
-      <Card><CardContent className="space-y-2 p-6">
-        <Label htmlFor="reason">Motivo</Label>
-        <Input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Cata con el chef, cliente potencial, evento…" />
+      <Card><CardContent className="space-y-3 p-6">
+        <div className="space-y-2">
+          <Label htmlFor="reason">Motivo</Label>
+          <Input id="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Cata con el chef, cliente potencial, evento…" />
+        </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isTraining}
+            onChange={(e) => toggleTraining(e.target.checked)}
+            className="h-4 w-4 rounded border-input"
+          />
+          Es una capacitación
+        </label>
+
+        {isTraining && (
+          <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+            <Label htmlFor="people" className="flex items-center gap-1.5">
+              <GraduationCap className="h-4 w-4" /> ¿Para cuántas personas?
+            </Label>
+            <Input
+              id="people"
+              type="number"
+              min={1}
+              value={trainingPeople || ""}
+              onChange={(e) => setPeople(Number(e.target.value) || 0)}
+              className="w-32"
+            />
+            {trainingPeople > 0 && (
+              <p className="text-xs text-muted-foreground">
+                1 botella (750 ml) alcanza para {TASTINGS_POR_BOTELLA} personas → se piden{" "}
+                <strong className="text-foreground">{botellasParaPersonas(trainingPeople)} botella(s) por vino</strong>.
+                Puedes ajustarlas abajo.
+              </p>
+            )}
+          </div>
+        )}
       </CardContent></Card>
 
       <Card><CardContent className="space-y-4 p-6">
