@@ -404,7 +404,7 @@ function AgreementCard({
           <div className="flex flex-wrap items-center gap-2 border-t pt-3">
             <Button asChild size="sm" variant="outline">
               <a href={`/api/cuentas/${accountId}/acuerdos/${a.id}/pdf`} target="_blank" rel="noreferrer">
-                <FileText className="mr-1 h-3.5 w-3.5" /> PDF generado
+                <FileText className="mr-1 h-3.5 w-3.5" /> Descargar para firma
               </a>
             </Button>
             {a.document_path ? (

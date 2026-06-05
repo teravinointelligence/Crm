@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, FileSignature, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -66,6 +66,7 @@ export function AgreementForm({
   const [contactId, setContactId] = useState<string>("");
   const [repId, setRepId] = useState<string>(defaultRepId ?? "");
   const [equipment, setEquipment] = useState<EquipmentRow[]>([newRow()]);
+  const [createdId, setCreatedId] = useState<string | null>(null);
 
   const updateRow = (key: string, patch: Partial<EquipmentRow>) =>
     setEquipment((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -129,15 +130,49 @@ export function AgreementForm({
           .insert(equipmentRows.map((r) => ({ ...r, agreement_id: created.id })));
         if (eqErr) {
           toast.error("El acuerdo se guardó, pero el equipo no", { description: eqErr.message });
-          router.push(`/cuentas/${accountId}?tab=acuerdos`);
-          return;
         }
       }
       toast.success("Acuerdo registrado");
-      router.push(`/cuentas/${accountId}?tab=acuerdos`);
+      // Refresca la bitácora de fondo y muestra el paso de descarga para firma.
       router.refresh();
+      setCreatedId(created.id);
     });
   };
+
+  if (createdId) {
+    return (
+      <Card>
+        <CardContent className="space-y-5 p-6 text-center">
+          <div className="flex flex-col items-center gap-2">
+            <CheckCircle2 className="h-12 w-12 text-emerald-600" />
+            <h2 className="font-display text-2xl">Acuerdo guardado</h2>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Descarga el PDF para imprimirlo o enviárselo al cliente y que lo firme. Cuando lo
+              tengas firmado, súbelo desde la bitácora con «Subir firmado».
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
+            <Button asChild size="lg">
+              <a
+                href={`/api/cuentas/${accountId}/acuerdos/${createdId}/pdf`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <FileSignature className="mr-2 h-5 w-5" /> Descargar PDF para firma
+              </a>
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => router.push(`/cuentas/${accountId}?tab=acuerdos`)}
+            >
+              <ListChecks className="mr-2 h-5 w-5" /> Ir a la bitácora
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
