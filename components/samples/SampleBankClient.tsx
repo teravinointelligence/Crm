@@ -17,23 +17,40 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
+} from "@/components/ui/select";
+import { AccountCombobox } from "@/components/accounts/AccountCombobox";
+import { SAMPLE_LOCATIONS } from "@/lib/samples";
 
 export type BankRow = {
   product_id: string;
   product_name: string;
   supplier: string | null;
   region: string | null;
+  location: string | null;
   available: number;
   ingresado: number;
   tomado: number;
 };
 
+export type RegionMetrics = { usadas: number; encartadas: number };
+
+type AccountOption = { id: string; business_name: string; region?: string | null };
+
+const NONE = "__none";
+const UNSET = "__unset";
+
 export function SampleBankClient({
   rows,
   isAdmin,
+  accounts,
+  metricsByRegion,
 }: {
   rows: BankRow[];
   isAdmin: boolean;
+  accounts: AccountOption[];
+  metricsByRegion: Record<string, RegionMetrics>;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -41,11 +58,13 @@ export function SampleBankClient({
   const [take, setTake] = useState<BankRow | null>(null);
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
+  const [accountId, setAccountId] = useState<string>(NONE);
 
   const openTake = (r: BankRow) => {
     setTake(r);
     setQty(1);
     setNote("");
+    setAccountId(NONE);
   };
 
   const confirmTake = () => {
@@ -60,6 +79,8 @@ export function SampleBankClient({
         p_region: take.region,
         p_qty: qty,
         p_note: note || null,
+        p_location: take.location,
+        p_account: accountId === NONE ? null : accountId,
       });
       if (error) {
         toast.error("No se pudo tomar la muestra", { description: error.message });
@@ -67,6 +88,23 @@ export function SampleBankClient({
       }
       toast.success(`Tomaste ${qty} × ${take.product_name}`);
       setTake(null);
+      router.refresh();
+    });
+  };
+
+  const setLocation = (r: BankRow, to: string | null) => {
+    startTransition(async () => {
+      const { error } = await supabase.rpc("sample_bank_set_location", {
+        p_product: r.product_id,
+        p_region: r.region,
+        p_from_location: r.location,
+        p_to_location: to,
+      });
+      if (error) {
+        toast.error("No se pudo cambiar la bodega", { description: error.message });
+        return;
+      }
+      toast.success(to ? `Movido a ${to}` : "Bodega quitada");
       router.refresh();
     });
   };
@@ -94,26 +132,56 @@ export function SampleBankClient({
 
   return (
     <div className="space-y-6">
-      {[...byRegion.entries()].map(([region, list]) => (
+      {[...byRegion.entries()].map(([region, list]) => {
+        const m = metricsByRegion[region];
+        return (
         <Card key={region}>
           <CardContent className="p-0">
             {isAdmin && (
-              <div className="border-b px-4 py-2 text-sm font-medium">Zona: {region}</div>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-2 text-sm">
+                <span className="font-medium">Zona: {region}</span>
+                {m && m.usadas > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    Usadas: <strong className="text-foreground">{m.usadas}</strong> · Encartadas:{" "}
+                    <strong className="text-foreground">{m.encartadas}</strong> · % encartes:{" "}
+                    <strong className="text-foreground">{Math.round((m.encartadas / m.usadas) * 100)}%</strong>
+                  </span>
+                )}
+              </div>
             )}
             <table className="min-w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3">Vino</th>
-                  <th className="px-4 py-3">Bodega</th>
+                  <th className="px-4 py-3">Bodega (vino)</th>
+                  <th className="px-4 py-3">Ubicación</th>
                   <th className="px-4 py-3 text-right">Disponibles</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody>
                 {list.map((r) => (
-                  <tr key={`${r.product_id}-${r.region ?? "none"}`} className="border-b last:border-b-0">
+                  <tr key={`${r.product_id}-${r.region ?? "none"}-${r.location ?? "none"}`} className="border-b last:border-b-0">
                     <td className="px-4 py-3 font-medium">{r.product_name}</td>
                     <td className="px-4 py-3 text-muted-foreground">{r.supplier ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      {isAdmin ? (
+                        <Select
+                          value={r.location ?? UNSET}
+                          onValueChange={(v) => setLocation(r, v === UNSET ? null : v)}
+                        >
+                          <SelectTrigger className="h-8 w-44"><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={UNSET}>Sin asignar</SelectItem>
+                            {SAMPLE_LOCATIONS.map((loc) => (
+                              <SelectItem key={loc} value={loc}>{loc}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        r.location ?? <span className="text-muted-foreground">Sin asignar</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <Badge variant="success">{r.available}</Badge>
                     </td>
@@ -128,7 +196,8 @@ export function SampleBankClient({
             </table>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
 
       <Dialog open={!!take} onOpenChange={(o) => !o && setTake(null)}>
         <DialogContent>
@@ -140,7 +209,7 @@ export function SampleBankClient({
               <div className="text-sm">
                 <div className="font-medium">{take.product_name}</div>
                 <div className="text-muted-foreground">
-                  {[take.supplier, take.region ?? "Sin zona", `${take.available} disponibles`].filter(Boolean).join(" · ")}
+                  {[take.supplier, take.region ?? "Sin zona", take.location ?? "Sin bodega", `${take.available} disponibles`].filter(Boolean).join(" · ")}
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -155,7 +224,19 @@ export function SampleBankClient({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="bank_note">Nota (¿para qué cliente / cita?)</Label>
+                <Label>Cliente (para medir encartes)</Label>
+                <AccountCombobox
+                  accounts={accounts}
+                  value={accountId}
+                  onChange={setAccountId}
+                  placeholder="¿Para qué cliente?"
+                  noneValue={NONE}
+                  noneLabel="— Sin cliente específico —"
+                />
+                <p className="text-xs text-muted-foreground">Si luego encartas el vino en su lista, contará como encarte.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="bank_note">Nota (cata / cita)</Label>
                 <Input
                   id="bank_note"
                   value={note}
