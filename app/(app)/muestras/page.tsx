@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, FlaskConical } from "lucide-react";
+import { Plus, FlaskConical, Boxes } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -46,9 +46,14 @@ export default async function MuestrasPage() {
               : "Tus solicitudes de botellas para catas / clientes."}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/muestras/nueva"><Plus className="mr-1 h-4 w-4" /> Solicitar muestras</Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/muestras/banco"><Boxes className="mr-1 h-4 w-4" /> Banco de muestras</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/muestras/nueva"><Plus className="mr-1 h-4 w-4" /> Solicitar muestras</Link>
+          </Button>
+        </div>
       </div>
 
       {rows.length === 0 ? (
