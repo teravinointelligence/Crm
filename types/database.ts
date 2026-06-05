@@ -62,6 +62,7 @@ export type Database = {
       contacts: {
         Row: {
           account_id: string;
+          birthday: string | null;
           created_at: string | null;
           email: string | null;
           full_name: string;
@@ -594,4 +595,23 @@ export type AgreementEquipmentInsert = {
   description: string;
   quantity: number;
   serial: string | null;
+};
+
+// ---------------------------------------------------------------------
+// CUMPLEAÑOS — vista v_upcoming_birthdays (ver 0033_contact_birthday.sql)
+// ---------------------------------------------------------------------
+export type UpcomingBirthday = {
+  contact_id: string;
+  account_id: string;
+  full_name: string;
+  role: string | null;
+  phone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  birthday: string;
+  business_name: string | null;
+  region: string | null;
+  assigned_rep_id: string | null;
+  next_birthday: string;
+  days_until: number;
 };

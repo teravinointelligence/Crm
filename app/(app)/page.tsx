@@ -10,6 +10,9 @@ import {
   Banknote,
   Wine,
   AlarmClock,
+  Cake,
+  MessageCircle,
+  Phone,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
@@ -19,9 +22,9 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, formatBirthday } from "@/lib/utils";
 import { staleUrgency } from "@/lib/colors";
-import type { Activity } from "@/types/database";
+import type { Activity, UpcomingBirthday } from "@/types/database";
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -157,6 +160,15 @@ export default async function DashboardPage() {
   const repFirst: Record<string, string> = Object.fromEntries(
     repsForCalendar.map((r) => [r.id, r.full_name.split(" ")[0]]),
   );
+
+  // Próximos cumpleaños de contactos (siguientes 30 días) — para mandarles un detalle.
+  const birthdaysRes = await supabase
+    .from("v_upcoming_birthdays")
+    .select("contact_id, account_id, full_name, role, phone, whatsapp, business_name, region, birthday, next_birthday, days_until")
+    .lte("days_until", 30)
+    .order("days_until", { ascending: true })
+    .limit(12);
+  const birthdays = (birthdaysRes.data ?? []) as unknown as UpcomingBirthday[];
 
   const pipelineTotal = (pipelineRes.data ?? []).reduce(
     (sum, o) => sum + Number(o.total ?? 0),
@@ -429,6 +441,63 @@ export default async function DashboardPage() {
           />
         )}
       </div>
+
+      {birthdays.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="flex flex-wrap items-center gap-2 font-display text-xl">
+            <Cake className="h-5 w-5 text-brand-carmesi" /> Próximos cumpleaños
+            <span className="text-sm font-normal text-muted-foreground">
+              · mándales un detalle (siguientes 30 días)
+            </span>
+          </h2>
+          <Card>
+            <CardContent className="grid gap-2 p-3 sm:grid-cols-2">
+              {birthdays.map((b) => {
+                const wa = (b.whatsapp ?? b.phone ?? "").replace(/\D/g, "");
+                return (
+                  <div
+                    key={b.contact_id}
+                    className="flex items-center justify-between gap-2 rounded-md border bg-card p-2.5"
+                  >
+                    <Link href={`/cuentas/${b.account_id}?tab=contactos`} className="min-w-0">
+                      <div className="truncate text-sm font-medium">{b.full_name}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {b.business_name ?? "—"}
+                        {b.role ? ` · ${b.role}` : ""} · {formatBirthday(b.birthday)}
+                      </div>
+                    </Link>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Badge variant={b.days_until === 0 ? "danger" : b.days_until <= 7 ? "warning" : "muted"}>
+                        {b.days_until === 0 ? "¡Hoy!" : b.days_until === 1 ? "Mañana" : `${b.days_until} días`}
+                      </Badge>
+                      {wa && (
+                        <a
+                          href={`https://wa.me/${wa}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-green-600/30 p-1.5 text-green-700 hover:bg-green-50"
+                          aria-label="WhatsApp"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                      {b.phone && (
+                        <a
+                          href={`tel:${b.phone}`}
+                          className="rounded-md border p-1.5 hover:bg-muted"
+                          aria-label="Llamar"
+                        >
+                          <Phone className="h-3.5 w-3.5" />
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">

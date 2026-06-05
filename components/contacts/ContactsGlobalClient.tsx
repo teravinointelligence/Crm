@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Phone, Mail, MessageCircle, Star, Pencil, Search } from "lucide-react";
+import { Phone, Mail, MessageCircle, Star, Pencil, Search, Cake } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { formatBirthday, birthdayInfo } from "@/lib/utils";
 import type { Contact } from "@/types/database";
 
 type ContactRow = Contact & {
@@ -65,6 +67,7 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
       email: String(fd.get("email") ?? "") || null,
       phone: String(fd.get("phone") ?? "") || null,
       whatsapp: String(fd.get("whatsapp") ?? "") || null,
+      birthday: String(fd.get("birthday") ?? "") || null,
       is_primary: fd.get("is_primary") === "on",
       notes: String(fd.get("notes") ?? "") || null,
     };
@@ -179,6 +182,20 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
                   </a>
                 )}
               </div>
+              {c.birthday && (() => {
+                const info = birthdayInfo(c.birthday);
+                return (
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Cake className="h-3.5 w-3.5 text-brand-carmesi" />
+                    <span className="text-muted-foreground">{formatBirthday(c.birthday)}</span>
+                    {info?.isSoon && (
+                      <Badge variant={info.isToday ? "danger" : "warning"} className="ml-1">
+                        {info.label}
+                      </Badge>
+                    )}
+                  </div>
+                );
+              })()}
               {c.notes && (
                 <p className="border-t pt-2 text-xs text-muted-foreground">{c.notes}</p>
               )}
@@ -213,9 +230,15 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
                   <Input id="phone" name="phone" defaultValue={editing.phone ?? ""} />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="whatsapp">WhatsApp</Label>
-                <Input id="whatsapp" name="whatsapp" defaultValue={editing.whatsapp ?? ""} placeholder="521..." />
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="whatsapp">WhatsApp</Label>
+                  <Input id="whatsapp" name="whatsapp" defaultValue={editing.whatsapp ?? ""} placeholder="521..." />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="birthday">Cumpleaños</Label>
+                  <Input id="birthday" name="birthday" type="date" defaultValue={editing.birthday ?? ""} />
+                </div>
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <input
