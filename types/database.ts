@@ -512,3 +512,86 @@ export type OrderStatus =
   | "facturada"
   | "entregada"
   | "cancelada";
+
+// ---------------------------------------------------------------------
+// ACUERDOS (bitácora cronológica por empresa) — ver 0032_agreements.sql
+// ---------------------------------------------------------------------
+export type AgreementType =
+  | "comodato"
+  | "precio_especial"
+  | "consignacion"
+  | "exclusividad"
+  | "volumen"
+  | "otro";
+
+export type AgreementStatus = "vigente" | "vencido" | "cancelado";
+
+export const AGREEMENT_TYPE_LABELS: Record<AgreementType, string> = {
+  comodato: "Comodato",
+  precio_especial: "Precio especial",
+  consignacion: "Consignación",
+  exclusividad: "Exclusividad",
+  volumen: "Volumen",
+  otro: "Otro",
+};
+
+export const AGREEMENT_STATUS_LABELS: Record<AgreementStatus, string> = {
+  vigente: "Vigente",
+  vencido: "Vencido",
+  cancelado: "Cancelado",
+};
+
+export type EquipmentKind = "cava" | "coravin" | "enfriador" | "mueble" | "otro";
+
+export const EQUIPMENT_KIND_LABELS: Record<EquipmentKind, string> = {
+  cava: "Cava",
+  coravin: "Equipo Coravin",
+  enfriador: "Enfriador",
+  mueble: "Mueble / exhibidor",
+  otro: "Otro",
+};
+
+export type AgreementEquipment = {
+  id: string;
+  agreement_id: string;
+  kind: EquipmentKind;
+  description: string;
+  quantity: number;
+  serial: string | null;
+  status: "prestado" | "devuelto";
+  returned_at: string | null;
+  created_at: string | null;
+};
+
+export type Agreement = {
+  id: string;
+  account_id: string;
+  agreement_date: string;
+  title: string;
+  description: string | null;
+  type: AgreementType;
+  status: AgreementStatus;
+  price_notes: string | null;
+  discount_pct: number | null;
+  credit_days: number | null;
+  valid_from: string | null;
+  valid_until: string | null;
+  contact_id: string | null;
+  rep_id: string | null;
+  document_path: string | null;
+  document_uploaded_at: string | null;
+  created_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type AgreementWithEquipment = Agreement & {
+  equipment: AgreementEquipment[];
+};
+
+export type AgreementEquipmentInsert = {
+  kind: EquipmentKind;
+  description: string;
+  quantity: number;
+  serial: string | null;
+};

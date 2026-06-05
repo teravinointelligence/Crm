@@ -12,6 +12,7 @@ import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
+import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import type {
@@ -34,7 +35,7 @@ export default async function CuentaDetailPage({
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
-  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "consignaciones", "info"];
+  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "consignaciones", "acuerdos", "info"];
   const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
@@ -51,6 +52,7 @@ export default async function CuentaDetailPage({
     { data: rep },
     { data: balance },
     { data: wines },
+    { data: agreementsRaw },
   ] = await Promise.all([
     supabase
       .from("contacts")
@@ -87,6 +89,14 @@ export default async function CuentaDetailPage({
         "id, product_id, status, notes, since, created_at, products:product_id(id, name, supplier, varietal, vintage, base_price)",
       )
       .eq("account_id", params.id),
+    supabase
+      .from("agreements")
+      .select(
+        "*, equipment:agreement_equipment(*), contact:contact_id(full_name), rep:rep_id(full_name)",
+      )
+      .eq("account_id", params.id)
+      .order("agreement_date", { ascending: false })
+      .order("created_at", { ascending: false }),
   ]);
 
   // Products catalog for the "agregar vino" picker (only when there are wines or always — load active ones)
@@ -101,6 +111,20 @@ export default async function CuentaDetailPage({
   const activityList = (activities ?? []) as Activity[];
   const wineList = (wines ?? []) as never[];
   const priceTier = (account.price_tier as "base" | "+10") ?? "base";
+
+  const agreementList: AgreementRow[] = ((agreementsRaw ?? []) as never[]).map(
+    (a: Record<string, unknown>) => {
+      const contact = a.contact as { full_name: string } | null;
+      const rep2 = a.rep as { full_name: string } | null;
+      return {
+        ...(a as AgreementRow),
+        equipment: ((a.equipment ?? []) as AgreementRow["equipment"]) ?? [],
+        contactName: contact?.full_name ?? null,
+        repName: rep2?.full_name ?? null,
+      };
+    },
+  );
+  const canEditAccount = me.role === "admin" || account.assigned_rep_id === me.id;
 
   const closedOrders = orderList.filter((o) => CLOSED_STATUSES.includes(o.status ?? ""));
   const totalComprado = closedOrders.reduce((s, o) => s + Number(o.total ?? 0), 0);
@@ -125,6 +149,7 @@ export default async function CuentaDetailPage({
           <TabsTrigger value="actividades">Actividades ({activityList.length})</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos ({orderList.length})</TabsTrigger>
           <TabsTrigger value="consignaciones">Consignaciones</TabsTrigger>
+          <TabsTrigger value="acuerdos">Acuerdos ({agreementList.length})</TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
         </TabsList>
 
@@ -264,6 +289,14 @@ export default async function CuentaDetailPage({
             clientNumber={account.client_number ?? null}
             isAdmin={me.role === "admin"}
             repEmail={me.email}
+          />
+        </TabsContent>
+
+        <TabsContent value="acuerdos">
+          <AccountAgreements
+            accountId={account.id}
+            agreements={agreementList}
+            canEdit={canEditAccount}
           />
         </TabsContent>
 
