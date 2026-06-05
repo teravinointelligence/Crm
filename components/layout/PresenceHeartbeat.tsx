@@ -13,9 +13,10 @@ export function PresenceHeartbeat() {
     const supabase = createClient();
     let alive = true;
 
-    const ping = () => {
+    const ping = async () => {
       if (!alive || document.visibilityState === "hidden") return;
-      void supabase.rpc("touch_presence");
+      const { error } = await supabase.rpc("touch_presence");
+      if (error) console.warn("[presence] touch_presence falló:", error.message);
     };
 
     ping();
