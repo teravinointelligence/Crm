@@ -110,21 +110,20 @@ export function SampleRequestForm({
       return;
     }
     startTransition(async () => {
-      const { data: num, error: numErr } = await supabase.rpc("next_sample_number");
-      if (numErr || !num) { toast.error("No pudimos generar el folio", { description: numErr?.message }); return; }
+      // El folio (request_number) lo asigna la BD en el INSERT, de forma atómica,
+      // para evitar folios duplicados por envíos concurrentes.
       // Siempre se crea como borrador; el paso a "enviada" va al final, ya con las
       // citas guardadas, para que el candado de la BD valide con la info completa.
       const { data: req, error: reqErr } = await supabase
         .from("sample_requests")
         .insert({
-          request_number: num,
           sales_rep_id: repId,
           account_id: primaryAccountId,
           reason: reason || null,
           notes: notes || null,
           status: "borrador",
         })
-        .select("id")
+        .select("id, request_number")
         .single();
       if (reqErr || !req) { toast.error("No pudimos crear la solicitud", { description: reqErr?.message }); return; }
       const { error: itemsErr } = await supabase.from("sample_request_items").insert(
@@ -146,7 +145,7 @@ export function SampleRequestForm({
           return;
         }
       }
-      toast.success(`${num} ${status === "enviada" ? "enviada" : "guardada"}`);
+      toast.success(`${req.request_number} ${status === "enviada" ? "enviada" : "guardada"}`);
       router.push(`/muestras/${req.id}`);
       router.refresh();
     });
