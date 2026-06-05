@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock, GraduationCap } from "lucide-react";
+import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock, GraduationCap, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ export function SampleRequestForm({
   isAdmin,
   citas,
   lockedProductIds,
+  bankProductIds,
   preselectAccountId,
 }: {
   products: Pick<Product, "id" | "name" | "supplier" | "varietal" | "vintage" | "active" | "country" | "region_origin">[];
@@ -45,6 +46,7 @@ export function SampleRequestForm({
   isAdmin: boolean;
   citas: Cita[];
   lockedProductIds: string[];
+  bankProductIds: string[];
   preselectAccountId?: string;
 }) {
   const router = useRouter();
@@ -62,6 +64,8 @@ export function SampleRequestForm({
 
   // Los vinos "en uso" solo bloquean a los vendedores; el Admin queda exento.
   const lockedSet = useMemo(() => new Set(isAdmin ? [] : lockedProductIds), [isAdmin, lockedProductIds]);
+  // Vinos que ya están en el banco de la zona del vendedor: hay que tomarlos de ahí.
+  const bankSet = useMemo(() => new Set(isAdmin ? [] : bankProductIds), [isAdmin, bankProductIds]);
 
   const active = useMemo(() => products.filter((p) => p.active !== false), [products]);
   const filtered = useMemo(() => {
@@ -107,6 +111,10 @@ export function SampleRequestForm({
   };
 
   const add = (p: { id: string; name: string; supplier: string }) => {
+    if (bankSet.has(p.id)) {
+      toast.error("Este vino está en el banco de tu zona", { description: "Tómala del banco de muestras antes de pedir otra." });
+      return;
+    }
     if (lockedSet.has(p.id)) {
       toast.error("Ya tienes esta muestra en uso", { description: "Complétala con 3 clientes (agrégale citas en la muestra) antes de volver a pedirla." });
       return;
@@ -121,6 +129,11 @@ export function SampleRequestForm({
   const submit = (status: "borrador" | "enviada") => {
     if (!lines.length) { toast.error("Agrega al menos un vino"); return; }
     if (lines.some((l) => !l.product_name.trim() || l.qty <= 0)) { toast.error("Revisa nombre y cantidad de cada vino"); return; }
+    const bankInLines = lines.filter((l) => l.product_id && bankSet.has(l.product_id));
+    if (bankInLines.length) {
+      toast.error("Esos vinos están en el banco de tu zona", { description: `${bankInLines.map((l) => l.product_name).join(", ")} — tómalas del banco de muestras en vez de pedir otra.` });
+      return;
+    }
     const lockedInLines = lines.filter((l) => l.product_id && lockedSet.has(l.product_id));
     if (lockedInLines.length) {
       toast.error("Tienes vinos que aún están en uso", { description: `${lockedInLines.map((l) => l.product_name).join(", ")} — complétalas con 3 clientes antes de volver a pedirlas.` });
@@ -293,8 +306,16 @@ export function SampleRequestForm({
         {filtered.length > 0 && (
           <div className="grid max-h-72 gap-2 overflow-y-auto rounded-md border bg-muted/20 p-2 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((p) => {
+              const inBank = bankSet.has(p.id);
               const locked = lockedSet.has(p.id);
-              return locked ? (
+              return inBank ? (
+                <div key={p.id} className="rounded-md border border-brand-carmesi/30 bg-brand-carmesi/5 p-2 text-left text-sm" title="Este vino ya está en el banco de muestras de tu zona; tómala de ahí.">
+                  <div className="flex items-center gap-1 font-medium"><Package className="h-3 w-3" /> {p.name}</div>
+                  <div className="text-xs text-brand-carmesi">
+                    En el banco de tu zona — <Link href="/muestras/banco" className="underline">tómala de ahí</Link>
+                  </div>
+                </div>
+              ) : locked ? (
                 <div key={p.id} className="rounded-md border bg-muted/40 p-2 text-left text-sm opacity-70" title="Ya tienes esta muestra en uso; complétala con 3 clientes para liberarla.">
                   <div className="flex items-center gap-1 font-medium"><Lock className="h-3 w-3" /> {p.name}</div>
                   <div className="text-xs text-amber-700">En uso — agrégale citas para liberarla</div>
