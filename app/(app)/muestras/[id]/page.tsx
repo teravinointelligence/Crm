@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SampleReviewActions } from "@/components/samples/SampleReviewActions";
 import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
+import { CitaEvidence } from "@/components/samples/CitaEvidence";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
@@ -19,7 +20,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes), sample_request_activities(id, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
+      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes), sample_request_activities(id, evidence_path, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
     )
     .eq("id", params.id)
     .single();
@@ -30,13 +31,14 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   }>;
   const citas = ((req.sample_request_activities ?? []) as Array<{
     id: string;
+    evidence_path: string | null;
     activities: {
       id: string; activity_date: string; activity_type: string; status: string;
       accounts: { id: string; business_name: string | null; client_number: string | null } | null;
     } | null;
   }>)
-    .map((x) => x.activities)
-    .filter((a): a is NonNullable<typeof a> => Boolean(a))
+    .filter((x) => x.activities)
+    .map((x) => ({ linkId: x.id, evidencePath: x.evidence_path, ...x.activities! }))
     .sort((a, b) => a.activity_date.localeCompare(b.activity_date));
   const distinctAccountIds = Array.from(
     new Set(citas.map((c) => c.accounts?.id).filter((id): id is string => Boolean(id))),
@@ -169,7 +171,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
           </div>
           <ul className="divide-y">
             {citas.map((c) => (
-              <li key={c.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+              <li key={c.linkId} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 text-sm">
                 <div className="min-w-0">
                   {c.accounts ? (
                     <Link href={`/cuentas/${c.accounts.id}`} className="font-medium hover:text-brand-carmesi">
@@ -179,11 +181,18 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                     <span className="font-medium">Sin cliente</span>
                   )}
                   {c.accounts?.client_number && <span className="text-xs text-muted-foreground"> · #{c.accounts.client_number}</span>}
+                  <span className="block text-xs text-muted-foreground">
+                    {formatDateTime(c.activity_date)} · {c.activity_type}
+                    {c.status !== "agendada" && <span className="ml-1 text-amber-600">({c.status})</span>}
+                  </span>
                 </div>
-                <div className="shrink-0 text-right text-xs text-muted-foreground">
-                  {formatDateTime(c.activity_date)} · {c.activity_type}
-                  {c.status !== "agendada" && <span className="ml-1 text-amber-600">({c.status})</span>}
-                </div>
+                <CitaEvidence
+                  ownerRepId={r.sales_rep_id}
+                  requestId={r.id}
+                  activityId={c.id}
+                  evidencePath={c.evidencePath}
+                  canEdit={canEdit}
+                />
               </li>
             ))}
           </ul>
