@@ -8,6 +8,7 @@ import {
   Plus,
   FileText,
   Upload,
+  FileUp,
   FileCheck2,
   Trash2,
   CalendarDays,
@@ -19,12 +20,28 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { formatDate } from "@/lib/utils";
 import {
   AGREEMENT_TYPE_LABELS,
   AGREEMENT_STATUS_LABELS,
   EQUIPMENT_KIND_LABELS,
+  type AgreementType,
   type AgreementStatus,
   type AgreementWithEquipment,
 } from "@/types/database";
@@ -51,16 +68,19 @@ export function AccountAgreements({
 }) {
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           Registro cronológico de acuerdos comerciales con esta empresa.
         </p>
         {canEdit && (
-          <Button asChild size="sm">
-            <Link href={`/cuentas/${accountId}/acuerdos/nuevo`}>
-              <Plus className="mr-1 h-4 w-4" /> Nuevo acuerdo
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <UploadExistingAgreement accountId={accountId} />
+            <Button asChild size="sm">
+              <Link href={`/cuentas/${accountId}/acuerdos/nuevo`}>
+                <Plus className="mr-1 h-4 w-4" /> Nuevo acuerdo
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 
@@ -78,6 +98,160 @@ export function AccountAgreements({
         </ol>
       )}
     </div>
+  );
+}
+
+function UploadExistingAgreement({ accountId }: { accountId: string }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [file, setFile] = useState<File | null>(null);
+  const [type, setType] = useState<AgreementType>("otro");
+  const [status, setStatus] = useState<AgreementStatus>("vigente");
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const reset = () => {
+    setFile(null);
+    setType("otro");
+    setStatus("vigente");
+  };
+
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const title = String(fd.get("title") ?? "").trim();
+    const agreement_date = String(fd.get("agreement_date") ?? today);
+    if (!title) {
+      toast.error("Ponle un título al acuerdo");
+      return;
+    }
+    if (!file) {
+      toast.error("Selecciona el PDF del acuerdo");
+      return;
+    }
+    if (file.type !== "application/pdf") {
+      toast.error("El archivo debe ser PDF");
+      return;
+    }
+
+    startTransition(async () => {
+      // 1) Crear el registro del acuerdo (datos mínimos).
+      const { data: created, error } = await supabase
+        .from("agreements")
+        .insert({ account_id: accountId, title, agreement_date, type, status })
+        .select("id")
+        .single();
+      if (error || !created) {
+        toast.error("No se pudo registrar el acuerdo", { description: error?.message });
+        return;
+      }
+      // 2) Subir el PDF al bucket privado.
+      const path = `${accountId}/${created.id}/firmado.pdf`;
+      const { error: upErr } = await supabase.storage.from("acuerdos").upload(path, file, {
+        upsert: true,
+        contentType: "application/pdf",
+      });
+      if (upErr) {
+        toast.error("El acuerdo se creó pero el PDF no se subió", { description: upErr.message });
+        setOpen(false);
+        router.refresh();
+        return;
+      }
+      // 3) Ligar el PDF al acuerdo.
+      const { error: dbErr } = await supabase
+        .from("agreements")
+        .update({ document_path: path, document_uploaded_at: new Date().toISOString() })
+        .eq("id", created.id);
+      if (dbErr) {
+        toast.error("El PDF se subió pero no se registró", { description: dbErr.message });
+        setOpen(false);
+        router.refresh();
+        return;
+      }
+      toast.success("Acuerdo en PDF registrado");
+      reset();
+      setOpen(false);
+      router.refresh();
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <FileUp className="mr-1 h-4 w-4" /> Subir PDF existente
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Subir acuerdo existente (PDF)</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="grid gap-3">
+          <p className="text-xs text-muted-foreground">
+            Para acuerdos que ya tienes firmados en papel/PDF. Captura lo mínimo y adjunta el archivo;
+            queda en la bitácora con su fecha.
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="title">Título *</Label>
+            <Input id="title" name="title" required placeholder="Convenio de comodato 2024" />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="agreement_date">Fecha del acuerdo</Label>
+              <Input id="agreement_date" name="agreement_date" type="date" defaultValue={today} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Tipo</Label>
+              <Select value={type} onValueChange={(v) => setType(v as AgreementType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(Object.keys(AGREEMENT_TYPE_LABELS) as AgreementType[]).map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {AGREEMENT_TYPE_LABELS[t]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Estatus</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as AgreementStatus)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(AGREEMENT_STATUS_LABELS) as AgreementStatus[]).map((st) => (
+                  <SelectItem key={st} value={st}>
+                    {AGREEMENT_STATUS_LABELS[st]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pdf">Archivo PDF *</Label>
+            <Input
+              id="pdf"
+              type="file"
+              accept="application/pdf"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+            {file && <p className="text-xs text-muted-foreground">{file.name}</p>}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={pending}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={pending}>
+              {pending ? "Subiendo…" : "Subir acuerdo"}
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
