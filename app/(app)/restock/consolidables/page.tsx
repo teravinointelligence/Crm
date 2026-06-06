@@ -49,7 +49,7 @@ export default async function ConsolidablesPage() {
             <ArrowLeft className="mr-1 h-4 w-4" /> Restock
           </Link>
         </Button>
-        <h1 className="font-display text-3xl">Restocks consolidables por proveedor</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Restocks consolidables por proveedor</h1>
         <EmptyState
           icon={PackagePlus}
           title="Sin restocks aprobados pendientes"
@@ -120,7 +120,7 @@ export default async function ConsolidablesPage() {
       </Button>
 
       <div>
-        <h1 className="font-display text-3xl">Restocks consolidables por proveedor</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Restocks consolidables por proveedor</h1>
         <p className="text-sm text-muted-foreground">
           Agrupa los pedidos de restock aprobados por proveedor para generar una sola OC.
         </p>

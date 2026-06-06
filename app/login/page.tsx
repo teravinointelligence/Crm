@@ -29,7 +29,7 @@ export default function LoginPage({
             <Wordmark size="lg" />
           </div>
           <div className="space-y-2">
-            <h1 className="font-display text-3xl">Acceso</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">Acceso</h1>
             <p className="text-sm text-muted-foreground">
               Ingresa con tu correo @teravino.com.
             </p>

@@ -35,7 +35,7 @@ export default async function ManualesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Manuales de operación</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Manuales de operación</h1>
         <p className="text-sm text-muted-foreground">
           SOPs de TERAVINO — solo lectura. Da clic en un manual para verlo.
         </p>

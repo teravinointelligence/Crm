@@ -120,7 +120,7 @@ export default async function ReportesRepartoPage({
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Reportes de reparto</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Reportes de reparto</h1>
           <p className="text-sm text-muted-foreground">{range.label} · {range.from} → {range.to}</p>
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-lg border bg-card p-1">

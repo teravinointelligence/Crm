@@ -26,7 +26,7 @@ export default async function NuevaMuestraPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h1 className="font-display text-3xl">Solicitar muestras</h1>
+      <h1 className="font-display text-2xl sm:text-3xl">Solicitar muestras</h1>
       <SampleRequestForm
         accounts={accounts ?? []}
         products={products ?? []}

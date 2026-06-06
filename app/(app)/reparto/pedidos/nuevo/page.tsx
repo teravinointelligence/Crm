@@ -19,7 +19,7 @@ export default async function NuevoPedidoPage() {
       <Button asChild variant="ghost" size="sm">
         <Link href="/reparto/pedidos"><ArrowLeft className="mr-1 h-4 w-4" /> Pedidos</Link>
       </Button>
-      <h1 className="font-display text-3xl">Nuevo pedido</h1>
+      <h1 className="font-display text-2xl sm:text-3xl">Nuevo pedido</h1>
       <PedidoForm />
     </div>
   );

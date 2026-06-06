@@ -110,6 +110,7 @@ export function RestockRequestForm({
         {lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin productos aún.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Producto</th><th className="py-2 pr-2 w-20">Cant.</th><th className="py-2 pr-2">Nota</th><th className="w-8" /></tr></thead>
             <tbody>
@@ -123,6 +124,7 @@ export function RestockRequestForm({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </CardContent></Card>
 

@@ -63,7 +63,7 @@ export default async function Page() {
         <Link href="/cuentas"><ArrowLeft className="mr-1 h-4 w-4" /> Cuentas</Link>
       </Button>
       <div>
-        <h1 className="font-display text-3xl">Sincronizar # cliente</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Sincronizar # cliente</h1>
         <p className="text-sm text-muted-foreground">
           Pares de la relación de clientes (CONTPAQi, abril 2026) que aún no están enlazados a una cuenta.
           Asigna cada uno o márcalo como «no aplica» si no es un cliente real.

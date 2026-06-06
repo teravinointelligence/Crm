@@ -1,12 +1,22 @@
 import { Wordmark } from "@/components/brand/Wordmark";
 import { Badge } from "@/components/ui/badge";
 import { UserMenu } from "./UserMenu";
+import { MobileNav } from "./MobileNav";
 import type { SalesRep } from "@/types/database";
 
-export function Header({ rep }: { rep: SalesRep }) {
+export function Header({
+  rep,
+  isAdmin,
+  modules = [],
+}: {
+  rep: SalesRep;
+  isAdmin: boolean;
+  modules?: string[];
+}) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:px-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <MobileNav isAdmin={isAdmin} modules={modules} />
         <div className="lg:hidden">
           <Wordmark size="sm" />
         </div>

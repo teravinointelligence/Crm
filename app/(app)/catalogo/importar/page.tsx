@@ -11,7 +11,7 @@ export default async function ImportarPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Importar desde Excel</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Importar desde Excel</h1>
         <p className="text-sm text-muted-foreground">
           Sincroniza con CONTPAQi subiendo el Excel exportado.
         </p>

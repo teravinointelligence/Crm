@@ -33,7 +33,7 @@ export default async function CuentasPagarPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="font-display text-3xl">Cuentas por pagar</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Cuentas por pagar</h1>
         <p className="text-sm text-muted-foreground">Saldos con proveedores y registro de pagos. Solo dirección.</p>
       </div>
 

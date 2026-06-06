@@ -137,6 +137,7 @@ export function PurchaseOrderActions({
             <DialogTrigger asChild><Button size="sm" variant="outline">Recibir</Button></DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Recibir producto</DialogTitle></DialogHeader>
+              <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">Producto</th><th className="py-2 text-right">Pedido</th><th className="py-2 text-right w-28">Recibido</th></tr></thead>
                 <tbody>
@@ -149,6 +150,7 @@ export function PurchaseOrderActions({
                   ))}
                 </tbody>
               </table>
+              </div>
               <p className="text-xs text-muted-foreground">Esto NO modifica el stock — actualízalo en CONTPAQi y vuelve a subir plantilla_stock.</p>
               <div className="flex justify-end"><Button onClick={receive} disabled={pending}>Confirmar recepción</Button></div>
             </DialogContent>

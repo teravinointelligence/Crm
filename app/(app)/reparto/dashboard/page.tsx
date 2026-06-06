@@ -106,7 +106,7 @@ export default async function DashboardRepartoPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Dashboard de reparto</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Dashboard de reparto</h1>
           <p className="text-sm text-muted-foreground">
             Operación del día — {new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
           </p>
@@ -143,6 +143,7 @@ export default async function DashboardRepartoPage() {
           {choferes.length === 0 ? (
             <p className="p-6 text-sm text-muted-foreground">Sin choferes activos.</p>
           ) : (
+            <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr><th className="px-4 py-2">Chofer</th><th className="px-4 py-2 text-right">Asignados</th><th className="px-4 py-2 text-right">En ruta</th><th className="px-4 py-2 text-right">Entregados hoy</th></tr>
@@ -164,6 +165,7 @@ export default async function DashboardRepartoPage() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </CardContent></Card>
       </section>
@@ -183,6 +185,7 @@ export default async function DashboardRepartoPage() {
               <p className="text-sm">Sin entregas pendientes. ¡Todo al corriente!</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                 <tr><th className="px-4 py-2">Folio</th><th className="px-4 py-2">Cliente</th><th className="px-4 py-2">Chofer</th><th className="px-4 py-2">Fecha / ventana</th><th className="px-4 py-2">Estatus</th><th className="px-4 py-2 text-right">Total</th></tr>
@@ -209,6 +212,7 @@ export default async function DashboardRepartoPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </CardContent></Card>
       </section>

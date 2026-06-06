@@ -78,7 +78,7 @@ export default async function EstadoCuentaPage({
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card p-6 brand-shadow">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-3xl">{account.business_name}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">{account.business_name}</h1>
             <SemaforoBadge
               saldoPendiente={balance?.saldo_pendiente ?? 0}
               saldoVencido={balance?.saldo_vencido ?? 0}

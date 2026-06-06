@@ -62,7 +62,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
 
       <div className="rounded-lg border bg-card p-6 brand-shadow space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-display text-3xl">{r.request_number}</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">{r.request_number}</h1>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="muted">{r.status}</Badge>
             {canExport && (

@@ -30,7 +30,7 @@ export default async function ProductDetailPage({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="font-display text-3xl">{product.name}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">{product.name}</h1>
             {!product.active && <Badge variant="muted">Inactivo</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">

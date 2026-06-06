@@ -184,6 +184,7 @@ export function AccountWines({
         {list.length === 0 ? (
           <div className="p-4 text-sm text-muted-foreground">{emptyText}</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -194,6 +195,7 @@ export function AccountWines({
             </thead>
             <tbody>{list.map(renderRow)}</tbody>
           </table>
+          </div>
         )}
       </CardContent>
     </Card>

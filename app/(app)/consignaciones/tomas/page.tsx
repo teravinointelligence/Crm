@@ -189,7 +189,7 @@ export default async function TomasPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Tomas de inventario</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Tomas de inventario</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin
               ? `Todas las consignaciones son inventariables — ${totalConsig} consignaciones · ${conInventario} con toma · ${pendientes} pendientes.`

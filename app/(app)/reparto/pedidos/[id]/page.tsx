@@ -82,7 +82,7 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
       <div className="rounded-lg border bg-card p-6 brand-shadow space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
-            <h1 className="font-display text-3xl">{pedido.numero_factura}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">{pedido.numero_factura}</h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant={ESTATUS_VARIANT[pedido.estatus]}>{ESTATUS_LABEL[pedido.estatus]}</Badge>
               {pedido.prioridad && pedido.prioridad !== "normal" && <Badge variant="warning">{pedido.prioridad}</Badge>}

@@ -257,6 +257,7 @@ export function PedidoForm() {
             <Plus className="mr-1 h-3.5 w-3.5" /> Agregar partida
           </Button>
         </div>
+        <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead className="border-b text-left text-xs uppercase text-muted-foreground">
             <tr><th className="py-2 pr-2">Descripción</th><th className="py-2 pr-2 w-20">Cant.</th><th className="py-2 pr-2 w-20">Unidad</th><th className="py-2 pr-2 w-28">Valor unit.</th><th className="py-2 pr-2 text-right w-28">Importe</th><th className="w-8" /></tr>
@@ -274,6 +275,7 @@ export function PedidoForm() {
             ))}
           </tbody>
         </table>
+        </div>
         <div className="space-y-1 border-t pt-4 text-sm">
           <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>
           <div className="flex justify-between text-muted-foreground"><span>IVA 16%</span><span>{formatCurrency(iva)}</span></div>

@@ -206,6 +206,7 @@ export function ChoferesAdmin({ usuarios: initial }: { usuarios: Usuario[] }) {
         {filtered.length === 0 ? (
           <p className="p-8 text-center text-sm text-muted-foreground">Sin usuarios en este filtro.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -254,6 +255,7 @@ export function ChoferesAdmin({ usuarios: initial }: { usuarios: Usuario[] }) {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </CardContent></Card>
 

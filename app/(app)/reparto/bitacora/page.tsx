@@ -23,7 +23,7 @@ export default async function BitacoraPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Bitácora de entregas</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Bitácora de entregas</h1>
         <p className="text-sm text-muted-foreground">Historial de entregas con evidencia fotográfica y status de WhatsApp.</p>
       </div>
       <BitacoraTable choferes={(choferes ?? []) as { id: string; nombre: string }[]} />

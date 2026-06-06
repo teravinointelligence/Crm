@@ -45,7 +45,7 @@ export default async function CarteraPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Cartera de clientes</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Cartera de clientes</h1>
           <p className="text-sm text-muted-foreground">
             Estado de cuenta por cliente — facturas y pagos.
           </p>

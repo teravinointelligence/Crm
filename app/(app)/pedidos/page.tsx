@@ -33,7 +33,7 @@ export default async function PedidosPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl">Pedidos y cotizaciones</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Pedidos y cotizaciones</h1>
           <p className="text-sm text-muted-foreground">
             COT-2026-… para cotizaciones, PED-2026-… para pedidos.
           </p>

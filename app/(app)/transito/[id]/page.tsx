@@ -29,7 +29,7 @@ export default async function PODetailPage({ params }: { params: { id: string } 
 
       <div className="rounded-lg border bg-card p-6 brand-shadow space-y-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h1 className="font-display text-3xl">{po.po_number}</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">{po.po_number}</h1>
           <div className="flex gap-2"><Badge variant="muted">{po.status}</Badge><Badge variant="accent">{po.payment_status}</Badge></div>
         </div>
         <p className="text-sm text-muted-foreground">

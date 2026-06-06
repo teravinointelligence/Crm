@@ -31,7 +31,7 @@ export default async function TransitoPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Tránsito de productos</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Tránsito de productos</h1>
           <p className="text-sm text-muted-foreground">Qué viene en camino y de qué órdenes de compra.</p>
         </div>
         {admin && <Button asChild><Link href="/transito/nueva"><Plus className="mr-1 h-4 w-4" /> Nueva orden de compra</Link></Button>}

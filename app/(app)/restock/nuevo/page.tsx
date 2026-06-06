@@ -17,7 +17,7 @@ export default async function NuevoRestockPage() {
     .order("name");
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <h1 className="font-display text-3xl">Nuevo pedido de restock</h1>
+      <h1 className="font-display text-2xl sm:text-3xl">Nuevo pedido de restock</h1>
       <RestockRequestForm products={products ?? []} repId={rep.id} defaultRegion={rep.primary_region} />
     </div>
   );

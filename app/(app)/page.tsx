@@ -265,7 +265,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">
+          <h1 className="font-display text-2xl sm:text-3xl">
             Hola, {rep.full_name.split(" ")[0]}
           </h1>
           <p className="text-sm text-muted-foreground">

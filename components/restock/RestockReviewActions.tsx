@@ -48,6 +48,7 @@ export function RestockReviewActions({
   return (
     <Card><CardContent className="space-y-4 p-6">
       <h3 className="font-display text-lg">Revisión</h3>
+      <div className="overflow-x-auto">
       <table className="min-w-full text-sm">
         <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">Producto</th><th className="py-2 text-right">Pedido</th><th className="py-2 text-right w-28">Aprobar</th></tr></thead>
         <tbody>
@@ -60,6 +61,7 @@ export function RestockReviewActions({
           ))}
         </tbody>
       </table>
+      </div>
       <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); decide("aprobada", String(fd.get("notes") ?? "")); }} className="space-y-2">
         <Label htmlFor="notes">Comentario de revisión</Label>
         <Textarea id="notes" name="notes" placeholder="Ajustes, observaciones…" />

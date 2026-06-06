@@ -79,7 +79,7 @@ export default async function NuevaConsignacionPage() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Nueva consignación</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Nueva consignación</h1>
         <p className="text-sm text-muted-foreground">
           Registra una consignación de productos. Se crea en estado <em>pendiente</em>;
           ventas, devoluciones y cobros se registran después.

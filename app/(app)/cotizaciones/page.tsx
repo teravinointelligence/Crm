@@ -47,7 +47,7 @@ export default async function CotizacionesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Cotizaciones</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Cotizaciones</h1>
           <p className="text-sm text-muted-foreground">
             Borradores y propuestas enviadas a clientes (COT-…). Al aceptarse se convierten en pedido.
           </p>

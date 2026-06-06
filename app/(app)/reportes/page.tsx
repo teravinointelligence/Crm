@@ -251,7 +251,7 @@ export default async function ReportesPage({
     <div className="space-y-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Reportes</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Reportes</h1>
           <p className="text-sm text-muted-foreground">
             {range.label} · {range.from} → {range.to}
           </p>
@@ -302,6 +302,7 @@ export default async function ReportesPage({
             {topAccounts.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">Sin datos.</p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                   <tr><th className="px-4 py-2">Cuenta</th><th className="px-4 py-2">Región</th><th className="px-4 py-2 text-right">Pedidos</th><th className="px-4 py-2 text-right">Total</th></tr>
@@ -317,6 +318,7 @@ export default async function ReportesPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -330,6 +332,7 @@ export default async function ReportesPage({
             {topProductsByRevenue.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">Sin datos.</p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                   <tr><th className="px-4 py-2">Vino</th><th className="px-4 py-2">Proveedor</th><th className="px-4 py-2 text-right">Botellas</th><th className="px-4 py-2 text-right">Ingresos</th></tr>
@@ -345,6 +348,7 @@ export default async function ReportesPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -360,6 +364,7 @@ export default async function ReportesPage({
             {supplierList.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">Sin datos.</p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                   <tr><th className="px-4 py-2">Proveedor</th><th className="px-4 py-2 text-right">Botellas</th><th className="px-4 py-2 text-right">Ingresos</th></tr>
@@ -374,6 +379,7 @@ export default async function ReportesPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>
@@ -397,6 +403,7 @@ export default async function ReportesPage({
             {repList.length === 0 ? (
               <p className="p-6 text-sm text-muted-foreground">Sin datos.</p>
             ) : (
+              <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
                   <tr><th className="px-4 py-2">Vendedor</th><th className="px-4 py-2 text-right">Pedidos</th><th className="px-4 py-2 text-right">Total</th><th className="px-4 py-2 text-right">Ticket prom.</th></tr>
@@ -412,6 +419,7 @@ export default async function ReportesPage({
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </CardContent>
         </Card>

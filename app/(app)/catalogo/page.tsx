@@ -18,7 +18,7 @@ export default async function CatalogoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Catálogo</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Catálogo</h1>
         <p className="text-sm text-muted-foreground">
           Vinos y destilados de TERAVINO. Los precios mostrados son antes de IVA.
         </p>

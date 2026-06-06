@@ -31,7 +31,7 @@ export default async function NuevaActividadPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <h1 className="font-display text-3xl">
+      <h1 className="font-display text-2xl sm:text-3xl">
         {status === "agendada" ? "Agendar actividad" : "Registrar actividad"}
       </h1>
       <ActivityForm

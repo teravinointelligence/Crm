@@ -61,7 +61,7 @@ export default async function PedidoDetailPage({
       <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-card p-6 brand-shadow">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <h1 className="font-display text-3xl">{order.order_number}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">{order.order_number}</h1>
             <Badge variant="muted">{order.status}</Badge>
             <Badge variant="accent">{order.order_type}</Badge>
             {account?.price_tier === "+10" && (

@@ -79,7 +79,7 @@ export default async function PedidosPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Pedidos de reparto</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Pedidos de reparto</h1>
           <p className="text-sm text-muted-foreground">Asignación, ventana horaria y seguimiento.</p>
         </div>
         <div className="flex gap-2">

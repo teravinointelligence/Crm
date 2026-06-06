@@ -77,7 +77,7 @@ export default async function VentasPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Ventas mensuales</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Ventas mensuales</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin ? "Ventas por vendedor, distribuidas por cliente." : "Tus ventas del periodo."}
           </p>

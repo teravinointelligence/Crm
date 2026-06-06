@@ -195,6 +195,7 @@ export function PurchaseOrderForm({
           </div>
         )}
         {lines.length === 0 ? <p className="text-sm text-muted-foreground">Sin líneas aún.</p> : (
+          <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Producto</th><th className="py-2 pr-2 w-20">Cant.</th><th className="py-2 pr-2 w-28">Costo unit.</th><th className="py-2 pr-2 w-28">Destino</th><th className="py-2 pr-2 text-right w-24">Total</th><th className="w-8" /></tr></thead>
             <tbody>
@@ -210,6 +211,7 @@ export function PurchaseOrderForm({
               ))}
             </tbody>
           </table>
+          </div>
         )}
         <div className="space-y-1 border-t pt-4 text-sm">
           <div className="flex justify-between text-muted-foreground"><span>Subtotal</span><span>{formatCurrency(subtotal)}</span></div>

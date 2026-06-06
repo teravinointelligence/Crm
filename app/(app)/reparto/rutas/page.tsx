@@ -37,7 +37,7 @@ export default async function RutasPage({ searchParams }: { searchParams: { fech
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Rutas del día</h1>
+        <h1 className="font-display text-2xl sm:text-3xl">Rutas del día</h1>
         <p className="text-sm text-muted-foreground">
           Arrastra los pedidos de la columna "Sin asignar" hacia un chofer. Vuelve a arrastrar para reasignar.
         </p>

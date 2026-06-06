@@ -33,7 +33,7 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
       <div className="rounded-lg border bg-card p-6 brand-shadow">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h1 className="font-display text-3xl">{r.request_number}</h1>
+            <h1 className="font-display text-2xl sm:text-3xl">{r.request_number}</h1>
             <p className="text-sm text-muted-foreground">
               {r.sales_reps?.full_name ?? "—"} · {r.region_destino ?? "sin región"} · {formatDateTime(r.created_at)}
             </p>

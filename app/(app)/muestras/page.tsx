@@ -38,7 +38,7 @@ export default async function MuestrasPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Muestras solicitadas</h1>
+          <h1 className="font-display text-2xl sm:text-3xl">Muestras solicitadas</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin
               ? `Botellas de muestra pedidas por los vendedores${pendientes ? ` · ${pendientes} por revisar` : ""}`
