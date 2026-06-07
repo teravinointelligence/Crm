@@ -470,6 +470,62 @@ export type Payment = {
   method: string | null;
   reference: string | null;
   notes: string | null;
+  // Conciliación bancaria (ver 0035_bank_reconciliation.sql) — opcionales.
+  bank_transaction_id?: string | null;
+  created_by?: string | null;
+  confirmado?: boolean;
+};
+
+// ---------------------------------------------------------------------
+// CONCILIACIÓN BANCARIA — ver 0035_bank_reconciliation.sql
+// ---------------------------------------------------------------------
+export type BankStatement = {
+  id: string;
+  bank: string | null;
+  account_label: string | null;
+  account_number: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  file_path: string | null;
+  file_name: string | null;
+  file_kind: "pdf" | "csv" | "xlsx" | null;
+  status: "pendiente" | "procesado";
+  uploaded_by: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type BankTransaction = {
+  id: string;
+  bank_statement_id: string;
+  txn_date: string | null;
+  description: string | null;
+  reference: string | null;
+  amount: number;
+  kind: "abono" | "cargo";
+  estado_conciliacion: "sin_conciliar" | "sugerido" | "conciliado" | "ignorado";
+  matched_account_id: string | null;
+  suggestion: unknown | null;
+  row_index: number | null;
+  created_at: string | null;
+};
+
+export type PaymentAllocation = {
+  id: string;
+  payment_id: string;
+  invoice_id: string;
+  amount_applied: number;
+  created_at: string | null;
+};
+
+export type AccountAging = {
+  account_id: string;
+  business_name: string | null;
+  bucket_0_30: number;
+  bucket_31_60: number;
+  bucket_61_90: number;
+  bucket_90_plus: number;
+  saldo_total: number;
 };
 
 export type AccountProduct = {

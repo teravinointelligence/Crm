@@ -21,7 +21,7 @@ export async function GET(
     return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
   }
 
-  const [{ data: invoices }, { data: payments }, { data: balance }] =
+  const [{ data: invoices }, { data: payments }, { data: balance }, { data: aging }] =
     await Promise.all([
       supabase
         .from("invoices")
@@ -39,6 +39,11 @@ export async function GET(
         .select("*")
         .eq("account_id", params.accountId)
         .single(),
+      supabase
+        .from("v_account_aging")
+        .select("bucket_0_30, bucket_31_60, bucket_61_90, bucket_90_plus")
+        .eq("account_id", params.accountId)
+        .single(),
     ]);
 
   const data: StatementData = {
@@ -50,6 +55,14 @@ export async function GET(
       pendiente: Number(balance?.saldo_pendiente ?? 0),
       vencido: Number(balance?.saldo_vencido ?? 0),
     },
+    aging: aging
+      ? {
+          bucket_0_30: Number(aging.bucket_0_30 ?? 0),
+          bucket_31_60: Number(aging.bucket_31_60 ?? 0),
+          bucket_61_90: Number(aging.bucket_61_90 ?? 0),
+          bucket_90_plus: Number(aging.bucket_90_plus ?? 0),
+        }
+      : null,
     invoices: ((invoices ?? []) as never[]).map((i: Record<string, unknown>) => ({
       invoice_number: String(i.invoice_number),
       invoice_date: String(i.invoice_date),
