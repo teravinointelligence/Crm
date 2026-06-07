@@ -35,7 +35,7 @@ export default async function AppLayout({
       <PresenceHeartbeat />
       <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header rep={rep} />
+        <Header rep={rep} isAdmin={isAdmin} modules={modules} badges={badges} />
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
           {children}
         </main>
