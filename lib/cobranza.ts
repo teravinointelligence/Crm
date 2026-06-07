@@ -29,3 +29,74 @@ export function semaforoCobranza(
   if (pend > 0) return { estado: "por_cobrar", label: "Por cobrar", variant: "warning", bloquea: false };
   return { estado: "al_corriente", label: "Al corriente", variant: "success", bloquea: false };
 }
+
+// =====================================================================
+// Clasificación de riesgo de cartera (Flujo 3 — estado de cuenta).
+//
+//   Cartera Legacy  → cuenta legacy/estratégica; se excluye de métricas
+//                     operativas y NO entra a la lógica de suspensión.
+//   Crédito Liberado→ al corriente o sin saldo vencido material.
+//   Por Revisar     → saldo vencido dentro de la ventana de revisión
+//                     [ventanaRevision, ventanaSuspension]. NO se suspende
+//                     (regla 13).
+//   Suspender Crédito → saldo vencido más allá de la ventana de revisión.
+//
+// El umbral de "Por Revisar" es configurable por cliente (default 45 días)
+// para resolver la pregunta abierta 45 (regla) vs 32 (bucket) sin cablearla.
+// =====================================================================
+
+export type ClaseRiesgo =
+  | "Cartera Legacy"
+  | "Crédito Liberado"
+  | "Por Revisar"
+  | "Suspender Crédito";
+
+export type RiesgoInfo = {
+  clase: ClaseRiesgo;
+  variant: "success" | "warning" | "danger" | "muted";
+  /** Descripción corta del porqué de la clasificación. */
+  detalle: string;
+};
+
+export const VENTANA_REVISION_DEFAULT = 45;
+export const VENTANA_SUSPENSION_DEFAULT = 62;
+
+export function clasificarRiesgo(params: {
+  diasVencido: number | null | undefined;
+  saldoVencido: number | null | undefined;
+  isLegacy?: boolean | null;
+  ventanaRevision?: number | null;
+  ventanaSuspension?: number | null;
+}): RiesgoInfo {
+  const dv = Number(params.diasVencido ?? 0);
+  const vencido = Number(params.saldoVencido ?? 0);
+  const inicio = Number(params.ventanaRevision ?? VENTANA_REVISION_DEFAULT);
+  const fin = Number(params.ventanaSuspension ?? VENTANA_SUSPENSION_DEFAULT);
+
+  if (params.isLegacy) {
+    return {
+      clase: "Cartera Legacy",
+      variant: "muted",
+      detalle: "Cuenta legacy/estratégica · excluida de métricas operativas",
+    };
+  }
+  if (vencido <= 0 || dv < inicio) {
+    return {
+      clase: "Crédito Liberado",
+      variant: "success",
+      detalle: vencido > 0 ? `Vencido ${dv} días (dentro de tolerancia)` : "Sin saldo vencido material",
+    };
+  }
+  if (dv <= fin) {
+    return {
+      clase: "Por Revisar",
+      variant: "warning",
+      detalle: `Vencido ${dv} días · en ventana de revisión (${inicio}–${fin})`,
+    };
+  }
+  return {
+    clase: "Suspender Crédito",
+    variant: "danger",
+    detalle: `Vencido ${dv} días · más allá de la ventana de revisión (${fin})`,
+  };
+}
