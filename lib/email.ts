@@ -7,17 +7,30 @@ import "server-only";
 
 const RESEND_URL = "https://api.resend.com/emails";
 
+export type EmailAttachment = {
+  filename: string;
+  /** Contenido en base64 (sin el prefijo data:). */
+  content: string;
+};
+
 export type SendEmailInput = {
   to: string | string[];
   subject: string;
   html: string;
+  from?: string;
   replyTo?: string;
   cc?: string | string[];
+  attachments?: EmailAttachment[];
 };
 
 /** Remitente de cobranza. Configurable por env; default cobranza@teravino.com. */
 export function cobranzaFrom(): string {
   return process.env.COBRANZA_FROM_EMAIL || "TERAVINO Cobranza <cobranza@teravino.com>";
+}
+
+/** Remitente de ventas/muestras. Mismo dominio verificado (teravino.com). */
+export function ventasFrom(): string {
+  return process.env.VENTAS_FROM_EMAIL || "TERAVINO <ventas@teravino.com>";
 }
 
 export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> {
@@ -35,12 +48,13 @@ export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: cobranzaFrom(),
+      from: input.from || cobranzaFrom(),
       to: Array.isArray(input.to) ? input.to : [input.to],
       subject: input.subject,
       html: input.html,
       ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       ...(input.cc ? { cc: Array.isArray(input.cc) ? input.cc : [input.cc] } : {}),
+      ...(input.attachments?.length ? { attachments: input.attachments } : {}),
     }),
     cache: "no-store",
   });

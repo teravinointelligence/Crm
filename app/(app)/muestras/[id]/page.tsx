@@ -1,15 +1,16 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileDown, Mail } from "lucide-react";
+import { ArrowLeft, FileDown, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SampleReviewActions } from "@/components/samples/SampleReviewActions";
+import { SendSampleEmail } from "@/components/samples/SendSampleEmail";
 import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { CitaEvidence } from "@/components/samples/CitaEvidence";
-import { formatDateTime } from "@/lib/utils";
+import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -77,28 +78,6 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   }
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
   const canExport = r.status === "aprobada" || r.status === "entregada";
-  const mailSubject = `Solicitud de muestras ${r.request_number} — TERAVINO`;
-  const mailBody = [
-    `Solicitud de muestras ${r.request_number} (${r.status})`,
-    `Solicitante: ${r.sales_reps?.full_name ?? "—"}`,
-    r.accounts ? `Cliente: ${r.accounts.business_name}` : null,
-    r.reason ? `Motivo: ${r.reason}` : null,
-    r.training_people ? `Capacitación para ${r.training_people} persona(s)` : null,
-    "",
-    "Vinos:",
-    ...items.map((i) => `• ${i.quantity} × ${i.product_name}${i.supplier ? ` (${i.supplier})` : ""}${i.notes ? ` — ${i.notes}` : ""}`),
-    "",
-    `Total de botellas: ${totalBottles}`,
-    citas.length ? `\nCitas que cubre (${distinctAccountIds.length} cliente(s)):` : null,
-    ...citas.map((c) => `• ${c.accounts?.business_name ?? "Sin cliente"} — ${formatDateTime(c.activity_date)} (${c.activity_type})`),
-    r.notes ? `\nNotas: ${r.notes}` : null,
-    r.review_notes ? `Revisión: ${r.review_notes}` : null,
-    "",
-    "(El PDF con el formato TERAVINO se puede descargar desde el CRM y adjuntar a este correo.)",
-  ]
-    .filter((l) => l !== null)
-    .join("\n");
-  const mailto = `mailto:?subject=${encodeURIComponent(mailSubject)}&body=${encodeURIComponent(mailBody)}`;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -112,6 +91,11 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="muted">{r.status}</Badge>
             {r.training_people ? <Badge variant="accent">Capacitación · {r.training_people} personas</Badge> : null}
+            {r.ship_to_client ? (
+              <Badge variant="warning">
+                <Truck className="mr-1 h-3.5 w-3.5" /> Enviar al cliente{r.ship_date ? ` · ${formatDate(r.ship_date)}` : ""}
+              </Badge>
+            ) : null}
             {canExport && (
               <>
                 <Button asChild size="sm" variant="outline">
@@ -119,11 +103,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                     <FileDown className="mr-1 h-4 w-4" /> Descargar PDF
                   </a>
                 </Button>
-                <Button asChild size="sm" variant="outline">
-                  <a href={mailto}>
-                    <Mail className="mr-1 h-4 w-4" /> Enviar por mail
-                  </a>
-                </Button>
+                <SendSampleEmail sampleId={r.id} />
               </>
             )}
           </div>

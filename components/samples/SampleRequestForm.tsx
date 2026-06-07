@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock, GraduationCap, Package } from "lucide-react";
+import { Plus, Trash2, Search, CalendarPlus, Check, Users, Lock, GraduationCap, Package, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,6 +56,8 @@ export function SampleRequestForm({
   const [notes, setNotes] = useState("");
   const [isTraining, setIsTraining] = useState(false);
   const [trainingPeople, setTrainingPeople] = useState<number>(8);
+  const [shipToClient, setShipToClient] = useState(false);
+  const [shipDate, setShipDate] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string[]>(() =>
@@ -147,6 +149,16 @@ export function SampleRequestForm({
       toast.error("Indica para cuántas personas es la capacitación");
       return;
     }
+    if (shipToClient) {
+      if (!primaryAccountId) {
+        toast.error("Para enviar al cliente, selecciona una cita de un cliente ya registrado");
+        return;
+      }
+      if (!shipDate) {
+        toast.error("Indica qué día se necesitan enviar las muestras");
+        return;
+      }
+    }
     startTransition(async () => {
       // El folio (request_number) lo asigna la BD en el INSERT, de forma atómica,
       // para evitar folios duplicados por envíos concurrentes.
@@ -160,6 +172,8 @@ export function SampleRequestForm({
           reason: reason || null,
           notes: notes || null,
           training_people: isTraining ? trainingPeople : null,
+          ship_to_client: shipToClient,
+          ship_date: shipToClient ? shipDate : null,
           status: "borrador",
         })
         .select("id, request_number")
@@ -230,6 +244,35 @@ export function SampleRequestForm({
                 Puedes ajustarlas abajo.
               </p>
             )}
+          </div>
+        )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={shipToClient}
+            onChange={(e) => setShipToClient(e.target.checked)}
+            className="h-4 w-4 rounded border-input"
+          />
+          El cliente pide que se le envíen las muestras
+        </label>
+
+        {shipToClient && (
+          <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+            <Label htmlFor="shipDate" className="flex items-center gap-1.5">
+              <Truck className="h-4 w-4" /> ¿Qué día se necesitan enviar?
+            </Label>
+            <Input
+              id="shipDate"
+              type="date"
+              value={shipDate}
+              onChange={(e) => setShipDate(e.target.value)}
+              className="w-44"
+            />
+            <p className="text-xs text-muted-foreground">
+              Se envían al cliente (no entran al banco de muestras). El cliente debe estar registrado:
+              selecciona abajo una cita de un cliente ya dado de alta.
+            </p>
           </div>
         )}
       </CardContent></Card>
