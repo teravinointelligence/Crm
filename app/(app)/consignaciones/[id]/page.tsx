@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, PackageX, FileDown } from "lucide-react";
+import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, PackageX, FileDown, Plus } from "lucide-react";
 import { requireRep } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -213,7 +213,11 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
               <h2 className="font-display text-lg">Tomas de inventario</h2>
               <span className="text-xs text-muted-foreground">({tomas.length})</span>
             </div>
-            <span className="text-xs text-muted-foreground">Reconciliaciones físicas del producto consignado.</span>
+            <Button asChild size="sm">
+              <Link href={`/consignaciones/tomas/nueva?consignacion=${consignacion.id}`}>
+                <Plus className="mr-1 h-4 w-4" /> Nueva toma
+              </Link>
+            </Button>
           </div>
           {tomas.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">

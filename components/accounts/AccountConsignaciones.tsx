@@ -9,7 +9,7 @@
 // vista en /consignaciones, y la ficha respeta el mismo principio.
 
 import Link from "next/link";
-import { HandCoins, ClipboardList, ExternalLink } from "lucide-react";
+import { HandCoins, ClipboardList, ExternalLink, Plus } from "lucide-react";
 import {
   base44,
   resolveBase44Vendedor,
@@ -198,13 +198,21 @@ export async function AccountConsignaciones({ clientNumber, isAdmin, repEmail }:
                           <Badge variant={CONS_ESTADO_VARIANT[c.estado]}>{CONS_ESTADO_LABEL[c.estado]}</Badge>
                         </td>
                         <td className="px-3 py-2 text-right">
-                          <Link
-                            href={`/consignaciones/${c.id}`}
-                            className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                            aria-label="Abrir"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </Link>
+                          <div className="inline-flex items-center gap-3">
+                            <Link
+                              href={`/consignaciones/tomas/nueva?consignacion=${c.id}`}
+                              className="inline-flex items-center gap-1 text-xs text-brand-carmesi hover:underline whitespace-nowrap"
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Toma
+                            </Link>
+                            <Link
+                              href={`/consignaciones/${c.id}`}
+                              className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                              aria-label="Abrir"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     );
