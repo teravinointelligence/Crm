@@ -69,6 +69,17 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
         const n = Number(raw);
         return Number.isFinite(n) && n >= 0 ? Math.round(n) : null;
       })(),
+      dias_pago: (formData.get("dias_pago") as string)?.trim() || null,
+      dias_revision: (formData.get("dias_revision") as string)?.trim() || null,
+      ventana_revision: (() => {
+        const n = Number(String(formData.get("ventana_revision") ?? "").trim());
+        return Number.isFinite(n) && n >= 0 ? Math.round(n) : 45;
+      })(),
+      ventana_suspension: (() => {
+        const n = Number(String(formData.get("ventana_suspension") ?? "").trim());
+        return Number.isFinite(n) && n >= 0 ? Math.round(n) : 62;
+      })(),
+      is_legacy: formData.get("is_legacy") === "on",
       price_tier: priceTier,
       assigned_rep_id:
         (formData.get("assigned_rep_id") as string) || defaultRepId || null,
@@ -239,6 +250,65 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
           defaultValue={account?.credit_days ?? ""}
           placeholder="0 = contado · ej. 30"
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="dias_pago">Días de pago</Label>
+        <Input
+          id="dias_pago"
+          name="dias_pago"
+          defaultValue={account?.dias_pago ?? ""}
+          placeholder="p. ej. Martes y jueves"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="dias_revision">Días de revisión</Label>
+        <Input
+          id="dias_revision"
+          name="dias_revision"
+          defaultValue={account?.dias_revision ?? ""}
+          placeholder="p. ej. Lunes"
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="ventana_revision">Ventana "Por revisar" (días vencidos)</Label>
+        <Input
+          id="ventana_revision"
+          name="ventana_revision"
+          type="number"
+          min={0}
+          max={365}
+          step={1}
+          defaultValue={account?.ventana_revision ?? 45}
+          placeholder="45"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="ventana_suspension">Ventana "Suspender" (días vencidos)</Label>
+        <Input
+          id="ventana_suspension"
+          name="ventana_suspension"
+          type="number"
+          min={0}
+          max={365}
+          step={1}
+          defaultValue={account?.ventana_suspension ?? 62}
+          placeholder="62"
+        />
+      </div>
+
+      <div className="flex items-center gap-2 sm:col-span-2">
+        <input
+          id="is_legacy"
+          name="is_legacy"
+          type="checkbox"
+          defaultChecked={account?.is_legacy ?? false}
+          className="h-4 w-4 rounded border-input"
+        />
+        <Label htmlFor="is_legacy" className="font-normal">
+          Cuenta legacy/estratégica (se excluye de métricas operativas)
+        </Label>
       </div>
 
       {isAdmin && (

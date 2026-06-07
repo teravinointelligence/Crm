@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { StatementPdf, type StatementData } from "@/components/cartera/StatementPdf";
+import { clasificarRiesgo } from "@/lib/cobranza";
+import { resumenVencido } from "@/lib/cartera";
+import type { ReconcileSuggestion } from "@/lib/bank/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,55 +17,121 @@ export async function GET(
 
   const { data: account } = await supabase
     .from("accounts")
-    .select("business_name, fiscal_name, rfc, region")
+    .select(
+      "business_name, fiscal_name, rfc, region, city, client_number, credit_days, dias_pago, dias_revision, ventana_revision, ventana_suspension, is_legacy, assigned_rep_id",
+    )
     .eq("id", params.accountId)
     .single();
   if (!account) {
     return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
   }
 
-  const [{ data: invoices }, { data: payments }, { data: balance }, { data: aging }] =
-    await Promise.all([
-      supabase
-        .from("invoices")
-        .select("invoice_number, invoice_date, due_date, total, total_paid, balance, status")
-        .eq("account_id", params.accountId)
-        .neq("status", "cancelada")
-        .order("invoice_date", { ascending: true }),
-      supabase
-        .from("payments")
-        .select("payment_date, amount, method, reference")
-        .eq("account_id", params.accountId)
-        .order("payment_date", { ascending: true }),
-      supabase
-        .from("v_account_balance")
-        .select("*")
-        .eq("account_id", params.accountId)
-        .single(),
-      supabase
-        .from("v_account_aging")
-        .select("bucket_0_30, bucket_31_60, bucket_61_90, bucket_90_plus")
-        .eq("account_id", params.accountId)
-        .single(),
-    ]);
+  const [
+    { data: invoices },
+    { data: payments },
+    { data: balance },
+    { data: aging },
+    { data: rep },
+    { data: sugeridos },
+  ] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("invoice_number, invoice_date, due_date, total, total_paid, balance, status")
+      .eq("account_id", params.accountId)
+      .neq("status", "cancelada")
+      .order("invoice_date", { ascending: true }),
+    supabase
+      .from("payments")
+      .select("payment_date, amount, method, reference")
+      .eq("account_id", params.accountId)
+      .order("payment_date", { ascending: true }),
+    supabase.from("v_account_balance").select("*").eq("account_id", params.accountId).single(),
+    supabase
+      .from("v_account_aging")
+      .select("b_1_31, b_32_62, b_63_93, b_94_mas, saldo_total")
+      .eq("account_id", params.accountId)
+      .single(),
+    account.assigned_rep_id
+      ? supabase.from("sales_reps").select("full_name").eq("id", account.assigned_rep_id).single()
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("bank_transactions")
+      .select("id, txn_date, amount, reference, description, suggestion, bank_statements(bank, account_label)")
+      .eq("matched_account_id", params.accountId)
+      .eq("estado_conciliacion", "sugerido")
+      .eq("kind", "abono"),
+  ]);
+
+  const saldoPendiente = Number(balance?.saldo_pendiente ?? 0);
+  const creditDaysNum = Number(account.credit_days ?? 0);
+  const { saldoVencido, maxDiasVencido } = resumenVencido(
+    ((invoices ?? []) as { invoice_date: string | null; balance: number | null }[]),
+    creditDaysNum,
+    new Date(),
+  );
+
+  const riesgo = clasificarRiesgo({
+    diasVencido: maxDiasVencido,
+    saldoVencido,
+    isLegacy: account.is_legacy as boolean | null,
+    ventanaRevision: account.ventana_revision as number | null,
+    ventanaSuspension: account.ventana_suspension as number | null,
+  });
+
+  const pendientes = ((sugeridos ?? []) as Record<string, unknown>[]).map((s) => {
+    const sug = (s.suggestion ?? null) as ReconcileSuggestion | null;
+    const bankRel = Array.isArray(s.bank_statements) ? s.bank_statements[0] : s.bank_statements;
+    const b = bankRel as { bank: string | null; account_label: string | null } | null;
+    return {
+      fecha: s.txn_date ? String(s.txn_date) : null,
+      banco: b?.bank ?? b?.account_label ?? "—",
+      referencia: (s.reference as string) ?? (s.description as string) ?? "—",
+      folios: (sug?.candidates ?? []).map((c) => c.invoice_number).join(", ") || "—",
+      importe: Number(s.amount ?? 0),
+    };
+  });
+  const sumSugeridos = pendientes.reduce((acc, p) => acc + p.importe, 0);
+
+  const creditoLabel =
+    account.credit_days == null
+      ? "Por confirmar"
+      : account.credit_days === 0
+        ? "Contado"
+        : `${account.credit_days} días`;
 
   const data: StatementData = {
-    account: account as StatementData["account"],
+    account: {
+      business_name: account.business_name as string,
+      fiscal_name: (account.fiscal_name as string) ?? null,
+      rfc: (account.rfc as string) ?? null,
+      region: (account.region as string) ?? null,
+      city: (account.city as string) ?? null,
+      client_number: (account.client_number as string) ?? null,
+      vendedor: rep?.full_name ?? null,
+      dias_pago: (account.dias_pago as string) ?? null,
+      dias_revision: (account.dias_revision as string) ?? null,
+      credito: creditoLabel,
+    },
     generatedAt: new Date().toISOString(),
+    creditDays: Number(account.credit_days ?? 0),
+    riesgo: riesgo.clase,
     totals: {
       facturado: Number(balance?.total_facturado ?? 0),
       pagado: Number(balance?.total_pagado ?? 0),
-      pendiente: Number(balance?.saldo_pendiente ?? 0),
-      vencido: Number(balance?.saldo_vencido ?? 0),
+      pendiente: saldoPendiente,
+      vencido: saldoVencido,
+      netoEstimado: sumSugeridos > 0 ? saldoPendiente - sumSugeridos : null,
     },
     aging: aging
       ? {
-          bucket_0_30: Number(aging.bucket_0_30 ?? 0),
-          bucket_31_60: Number(aging.bucket_31_60 ?? 0),
-          bucket_61_90: Number(aging.bucket_61_90 ?? 0),
-          bucket_90_plus: Number(aging.bucket_90_plus ?? 0),
+          b_1_31: Number(aging.b_1_31 ?? 0),
+          b_32_62: Number(aging.b_32_62 ?? 0),
+          b_63_93: Number(aging.b_63_93 ?? 0),
+          b_94_mas: Number(aging.b_94_mas ?? 0),
+          saldo_total: Number(aging.saldo_total ?? 0),
         }
       : null,
+    pendientes,
     invoices: ((invoices ?? []) as never[]).map((i: Record<string, unknown>) => ({
       invoice_number: String(i.invoice_number),
       invoice_date: String(i.invoice_date),
