@@ -5,6 +5,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ActivityViewTabs } from "@/components/activities/ActivityViewTabs";
 import { CalendarMonth, type CalItem } from "@/components/activities/CalendarMonth";
+import { dateKeyTz, formatTime } from "@/lib/utils";
 import {
   buildRepColors,
   STATUS_SWATCH,
@@ -59,6 +60,14 @@ export default async function CalendarioPage({
   const prevM = month === 1 ? 12 : month - 1;
   const monthStart = `${monthStr}-01`;
   const nextStart = `${nextY}-${pad(nextM)}-01`;
+  // Ampliamos la ventana 1 día a cada lado: un instante UTC puede caer en un día
+  // distinto en hora de Los Cabos (UTC-7). El bucketing por día ya usa esa zona.
+  const fetchStart = new Date(`${monthStart}T00:00:00Z`);
+  fetchStart.setUTCDate(fetchStart.getUTCDate() - 1);
+  const fetchEnd = new Date(`${nextStart}T00:00:00Z`);
+  fetchEnd.setUTCDate(fetchEnd.getUTCDate() + 1);
+  const fetchStartStr = fetchStart.toISOString();
+  const fetchEndStr = fetchEnd.toISOString();
 
   // Vendedores (para colorear + filtrar, solo admin).
   const repFilter = isAdmin && searchParams.rep ? searchParams.rep : null;
@@ -78,8 +87,8 @@ export default async function CalendarioPage({
       "id, activity_type, activity_date, status, account_id, sales_rep_id, accounts:account_id(business_name)",
     )
     .neq("status", "cancelada")
-    .gte("activity_date", `${monthStart}T00:00:00`)
-    .lt("activity_date", `${nextStart}T00:00:00`);
+    .gte("activity_date", fetchStartStr)
+    .lt("activity_date", fetchEndStr);
   let taskQuery = supabase
     .from("activities")
     .select(
@@ -100,11 +109,8 @@ export default async function CalendarioPage({
   };
 
   for (const a of (activitiesRes.data ?? []) as unknown as Row[]) {
-    const day = a.activity_date.slice(0, 10);
-    const time = new Date(a.activity_date).toLocaleTimeString("es-MX", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const day = dateKeyTz(a.activity_date); // día en hora de Los Cabos
+    const time = formatTime(a.activity_date); // hora en hora de Los Cabos
     // Admin: color por vendedor. Vendedor: color por estado.
     const sw = isAdmin
       ? (a.sales_rep_id && repColors[a.sales_rep_id]) || FALLBACK
@@ -117,7 +123,7 @@ export default async function CalendarioPage({
       title: a.accounts?.business_name ?? a.activity_type ?? "actividad",
       bg: sw.bg,
       fg: sw.fg,
-      href: `/cuentas/${a.account_id}`,
+      href: `/actividades/${a.id}/editar`,
     });
   }
 
@@ -131,7 +137,7 @@ export default async function CalendarioPage({
       done: t.next_step_done,
       bg: sw.bg,
       fg: sw.fg,
-      href: `/cuentas/${t.account_id}`,
+      href: `/actividades/${t.id}/editar`,
     });
   }
 
@@ -146,7 +152,7 @@ export default async function CalendarioPage({
     month: "long",
     year: "numeric",
   }).format(new Date(year, month - 1, 1));
-  const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const todayStr = dateKeyTz(now);
   const keepRep = repFilter ? `&rep=${repFilter}` : "";
 
   return (

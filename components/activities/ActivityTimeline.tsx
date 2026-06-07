@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Phone,
   Mail,
@@ -8,8 +9,11 @@ import {
   CalendarCheck2,
   CircleAlert,
   CircleCheckBig,
+  Pencil,
+  CalendarPlus,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { googleCalendarUrl } from "@/lib/calendar-links";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Activity } from "@/types/database";
 
@@ -79,11 +83,36 @@ export function ActivityTimeline({
                     · {formatDateTime(a.activity_date)}
                   </span>
                 </div>
-                {a.duration_minutes && (
-                  <span className="text-xs text-muted-foreground">
-                    {a.duration_minutes} min
-                  </span>
-                )}
+                <div className="flex items-center gap-3">
+                  {a.duration_minutes && (
+                    <span className="text-xs text-muted-foreground">
+                      {a.duration_minutes} min
+                    </span>
+                  )}
+                  <a
+                    href={googleCalendarUrl({
+                      title: `${a.accounts?.business_name ?? a.activity_type ?? "Actividad"}${a.accounts?.business_name && a.activity_type ? ` · ${a.activity_type}` : ""}`,
+                      startISO: a.activity_date,
+                      durationMinutes: a.duration_minutes,
+                      details: [a.outcome, a.next_step ? `Siguiente: ${a.next_step}` : null]
+                        .filter(Boolean)
+                        .join("\n"),
+                      location: a.accounts?.business_name ?? undefined,
+                    })}
+                    target="_blank"
+                    rel="noreferrer"
+                    title="Agregar a Google Calendar"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-brand-carmesi"
+                  >
+                    <CalendarPlus className="h-3 w-3" /> Google Calendar
+                  </a>
+                  <Link
+                    href={`/actividades/${a.id}/editar`}
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-brand-carmesi"
+                  >
+                    <Pencil className="h-3 w-3" /> Editar
+                  </Link>
+                </div>
               </div>
               {a.outcome && (
                 <p className="mt-2 text-sm text-foreground/90">{a.outcome}</p>
