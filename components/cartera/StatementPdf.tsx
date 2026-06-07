@@ -41,12 +41,20 @@ export type StatementData = {
   account: { business_name: string; fiscal_name: string | null; rfc: string | null; region: string | null };
   generatedAt: string;
   totals: { facturado: number; pagado: number; pendiente: number; vencido: number };
+  aging?: { bucket_0_30: number; bucket_31_60: number; bucket_61_90: number; bucket_90_plus: number } | null;
   invoices: Array<{ invoice_number: string; invoice_date: string; due_date: string | null; total: number; total_paid: number; balance: number; status: string }>;
   payments: Array<{ payment_date: string; amount: number; method: string | null; reference: string | null }>;
 };
 
+const agingStyles = StyleSheet.create({
+  wrap: { flexDirection: "row", gap: 8, marginTop: 4 },
+  box: { flex: 1, borderWidth: 0.5, borderColor: "#E8DDC8", borderRadius: 3, padding: 6 },
+  label: { fontSize: 7.5, color: MUTED, textTransform: "uppercase", letterSpacing: 0.5 },
+  value: { fontSize: 11, color: TINTA, marginTop: 2 },
+});
+
 export function StatementPdf({ data }: { data: StatementData }) {
-  const { account, totals, invoices, payments } = data;
+  const { account, totals, invoices, payments, aging } = data;
   return (
     <Document title={`Estado de cuenta ${account.business_name}`}>
       <Page size="LETTER" style={s.page}>
@@ -108,6 +116,18 @@ export function StatementPdf({ data }: { data: StatementData }) {
                 <Text style={s.cR}>{mxn(p.amount)}</Text>
               </View>
             ))}
+          </>
+        )}
+
+        {aging && (
+          <>
+            <Text style={s.h2}>Antigüedad de saldos</Text>
+            <View style={agingStyles.wrap}>
+              <View style={agingStyles.box}><Text style={agingStyles.label}>0–30 días</Text><Text style={agingStyles.value}>{mxn(aging.bucket_0_30)}</Text></View>
+              <View style={agingStyles.box}><Text style={agingStyles.label}>31–60 días</Text><Text style={agingStyles.value}>{mxn(aging.bucket_31_60)}</Text></View>
+              <View style={agingStyles.box}><Text style={agingStyles.label}>61–90 días</Text><Text style={agingStyles.value}>{mxn(aging.bucket_61_90)}</Text></View>
+              <View style={agingStyles.box}><Text style={agingStyles.label}>+90 días</Text><Text style={agingStyles.value}>{mxn(aging.bucket_90_plus)}</Text></View>
+            </View>
           </>
         )}
 

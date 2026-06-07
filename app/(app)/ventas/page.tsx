@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency } from "@/lib/utils";
+import { MonthlySalesDetail } from "@/components/ventas/MonthlySalesDetail";
 import type { MonthlySale } from "@/types/database";
 
 export const metadata = { title: "Ventas — TERAVINO CRM" };
@@ -162,41 +163,7 @@ export default async function VentasPage({
           </CardContent></Card>
 
           {/* Detalle por cliente */}
-          <Card><CardContent className="p-0">
-            <div className="border-b p-4">
-              <h2 className="font-display text-lg">Detalle por cliente</h2>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 text-left"># Cliente</th>
-                    <th className="px-4 py-2 text-left">Cliente</th>
-                    {isAdmin && <th className="px-4 py-2 text-left">Vendedor</th>}
-                    <th className="px-4 py-2 text-right">Venta bruta</th>
-                    <th className="px-4 py-2 text-right">Descuento</th>
-                    <th className="px-4 py-2 text-right">Neto-Desc.</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sales.map((v) => (
-                    <tr key={v.id} className="border-t hover:bg-muted/20">
-                      <td className="px-4 py-2 font-mono text-xs">{v.client_number ?? "—"}</td>
-                      <td className="px-4 py-2">
-                        <Link href={`/cuentas/${v.account_id}`} className="hover:text-brand-carmesi">
-                          {v.client_name ?? "—"}
-                        </Link>
-                      </td>
-                      {isAdmin && <td className="px-4 py-2 text-muted-foreground">{v.sales_rep_id ? repName.get(v.sales_rep_id) ?? "—" : "—"}</td>}
-                      <td className="px-4 py-2 text-right">{formatCurrency(v.venta_bruta)}</td>
-                      <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(v.descuento)}</td>
-                      <td className="px-4 py-2 text-right">{formatCurrency(v.neto_desc)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent></Card>
+          <MonthlySalesDetail sales={sales} reps={reps} isAdmin={isAdmin} />
         </>
       )}
     </div>

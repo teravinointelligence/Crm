@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { Upload, Download } from "lucide-react";
+import { Upload, Download, Landmark } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canSeeFinance } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
+import { CobranzaEmails } from "@/components/cartera/CobranzaEmails";
 import { formatCurrency } from "@/lib/utils";
 import type { AccountBalance } from "@/types/database";
 
@@ -15,6 +17,7 @@ export default async function CarteraPage() {
   const supabase = createClient();
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
+  const finance = canSeeFinance(rep?.role);
 
   const [{ data: balances }, { data: reps }, { data: accts }] = await Promise.all([
     supabase
@@ -58,11 +61,19 @@ export default async function CarteraPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {rows.length > 0 && <CobranzaEmails rows={rows} />}
           {rows.length > 0 && (
             <Button asChild variant="outline">
               <a href="/api/cartera/export">
                 <Download className="mr-1 h-4 w-4" /> Descargar Excel
               </a>
+            </Button>
+          )}
+          {finance && (
+            <Button asChild variant="outline">
+              <Link href="/cartera/conciliacion">
+                <Landmark className="mr-1 h-4 w-4" /> Conciliación bancaria
+              </Link>
             </Button>
           )}
           {isAdmin && (
