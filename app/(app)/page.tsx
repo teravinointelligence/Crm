@@ -13,6 +13,7 @@ import {
   Cake,
   MessageCircle,
   Phone,
+  FlaskConical,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
@@ -68,6 +69,7 @@ export default async function DashboardPage() {
     supplierDueRes,
     monthlySalesRes,
     topVinosRes,
+    samplePendingRes,
   ] = await Promise.all([
     supabase
       .from("accounts")
@@ -132,6 +134,18 @@ export default async function DashboardPage() {
       .select("status, order_date, order_items(product_name, supplier, line_total, quantity)")
       .in("status", ["aceptada", "facturada", "entregada"])
       .gte("order_date", ninetyDaysAgoISO),
+    // Muestras esperando aprobación del admin (solicitudes enviadas).
+    isAdmin
+      ? supabase
+          .from("sample_requests")
+          .select(
+            "id, request_number, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name)",
+            { count: "exact" },
+          )
+          .eq("status", "enviada")
+          .order("created_at", { ascending: true })
+          .limit(8)
+      : Promise.resolve({ data: [] as never[], count: 0 }),
   ]);
 
   // Vendedores para el selector del calendario (solo admin lo usa).
@@ -282,6 +296,13 @@ export default async function DashboardPage() {
     id: string; po_number: string; supplier: string; supplier_invoice_due_date: string | null; balance: number | null;
   }>;
   const supplierDueTotal = supplierDue.reduce((s, p) => s + Number(p.balance ?? 0), 0);
+  const samplePending = (samplePendingRes.data ?? []) as unknown as Array<{
+    id: string; request_number: string; created_at: string | null;
+    account_id: string | null;
+    sales_reps: { full_name: string | null } | null;
+    accounts: { business_name: string | null } | null;
+  }>;
+  const samplePendingCount = samplePendingRes.count ?? samplePending.length;
 
   return (
     <div className="space-y-6">
@@ -312,6 +333,30 @@ export default async function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {isAdmin && samplePendingCount > 0 && (
+        <Link
+          href="/muestras"
+          className="flex items-center justify-between gap-3 rounded-xl border border-brand-carmesi/30 bg-brand-carmesi/5 p-4 transition-colors hover:bg-brand-carmesi/10"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-carmesi text-white">
+              <FlaskConical className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="font-medium">
+                {samplePendingCount === 1
+                  ? "1 solicitud de muestras espera tu aprobación"
+                  : `${samplePendingCount} solicitudes de muestras esperan tu aprobación`}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Toca para revisar y autorizar
+              </div>
+            </div>
+          </div>
+          <Badge variant="warning">Revisar</Badge>
+        </Link>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
@@ -368,8 +413,21 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {(isAdmin && (restockPending.length > 0 || supplierDue.length > 0)) && (
+      {(isAdmin && (samplePending.length > 0 || restockPending.length > 0 || supplierDue.length > 0)) && (
         <div className="grid gap-6 lg:grid-cols-2">
+          {samplePending.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="font-display text-xl">Muestras por aprobar</h2>
+              <Card><CardContent className="space-y-2 p-4">
+                {samplePending.map((s) => (
+                  <Link key={s.id} href={`/muestras/${s.id}`} className="flex items-center justify-between gap-2 rounded-md border bg-card p-3 hover:border-brand-carmesi">
+                    <div><div className="font-medium">{s.request_number}</div><div className="text-xs text-muted-foreground">{s.sales_reps?.full_name ?? "—"}{s.accounts?.business_name ? ` · ${s.accounts.business_name}` : ""} · {formatDate(s.created_at)}</div></div>
+                    <Badge variant="warning">Revisar</Badge>
+                  </Link>
+                ))}
+              </CardContent></Card>
+            </div>
+          )}
           {restockPending.length > 0 && (
             <div className="space-y-3">
               <h2 className="font-display text-xl">Restocks pendientes de revisar</h2>
