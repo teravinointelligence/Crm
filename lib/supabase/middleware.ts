@@ -34,7 +34,10 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith("/login");
-  const isPublic = isAuthRoute || path.startsWith("/_next") || path === "/favicon.ico";
+  // Los crons de Vercel llegan SIN sesión (sin cookie): no deben redirigirse a
+  // /login. Se auto-protegen con CRON_SECRET en su propio handler.
+  const isCron = path.startsWith("/api/cron");
+  const isPublic = isAuthRoute || isCron || path.startsWith("/_next") || path === "/favicon.ico";
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
