@@ -12,7 +12,11 @@ import { extractBankTransactionsFromPdf } from "@/lib/anthropic";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
+
+// Tope de tamaño para el PDF (la extracción con Claude se encarece y se acerca
+// al límite de body de la función). Más allá, conviene partir el estado de cuenta.
+const MAX_PDF_BYTES = 8 * 1024 * 1024;
 
 export async function POST(req: Request) {
   const rep = await getCurrentRep();
@@ -32,6 +36,16 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Formato no soportado. Sube PDF, CSV o XLSX." },
       { status: 400 },
+    );
+  }
+
+  if (kind === "pdf" && file.size > MAX_PDF_BYTES) {
+    return NextResponse.json(
+      {
+        error: `El PDF pesa ${(file.size / 1048576).toFixed(1)} MB; el máximo es 8 MB. ` +
+          "Súbelo por partes (por mes o rango) o usa el CSV/XLSX del banco.",
+      },
+      { status: 413 },
     );
   }
 

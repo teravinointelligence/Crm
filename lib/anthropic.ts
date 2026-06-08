@@ -37,7 +37,7 @@ async function callClaude(opts: {
   system?: string;
   content: ContentBlock[];
   maxTokens?: number;
-}): Promise<string> {
+}): Promise<{ text: string; stopReason: string | null }> {
   const res = await fetch(API_URL, {
     method: "POST",
     headers: {
@@ -55,14 +55,28 @@ async function callClaude(opts: {
   });
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    // Mensaje accionable para los errores más comunes de configuración.
+    if (res.status === 401) {
+      throw new Error("Anthropic 401: ANTHROPIC_API_KEY inválida o ausente en el servidor.");
+    }
+    if (res.status === 404 || /model/i.test(body)) {
+      throw new Error(
+        `Anthropic ${res.status}: el modelo "${model()}" no existe o no está disponible. ` +
+          "Revisa ANTHROPIC_MODEL en Vercel.",
+      );
+    }
     throw new Error(`Anthropic ${res.status}: ${body.slice(0, 400)}`);
   }
-  const data = (await res.json()) as { content?: { type: string; text?: string }[] };
-  return (data.content ?? [])
+  const data = (await res.json()) as {
+    content?: { type: string; text?: string }[];
+    stop_reason?: string | null;
+  };
+  const text = (data.content ?? [])
     .filter((b) => b.type === "text")
     .map((b) => b.text ?? "")
     .join("\n")
     .trim();
+  return { text, stopReason: data.stop_reason ?? null };
 }
 
 /** Extrae el primer bloque JSON ({...} o [...]) de un texto y lo parsea. null si falla. */
@@ -92,9 +106,9 @@ const EXTRACT_SYSTEM =
 export async function extractBankTransactionsFromPdf(
   base64Pdf: string,
 ): Promise<BankTxnParsed[]> {
-  const text = await callClaude({
+  const { text, stopReason } = await callClaude({
     system: EXTRACT_SYSTEM,
-    maxTokens: 8192,
+    maxTokens: 16384,
     content: [
       { type: "document", source: { type: "base64", media_type: "application/pdf", data: base64Pdf } },
       {
@@ -109,6 +123,15 @@ export async function extractBankTransactionsFromPdf(
       },
     ],
   });
+
+  // Si Claude se quedó sin tokens, la lista quedó incompleta: no la guardamos
+  // a medias, avisamos para subir el PDF por partes.
+  if (stopReason === "max_tokens") {
+    throw new Error(
+      "El PDF tiene demasiados movimientos para procesarse de una sola vez (respuesta truncada). " +
+        "Súbelo por partes (por mes o rango de fechas) o usa el CSV/XLSX del banco.",
+    );
+  }
 
   type Raw = { date?: string | null; description?: string; reference?: string | null; amount?: number; kind?: string };
   const raw = safeJson<Raw[]>(text);
@@ -152,7 +175,7 @@ export async function suggestReconciliation(input: {
   account_name: string;
   invoices: OpenInvoiceForMatch[];
 }): Promise<ReconcileSuggestion> {
-  const text = await callClaude({
+  const { text } = await callClaude({
     system: MATCH_SYSTEM,
     maxTokens: 1024,
     content: [
