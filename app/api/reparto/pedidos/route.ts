@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../_lib/guard";
+import { requireReparto, requireRepartoManage } from "../_lib/guard";
 import { PEDIDO_ESTATUS, PRIORIDADES } from "@/types/reparto";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,7 @@ const ALLOWED_ESTATUS = new Set<string>(PEDIDO_ESTATUS);
 const ALLOWED_PRIORIDADES = new Set<string>(PRIORIDADES);
 
 export async function GET(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireReparto();
   if (response) return response;
   const { searchParams } = new URL(req.url);
 
@@ -73,7 +73,7 @@ type ProductoInput = {
 };
 
 export async function POST(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
   const body = await req.json();
 

@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
+import { canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { ChoferesAdmin } from "@/components/reparto/ChoferesAdmin";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function ChoferesPage() {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canManageReparto(rep.role)) redirect("/reparto/dashboard");
 
   const { data } = await repartoAdmin
     .from("usuarios")

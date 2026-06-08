@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { BitacoraTable } from "@/components/reparto/BitacoraTable";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function BitacoraPage() {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canAccessReparto(rep.role)) redirect("/");
 
   const { data: choferes } = await repartoAdmin
     .from("usuarios")

@@ -1,17 +1,34 @@
-// Helper compartido para las API routes /api/reparto/*.
-// Valida que el usuario del CRM esté logueado como admin antes de exponer
-// datos del proyecto Reparto (que usa service_role server-side).
+// Helpers compartidos para las API routes /api/reparto/*.
+// Validan que el usuario del CRM esté logueado con el rol adecuado antes de
+// exponer/escribir datos de Reparto (que usan service_role server-side).
+//
+//   requireReparto       → VER: admin, jefe_logistica, chofer (read-only).
+//   requireRepartoManage → GESTIONAR: admin, jefe_logistica (altas/edición).
+//   requireAdmin         → solo admin (diagnóstico/operaciones sensibles).
 
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessReparto, canManageReparto } from "@/lib/modules";
 
-export async function requireAdmin() {
+async function gate(predicate: (role: string | null | undefined) => boolean, forbiddenMsg: string) {
   const rep = await getCurrentRep();
   if (!rep) {
     return { rep: null, response: NextResponse.json({ error: "No autenticado" }, { status: 401 }) };
   }
-  if (rep.role !== "admin") {
-    return { rep, response: NextResponse.json({ error: "Solo admin" }, { status: 403 }) };
+  if (!predicate(rep.role)) {
+    return { rep, response: NextResponse.json({ error: forbiddenMsg }, { status: 403 }) };
   }
   return { rep, response: null };
+}
+
+export function requireAdmin() {
+  return gate((role) => role === "admin", "Solo admin");
+}
+
+export function requireReparto() {
+  return gate(canAccessReparto, "Sin acceso a Reparto");
+}
+
+export function requireRepartoManage() {
+  return gate(canManageReparto, "Requiere rol admin o jefe de logística");
 }

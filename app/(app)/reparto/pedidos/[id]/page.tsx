@@ -4,6 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Camera, MessageCircle, FileText } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +58,7 @@ type Detail = {
 export default async function PedidoDetail({ params }: { params: { id: string } }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canAccessReparto(rep.role)) redirect("/");
 
   const [{ data: pedidoRaw }, { data: choferes }] = await Promise.all([
     repartoAdmin

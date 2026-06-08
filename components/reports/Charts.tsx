@@ -34,7 +34,8 @@ export function CategoryBarChart({
   emptyText = "Sin datos en el periodo seleccionado.",
   color = CARMESI,
   altColor = ORO,
-  formatValue = formatCurrency,
+  formatValue,
+  valueFormat = "currency",
 }: {
   title: string;
   subtitle?: string;
@@ -42,9 +43,13 @@ export function CategoryBarChart({
   emptyText?: string;
   color?: string;
   altColor?: string;
+  // `formatValue` solo puede pasarse desde Client Components. Para Server
+  // Components usa `valueFormat` (serializable).
   formatValue?: (n: number) => string;
+  valueFormat?: "currency" | "integer";
 }) {
   const mounted = useMounted();
+  const fmt = formatValue ?? (valueFormat === "integer" ? (n: number) => `${n}` : formatCurrency);
   return (
     <Card>
       <CardContent className="space-y-3 p-6">
@@ -65,7 +70,7 @@ export function CategoryBarChart({
                 <YAxis tick={{ fontSize: 11, fill: "#7A6E70" }} tickFormatter={(v) => (typeof v === "number" ? formatCompact(v) : String(v))} width={64} />
                 <Tooltip
                   cursor={{ fill: "rgba(169,30,58,0.08)" }}
-                  formatter={(v: number) => formatValue(v)}
+                  formatter={(v: number) => fmt(v)}
                   labelStyle={{ color: "#1F1A1C" }}
                   contentStyle={{ borderRadius: 8, border: "1px solid #E8DDC8", fontSize: 12 }}
                 />

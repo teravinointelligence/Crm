@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
-import { effectiveModules } from "@/lib/modules";
+import { effectiveModules, isRepartoOnlyRole } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -17,6 +17,7 @@ export default async function AppLayout({
   if (!rep) redirect("/login");
 
   const isAdmin = rep.role === "admin";
+  const repartoOnly = isRepartoOnlyRole(rep.role);
   const modules = isAdmin ? [] : effectiveModules(rep.modules);
 
   // Indicador de "muestras por revisar" (solicitudes enviadas) para admins.
@@ -39,8 +40,8 @@ export default async function AppLayout({
         <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
           {children}
         </main>
-        <Fab />
-        <BottomNav isAdmin={isAdmin} />
+        {!repartoOnly && <Fab />}
+        <BottomNav isAdmin={isAdmin} role={rep.role} />
       </div>
     </div>
   );

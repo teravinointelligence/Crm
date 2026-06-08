@@ -1,9 +1,12 @@
-// GET /api/reparto/diag — diagnóstico admin: confirma que las env vars de Reparto
-// estén configuradas y que la "service_role key" sea realmente service_role.
+// GET /api/reparto/diag — diagnóstico admin del módulo Reparto.
+// Tras la consolidación, Reparto vive en la BD del CRM (esquema `reparto`) usando
+// el service_role del CRM. Este endpoint confirma que la llave sea realmente
+// service_role y que el esquema `reparto` sea alcanzable (un probe en vivo).
 // No expone las llaves completas, solo metadatos.
 
 import { NextResponse } from "next/server";
 import { requireAdmin } from "../_lib/guard";
+import { repartoAdmin } from "@/lib/supabase-reparto";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,20 +28,15 @@ function decodeJwtPayload(jwt: string | undefined) {
 function inspect(name: string, val: string | undefined) {
   if (!val) return { name, present: false };
   const trimmed = val.trim();
-  const hasWrappingQuotes = (trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"));
-  const cleaned = hasWrappingQuotes ? trimmed.slice(1, -1) : trimmed;
-  const parts = cleaned.split(".");
+  const cleaned =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1)
+      : trimmed;
   const claims = decodeJwtPayload(cleaned);
   return {
     name,
     present: true,
-    length: val.length,
-    starts_with: val.slice(0, 8),
-    ends_with: val.slice(-6),
-    starts_with_eyJ: val.startsWith("eyJ"),
-    looks_like_jwt: parts.length === 3 && cleaned.startsWith("eyJ"),
-    has_surrounding_quotes_or_whitespace: hasWrappingQuotes || val !== trimmed,
-    jwt_parts: parts.length,
+    looks_like_jwt: cleaned.split(".").length === 3 && cleaned.startsWith("eyJ"),
     jwt_role: claims?.role ?? null,
     jwt_ref: claims?.ref ?? null,
   };
@@ -48,26 +46,44 @@ export async function GET() {
   const { response } = await requireAdmin();
   if (response) return response;
 
-  const url = process.env.NEXT_PUBLIC_REPARTO_SUPABASE_URL;
-  const anon = inspect("NEXT_PUBLIC_REPARTO_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_REPARTO_SUPABASE_ANON_KEY);
-  const sr = inspect("REPARTO_SUPABASE_SERVICE_ROLE_KEY", process.env.REPARTO_SUPABASE_SERVICE_ROLE_KEY);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const sr = inspect("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+  // Probe en vivo: confirma que el esquema `reparto` esté expuesto y sea legible.
+  let schema_reachable = false;
+  let pedidos_count: number | null = null;
+  let probe_error: string | null = null;
+  try {
+    const { count, error } = await repartoAdmin
+      .from("pedidos")
+      .select("id", { count: "exact", head: true });
+    if (error) probe_error = error.message;
+    else {
+      schema_reachable = true;
+      pedidos_count = count ?? 0;
+    }
+  } catch (e) {
+    probe_error = e instanceof Error ? e.message : String(e);
+  }
 
   return NextResponse.json({
+    modo: "consolidado (esquema reparto en la BD del CRM)",
     url: { present: !!url, value_preview: url ? url.replace(/\/+$/, "") : null },
-    anon,
     service_role: sr,
+    schema_reparto: {
+      reachable: schema_reachable,
+      pedidos_count,
+      error: probe_error,
+    },
     diagnostico: {
-      anon_correcta: anon.jwt_role === "anon",
       service_role_correcta: sr.jwt_role === "service_role",
-      service_role_es_anon: sr.jwt_role === "anon",
-      mismas_llaves: anon.present && sr.present && process.env.NEXT_PUBLIC_REPARTO_SUPABASE_ANON_KEY === process.env.REPARTO_SUPABASE_SERVICE_ROLE_KEY,
-      hint:
-        !sr.present ? "Falta REPARTO_SUPABASE_SERVICE_ROLE_KEY en Vercel."
-        : !sr.looks_like_jwt ? "El valor de REPARTO_SUPABASE_SERVICE_ROLE_KEY NO parece un JWT (espera 3 partes separadas por '.', empieza con 'eyJ'). Posiblemente está truncado o tiene comillas."
-        : sr.has_surrounding_quotes_or_whitespace ? "El valor tiene comillas o espacios alrededor — quítalos en Vercel y vuelve a guardar."
-        : sr.jwt_role === "anon" ? "Es la llave ANON. Necesitas la SERVICE_ROLE (en Supabase Settings → API → service_role secret)."
-        : sr.jwt_role === "service_role" ? "Todo correcto."
-        : "JWT con role inesperado.",
+      hint: !sr.present
+        ? "Falta SUPABASE_SERVICE_ROLE_KEY en el entorno (Vercel → Settings → Environment Variables)."
+        : sr.jwt_role !== "service_role"
+          ? "La llave no es service_role. Usa la 'service_role secret' del proyecto teravino-crm (Supabase → Settings → API)."
+          : !schema_reachable
+            ? "No se pudo leer el esquema 'reparto'. Verifica que esté agregado en Project Settings → API → Exposed schemas del proyecto teravino-crm."
+            : "Todo correcto.",
     },
   });
 }

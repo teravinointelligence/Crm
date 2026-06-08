@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
+import { canManageReparto } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { PedidoForm } from "@/components/reparto/PedidoForm";
 
@@ -12,7 +13,7 @@ export const metadata = { title: "Nuevo pedido — Reparto" };
 export default async function NuevoPedidoPage() {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canManageReparto(rep.role)) redirect("/reparto/dashboard");
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
