@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2, Download } from "lucide-react";
+import { Link2, Download, MailWarning } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { AccountsListClient } from "@/components/accounts/AccountsListClient";
@@ -43,6 +43,11 @@ export default async function CuentasPage() {
             <Button asChild variant="outline" size="sm">
               <Link href="/cuentas/sincronizar-clientes">
                 <Link2 className="mr-1 h-4 w-4" /> Sincronizar # cliente
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/cuentas/datos-faltantes">
+                <MailWarning className="mr-1 h-4 w-4" /> Datos faltantes
               </Link>
             </Button>
           </div>
