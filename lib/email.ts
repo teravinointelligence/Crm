@@ -33,6 +33,15 @@ export function ventasFrom(): string {
   return process.env.VENTAS_FROM_EMAIL || "TERAVINO <ventas@teravino.com>";
 }
 
+/**
+ * Remitente para notificaciones generales del CRM. Configurable por env
+ * (CRM_FROM_EMAIL); si no, cae al remitente de cobranza (ya verificado en
+ * Resend bajo el dominio teravino.com).
+ */
+export function crmFrom(): string {
+  return process.env.CRM_FROM_EMAIL || cobranzaFrom();
+}
+
 export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
