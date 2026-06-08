@@ -18,6 +18,10 @@ import { PEDIDO_ESTATUS, PRIORIDADES, ESTATUS_LABEL, type PedidoEstatus, type Pr
 
 type Chofer = { id: string; nombre: string };
 
+// Radix Select v2 no permite <SelectItem value="">; usamos un centinela para
+// la opción "Sin asignar" y lo mapeamos a "" (→ null en el PATCH).
+const SIN_ASIGNAR = "sin_asignar";
+
 export function PedidoActions({
   pedidoId,
   initial,
@@ -83,10 +87,13 @@ export function PedidoActions({
       </div>
       <div className="space-y-1.5">
         <Label>Chofer asignado</Label>
-        <Select value={choferId} onValueChange={setChoferId}>
+        <Select
+          value={choferId || SIN_ASIGNAR}
+          onValueChange={(v) => setChoferId(v === SIN_ASIGNAR ? "" : v)}
+        >
           <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="">Sin asignar</SelectItem>
+            <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
             {choferes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
           </SelectContent>
         </Select>
