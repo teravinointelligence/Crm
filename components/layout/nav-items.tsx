@@ -22,7 +22,7 @@ import {
   BookOpen,
   Radio,
 } from "lucide-react";
-import { canSeeFinance } from "@/lib/modules";
+import { canSeeFinance, isRepartoOnlyRole } from "@/lib/modules";
 
 export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; moduleKey?: string };
 export type GroupItem = {
@@ -94,6 +94,10 @@ export function visibleNavItems({
   modules?: string[];
   role?: string | null;
 }): Item[] {
+  // Roles solo-reparto: en el CRM web únicamente ven la sección Reparto.
+  if (isRepartoOnlyRole(role)) {
+    return navItems.filter((i) => i.kind === "group" && i.basePath === "/reparto");
+  }
   return navItems.filter((i) => {
     if (i.finance) return canSeeFinance(role);
     if (i.adminOnly) return isAdmin;

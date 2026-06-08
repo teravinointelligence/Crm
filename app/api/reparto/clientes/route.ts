@@ -3,12 +3,12 @@
 
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../_lib/guard";
+import { requireReparto, requireRepartoManage } from "../_lib/guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireReparto();
   if (response) return response;
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim() ?? "";
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
   const body = await req.json();
   if (!body?.nombre?.trim()) {

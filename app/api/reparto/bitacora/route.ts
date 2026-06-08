@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../_lib/guard";
+import { requireReparto } from "../_lib/guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -67,7 +67,7 @@ async function fetchEntregas(searchParams: URLSearchParams) {
 }
 
 export async function GET(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireReparto();
   if (response) return response;
   const { searchParams } = new URL(req.url);
 

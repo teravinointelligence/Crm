@@ -3,7 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../../_lib/guard";
+import { requireReparto, requireRepartoManage } from "../../_lib/guard";
 import { PEDIDO_ESTATUS, PRIORIDADES } from "@/types/reparto";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ const PATCHABLE = new Set([
 ]);
 
 export async function GET(_req: Request, { params }: { params: { id: string } }) {
-  const { response } = await requireAdmin();
+  const { response } = await requireReparto();
   if (response) return response;
 
   const { data, error } = await repartoAdmin
@@ -32,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 }
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
   const body = await req.json();
 

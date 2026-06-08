@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { KanbanRutas } from "@/components/reparto/KanbanRutas";
 
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function RutasPage({ searchParams }: { searchParams: { fecha?: string } }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canAccessReparto(rep.role)) redirect("/");
 
   const today = new Date().toISOString().slice(0, 10);
   const fecha = searchParams.fecha ?? today;

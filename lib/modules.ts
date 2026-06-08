@@ -42,6 +42,24 @@ export function canSeeFinance(role: string | null | undefined): boolean {
   return role === "admin" || role === "contador";
 }
 
+/**
+ * Roles cuyo único alcance en el CRM web es la sección Reparto. Se usan en el
+ * middleware para confinar la navegación y en el sidebar para ocultar el resto.
+ */
+export function isRepartoOnlyRole(role: string | null | undefined): boolean {
+  return role === "chofer" || role === "jefe_logistica";
+}
+
+/** Pueden VER Reparto (operación): admin, jefe de logística y choferes. */
+export function canAccessReparto(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica" || role === "chofer";
+}
+
+/** Pueden GESTIONAR Reparto (altas, edición, asignación, alta de choferes). */
+export function canManageReparto(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },

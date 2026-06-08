@@ -2,12 +2,12 @@
 
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../_lib/guard";
+import { requireReparto } from "../_lib/guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const { response } = await requireAdmin();
+  const { response } = await requireReparto();
   if (response) return response;
 
   const { data, error } = await repartoAdmin

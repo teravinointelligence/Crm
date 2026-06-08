@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus, Truck } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +37,7 @@ export default async function PedidosPage({
 }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canAccessReparto(rep.role)) redirect("/");
 
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const limit = 50;

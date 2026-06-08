@@ -3,12 +3,12 @@
 
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../_lib/guard";
+import { requireRepartoManage } from "../_lib/guard";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
   const { searchParams } = new URL(req.url);
   let query = repartoAdmin
@@ -31,7 +31,7 @@ function randomPassword(n = 12) {
 }
 
 export async function POST(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
   const body = await req.json();
 

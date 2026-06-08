@@ -3,14 +3,14 @@
 
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
-import { requireAdmin } from "../../_lib/guard";
+import { requireRepartoManage } from "../../_lib/guard";
 
 export const dynamic = "force-dynamic";
 
 const PATCHABLE = new Set(["nombre", "telefono", "rol", "activo", "es_chofer"]);
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
   const body = await req.json();
 

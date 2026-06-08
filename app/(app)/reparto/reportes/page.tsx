@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategoryBarChart, MonthlyBarChart } from "@/components/reports/Charts";
@@ -37,7 +38,7 @@ export default async function ReportesRepartoPage({
 }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (rep.role !== "admin") redirect("/");
+  if (!canAccessReparto(rep.role)) redirect("/");
 
   const period = (searchParams.period && ["30", "90", "ytd"].includes(searchParams.period) ? searchParams.period : "30") as Period;
   const range = rangeFor(period);
@@ -151,7 +152,7 @@ export default async function ReportesRepartoPage({
           title="Distribución por estatus"
           subtitle="Pedidos en el periodo"
           data={estatusData}
-          formatValue={(n) => `${n}`}
+          valueFormat="integer"
         />
         <Card><CardContent className="space-y-1 p-5">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Comprobantes por WhatsApp</p>

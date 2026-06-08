@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 import JSZip from "jszip";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { parseCfdi, type CfdiParsed } from "@/lib/cfdi/parse";
-import { requireAdmin } from "../../_lib/guard";
+import { requireRepartoManage } from "../../_lib/guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -73,7 +73,7 @@ async function ensureCliente(parsed: CfdiParsed): Promise<{ id: string; created:
 }
 
 export async function POST(req: Request) {
-  const { response } = await requireAdmin();
+  const { response } = await requireRepartoManage();
   if (response) return response;
 
   let files: { name: string; xml: string }[];
