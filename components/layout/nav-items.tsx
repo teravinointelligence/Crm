@@ -45,6 +45,7 @@ export const navItems: Item[] = [
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
   { href: "/cotizaciones", label: "Cotizaciones", icon: FileSignature, moduleKey: "cotizaciones" },
+  { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
   { href: "/pedidos", label: "Pedidos", icon: FileText, moduleKey: "pedidos" },
   { href: "/muestras", label: "Muestras", icon: FlaskConical, moduleKey: "muestras" },
   { href: "/ventas", label: "Ventas", icon: TrendingUp, moduleKey: "ventas" },
