@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
 import { heuristicMatch, findSubset, type AccountOpenInvoices } from "@/lib/bank/match";
-import { payerSignature } from "@/lib/bank/aliases";
+import { payerKeys } from "@/lib/bank/aliases";
 import { suggestReconciliation, type OpenInvoiceForMatch } from "@/lib/anthropic";
 import type { ReconcileSuggestion } from "@/lib/bank/types";
 
@@ -60,11 +60,11 @@ export async function POST(_req: Request, { params }: { params: { statementId: s
   // Aliases aprendidos (firma del pagador → cliente), no ambiguos.
   const { data: aliasRows } = await supabase
     .from("bank_payer_aliases")
-    .select("signature, account_id")
+    .select("kind, match_key, account_id")
     .eq("ambiguous", false)
     .not("account_id", "is", null);
   const aliasMap = new Map(
-    (aliasRows ?? []).map((a) => [a.signature as string, a.account_id as string]),
+    (aliasRows ?? []).map((a) => [`${a.kind}|${a.match_key}` as string, a.account_id as string]),
   );
   const byAccount = new Map<string, OpenInvoiceForMatch[]>();
   for (const inv of invoices ?? []) {
@@ -104,8 +104,11 @@ export async function POST(_req: Request, { params }: { params: { statementId: s
     // Memoria ordenante → cliente: si la heurística no cuadró el monto pero
     // este pagador ya se concilió antes, usamos ese cliente.
     if (!finalSuggestion.candidates.length) {
-      const sig = payerSignature(txn.description, txn.reference);
-      const aliasAcc = sig ? aliasMap.get(sig) : null;
+      let aliasAcc: string | undefined;
+      for (const k of payerKeys(txn.description, txn.reference)) {
+        aliasAcc = aliasMap.get(`${k.kind}|${k.key}`);
+        if (aliasAcc) break;
+      }
       if (aliasAcc) {
         const invs = byAccount.get(aliasAcc) ?? [];
         const meta = acctMeta.get(aliasAcc);

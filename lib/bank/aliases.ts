@@ -37,3 +37,30 @@ export function payerSignature(description: string, reference?: string | null): 
     .filter((w) => w.length >= 4 && !STOP.has(w) && !BANKS.has(w));
   return Array.from(new Set(toks)).sort().join(" ");
 }
+
+/** Clave BNET del concepto (llave fuerte y estable del pagador). null si no hay. */
+export function extractBnet(text: string): string | null {
+  const m = /\bbnet\s*(\d{6,})/i.exec(text);
+  return m ? m[1] : null;
+}
+
+/** RFC que aparezca en el concepto (persona moral 12 / física 13). null si no hay. */
+export function extractRfc(text: string): string | null {
+  const m = /\b([A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3})\b/i.exec(text);
+  return m ? m[1].toUpperCase() : null;
+}
+
+export type PayerKey = { kind: "bnet" | "rfc" | "firma"; key: string };
+
+/** Todas las llaves de identificación de un movimiento, en orden de confianza. */
+export function payerKeys(description: string, reference?: string | null): PayerKey[] {
+  const text = `${description} ${reference ?? ""}`;
+  const keys: PayerKey[] = [];
+  const bnet = extractBnet(text);
+  if (bnet) keys.push({ kind: "bnet", key: bnet });
+  const rfc = extractRfc(text);
+  if (rfc) keys.push({ kind: "rfc", key: rfc });
+  const firma = payerSignature(description, reference);
+  if (firma) keys.push({ kind: "firma", key: firma });
+  return keys;
+}
