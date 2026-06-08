@@ -69,6 +69,12 @@ export function ReconcileConfirmDialog({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; business_name: string }[]>([]);
 
+  // Búsqueda por monto: facturas de CUALQUIER cliente con saldo ≈ al depósito.
+  const [amountResults, setAmountResults] = useState<
+    { invoice_id: string; invoice_number: string; balance: number; account_id: string; account_name: string }[]
+  >([]);
+  const [amountSearched, setAmountSearched] = useState(false);
+
   const loadInvoices = async (acc: string, prefill?: ReconcileSuggestion["candidates"]) => {
     const { data } = await supabase
       .from("invoices")
@@ -113,6 +119,41 @@ export function ReconcileConfirmDialog({
     setResults([]);
     setQuery("");
     await loadInvoices(id);
+  };
+
+  // Busca facturas (de cualquier cliente) cuyo saldo coincide con el depósito.
+  const searchByAmount = async () => {
+    const tol = 0.5;
+    const { data } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, balance, account_id, accounts(business_name)")
+      .neq("status", "cancelada")
+      .gte("balance", txn.amount - tol)
+      .lte("balance", txn.amount + tol)
+      .order("balance", { ascending: false })
+      .limit(25);
+    const rows = (data ?? []).map((r: Record<string, unknown>) => {
+      const acc = Array.isArray(r.accounts) ? r.accounts[0] : r.accounts;
+      return {
+        invoice_id: String(r.id),
+        invoice_number: String(r.invoice_number),
+        balance: Number(r.balance ?? 0),
+        account_id: String(r.account_id),
+        account_name: ((acc as { business_name?: string } | null)?.business_name) ?? "(cliente)",
+      };
+    });
+    setAmountResults(rows);
+    setAmountSearched(true);
+  };
+
+  // Elige una factura encontrada por monto: fija su cliente y la preselecciona.
+  const pickByAmount = async (r: { account_id: string; account_name: string; invoice_id: string; balance: number }) => {
+    setAccountId(r.account_id);
+    setAccountName(r.account_name);
+    setAmountResults([]);
+    setAmountSearched(false);
+    await loadInvoices(r.account_id);
+    setAlloc({ [r.invoice_id]: Math.min(r.balance, txn.amount) });
   };
 
   const toggleInvoice = (inv: OpenInvoice) => {
@@ -218,6 +259,35 @@ export function ReconcileConfirmDialog({
                   </button>
                 ))}
               </div>
+            )}
+
+            {/* Búsqueda por monto: descubre el cliente cuando el concepto no lo dice. */}
+            <Button type="button" variant="ghost" size="sm" onClick={searchByAmount} className="text-xs">
+              <Search className="mr-1 h-3.5 w-3.5" /> Buscar facturas por monto ({formatCurrency(txn.amount)})
+            </Button>
+            {amountSearched && (
+              amountResults.length === 0 ? (
+                <p className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+                  Ninguna factura abierta coincide con este monto exacto. Prueba por nombre o aplica como pago parcial.
+                </p>
+              ) : (
+                <div className="max-h-44 overflow-y-auto rounded-md border">
+                  {amountResults.map((r) => (
+                    <button
+                      key={r.invoice_id}
+                      type="button"
+                      onClick={() => pickByAmount(r)}
+                      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs hover:bg-muted/50"
+                    >
+                      <span className="min-w-0">
+                        <span className="font-medium">{r.account_name}</span>{" "}
+                        <span className="font-mono text-muted-foreground">{r.invoice_number}</span>
+                      </span>
+                      <span className="shrink-0">{formatCurrency(r.balance)}</span>
+                    </button>
+                  ))}
+                </div>
+              )
             )}
           </div>
 

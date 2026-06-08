@@ -11,7 +11,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
-import { heuristicMatch, type AccountOpenInvoices } from "@/lib/bank/match";
+import { heuristicMatch, findSubset, type AccountOpenInvoices } from "@/lib/bank/match";
+import { payerSignature } from "@/lib/bank/aliases";
 import { suggestReconciliation, type OpenInvoiceForMatch } from "@/lib/anthropic";
 import type { ReconcileSuggestion } from "@/lib/bank/types";
 
@@ -55,6 +56,16 @@ export async function POST(_req: Request, { params }: { params: { statementId: s
   const acctMeta = new Map(
     (accounts ?? []).map((a) => [a.id, { name: a.business_name as string, client_number: a.client_number as string | null }]),
   );
+
+  // Aliases aprendidos (firma del pagador → cliente), no ambiguos.
+  const { data: aliasRows } = await supabase
+    .from("bank_payer_aliases")
+    .select("signature, account_id")
+    .eq("ambiguous", false)
+    .not("account_id", "is", null);
+  const aliasMap = new Map(
+    (aliasRows ?? []).map((a) => [a.signature as string, a.account_id as string]),
+  );
   const byAccount = new Map<string, OpenInvoiceForMatch[]>();
   for (const inv of invoices ?? []) {
     const list = byAccount.get(inv.account_id) ?? [];
@@ -88,15 +99,51 @@ export async function POST(_req: Request, { params }: { params: { statementId: s
     const { suggestion, ambiguousAccount } = heuristicMatch(txn, accountList);
 
     let finalSuggestion = suggestion;
+    let ambiguous = ambiguousAccount;
+
+    // Memoria ordenante → cliente: si la heurística no cuadró el monto pero
+    // este pagador ya se concilió antes, usamos ese cliente.
+    if (!finalSuggestion.candidates.length) {
+      const sig = payerSignature(txn.description, txn.reference);
+      const aliasAcc = sig ? aliasMap.get(sig) : null;
+      if (aliasAcc) {
+        const invs = byAccount.get(aliasAcc) ?? [];
+        const meta = acctMeta.get(aliasAcc);
+        const subset = findSubset(invs, txn.amount);
+        if (subset) {
+          finalSuggestion = {
+            source: "heuristica",
+            confidence: "media",
+            reason: `Aprendido de conciliaciones previas: este pagador suele ser ${meta?.name ?? "este cliente"}.`,
+            account_id: aliasAcc,
+            account_name: meta?.name ?? null,
+            candidates: subset.map((i) => ({
+              invoice_id: i.invoice_id,
+              invoice_number: i.invoice_number,
+              amount: i.balance,
+            })),
+          };
+        } else if (meta) {
+          // Conocemos al cliente pero el monto no cuadra → que Claude afine.
+          ambiguous = {
+            account_id: aliasAcc,
+            account_name: meta.name,
+            client_number: meta.client_number,
+            invoices: invs,
+          };
+        }
+      }
+    }
+
     // Ambiguo con cliente probable → Claude decide (con tope de llamadas).
-    if (!suggestion.candidates.length && ambiguousAccount && claudeCalls < MAX_CLAUDE_CALLS) {
+    if (!finalSuggestion.candidates.length && ambiguous && claudeCalls < MAX_CLAUDE_CALLS) {
       claudeCalls++;
       try {
         const cs = await suggestReconciliation({
           txn,
-          account_id: ambiguousAccount.account_id,
-          account_name: ambiguousAccount.account_name,
-          invoices: ambiguousAccount.invoices,
+          account_id: ambiguous.account_id,
+          account_name: ambiguous.account_name,
+          invoices: ambiguous.invoices,
         });
         if (cs.candidates.length) finalSuggestion = cs;
       } catch {
