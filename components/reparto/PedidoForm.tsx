@@ -21,6 +21,10 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { PRIORIDADES, type Prioridad } from "@/types/reparto";
 
+// Radix Select v2 no permite <SelectItem value="">; usamos un centinela para
+// la opción "Sin asignar" y lo mapeamos a "" (→ null al crear el pedido).
+const SIN_ASIGNAR = "sin_asignar";
+
 type ClienteLite = { id: string; nombre: string; rfc: string | null; ciudad: string | null };
 type ChoferLite = { id: string; nombre: string };
 type Partida = {
@@ -231,10 +235,13 @@ export function PedidoForm() {
             <SelectContent>{PRIORIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select></div>
         <div className="space-y-2"><Label>Asignar a chofer</Label>
-          <Select value={choferId} onValueChange={setChoferId}>
+          <Select
+            value={choferId || SIN_ASIGNAR}
+            onValueChange={(v) => setChoferId(v === SIN_ASIGNAR ? "" : v)}
+          >
             <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Sin asignar</SelectItem>
+              <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
               {choferes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
             </SelectContent>
           </Select></div>
