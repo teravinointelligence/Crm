@@ -13,6 +13,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
 import { heuristicMatch, findSubset, type AccountOpenInvoices } from "@/lib/bank/match";
 import { payerKeys } from "@/lib/bank/aliases";
+import { cargoMatchKey } from "@/lib/bank/bodegas";
 import { suggestReconciliation, type OpenInvoiceForMatch } from "@/lib/anthropic";
 import type { ReconcileSuggestion } from "@/lib/bank/types";
 
@@ -167,5 +168,28 @@ export async function POST(_req: Request, { params }: { params: { statementId: s
     results.push({ id: t.id as string, suggestion: finalSuggestion });
   }
 
-  return NextResponse.json({ ok: true, total: txns.length, suggested, claude: claudeCalls, results });
+  // Auto-etiquetado de cargos (bodegas) desde reglas aprendidas.
+  let cargosEtiquetados = 0;
+  const { data: rules } = await supabase
+    .from("bank_cargo_rules")
+    .select("match_key, categoria");
+  if (rules?.length) {
+    const ruleMap = new Map(rules.map((r) => [r.match_key as string, r.categoria as string]));
+    const { data: cargos } = await supabase
+      .from("bank_transactions")
+      .select("id, description, reference, amount")
+      .eq("bank_statement_id", params.statementId)
+      .eq("kind", "cargo")
+      .is("cargo_categoria", null);
+    for (const c of (cargos ?? []) as { id: string; description: string | null; reference: string | null; amount: number }[]) {
+      const key = cargoMatchKey(c.description ?? "", c.reference ?? null, Number(c.amount ?? 0));
+      const cat = ruleMap.get(key);
+      if (cat) {
+        await supabase.from("bank_transactions").update({ cargo_categoria: cat }).eq("id", c.id);
+        cargosEtiquetados++;
+      }
+    }
+  }
+
+  return NextResponse.json({ ok: true, total: txns.length, suggested, claude: claudeCalls, cargosEtiquetados, results });
 }
