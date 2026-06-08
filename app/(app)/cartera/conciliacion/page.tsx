@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, FileText, BookUser } from "lucide-react";
+import { ArrowLeft, FileText, BookUser, Warehouse } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
@@ -54,11 +54,20 @@ export default async function ConciliacionPage() {
             confirma los pagos. Nada se aplica sin tu confirmación.
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/cartera/conciliacion/catalogo">
-            <BookUser className="mr-1 h-4 w-4" /> Catálogo de pagadores
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {rep.role === "admin" && (
+            <Button asChild variant="outline">
+              <Link href="/cartera/bodegas">
+                <Warehouse className="mr-1 h-4 w-4" /> Rentas de bodega
+              </Link>
+            </Button>
+          )}
+          <Button asChild variant="outline">
+            <Link href="/cartera/conciliacion/catalogo">
+              <BookUser className="mr-1 h-4 w-4" /> Catálogo de pagadores
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <UploadStatement />
