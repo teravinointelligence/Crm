@@ -1,10 +1,12 @@
 // Carga de cuentas con datos faltantes y armado del correo-resumen por vendedor.
 // Compartido entre el tablero admin y el endpoint de envío. NO envía por sí mismo.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase/server";
 import { missingFlags, MISSING_LABEL, type MissingFlag, type ContactLite } from "@/lib/missing-data";
 
-type DbClient = ReturnType<typeof createClient>;
+// Acepta el cliente con cookies (admin vía RLS) o el service-role (cron).
+type DbClient = ReturnType<typeof createClient> | SupabaseClient;
 
 const ESTADOS = ["activo", "prospecto"];
 
