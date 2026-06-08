@@ -29,7 +29,7 @@ export default async function StatementDetailPage({
 
   const { data: txns } = await supabase
     .from("bank_transactions")
-    .select("id, txn_date, description, reference, amount, kind, estado_conciliacion, suggestion")
+    .select("id, txn_date, description, reference, amount, kind, estado_conciliacion, suggestion, cargo_categoria")
     .eq("bank_statement_id", params.statementId)
     .order("kind")
     .order("row_index");
@@ -45,6 +45,7 @@ export default async function StatementDetailPage({
       kind: r.kind as "abono" | "cargo",
       estado_conciliacion: r.estado_conciliacion as BoardTxn["estado_conciliacion"],
       suggestion: (r.suggestion as BoardTxn["suggestion"]) ?? null,
+      cargo_categoria: (r.cargo_categoria as string | null) ?? null,
     } satisfies BoardTxn;
   });
 

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { ReconcileSuggestion } from "@/lib/bank/types";
+import { BODEGA_CATEGORIAS } from "@/lib/bank/bodegas";
 import { ReconcileConfirmDialog } from "./ReconcileConfirmDialog";
 
 export type BoardTxn = {
@@ -20,6 +21,7 @@ export type BoardTxn = {
   kind: "abono" | "cargo";
   estado_conciliacion: "sin_conciliar" | "sugerido" | "conciliado" | "ignorado";
   suggestion: ReconcileSuggestion | null;
+  cargo_categoria?: string | null;
 };
 
 const ESTADO_BADGE: Record<BoardTxn["estado_conciliacion"], { label: string; variant: "success" | "warning" | "muted" | "accent" }> = {
@@ -67,6 +69,21 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
       router.refresh();
     } catch (err) {
       toast.error("No se pudo actualizar", { description: err instanceof Error ? err.message : String(err) });
+    }
+  };
+
+  const tagCargo = async (id: string, categoria: string | null) => {
+    try {
+      const res = await fetch(`/api/cartera/conciliacion/${statementId}/cargo`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transaction_id: id, categoria }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error ?? "Error");
+      toast.success(categoria ? "Cargo etiquetado (se aprenderá para el próximo mes)" : "Etiqueta quitada");
+      router.refresh();
+    } catch (err) {
+      toast.error("No se pudo etiquetar", { description: err instanceof Error ? err.message : String(err) });
     }
   };
 
@@ -151,8 +168,9 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
         <section className="space-y-2">
           <h2 className="font-display text-lg">Cargos (no identificados)</h2>
           <p className="text-xs text-muted-foreground">
-            Egresos del banco. Si alguno es en realidad un <strong>depósito de un cliente</strong> mal
-            clasificado, márcalo como depósito para poder conciliarlo.
+            Egresos del banco. Etiqueta las rentas/mantenimiento de bodega (se aprende para el próximo
+            mes). Si alguno es en realidad un <strong>depósito de un cliente</strong> mal clasificado,
+            márcalo como depósito para poder conciliarlo.
           </p>
           <Card>
             <CardContent className="p-0">
@@ -161,8 +179,8 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
                   <tr>
                     <th className="px-4 py-2">Fecha</th>
                     <th className="px-4 py-2">Concepto</th>
-                    <th className="px-4 py-2">Referencia</th>
                     <th className="px-4 py-2 text-right">Monto</th>
+                    <th className="px-4 py-2">Bodega</th>
                     <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
@@ -170,9 +188,23 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
                   {cargos.map((t) => (
                     <tr key={t.id} className="border-b last:border-b-0">
                       <td className="px-4 py-2 text-muted-foreground">{t.txn_date ? formatDate(t.txn_date) : "—"}</td>
-                      <td className="px-4 py-2">{t.description}</td>
-                      <td className="px-4 py-2 text-muted-foreground">{t.reference ?? "—"}</td>
+                      <td className="px-4 py-2">
+                        {t.description}
+                        {t.reference && <span className="block text-xs text-muted-foreground">Ref: {t.reference}</span>}
+                      </td>
                       <td className="px-4 py-2 text-right">{formatCurrency(t.amount)}</td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={t.cargo_categoria ?? ""}
+                          onChange={(e) => tagCargo(t.id, e.target.value || null)}
+                          className={`rounded-md border px-2 py-1 text-xs ${t.cargo_categoria ? "border-brand-carmesi font-medium" : "text-muted-foreground"}`}
+                        >
+                          <option value="">— Sin etiqueta —</option>
+                          {BODEGA_CATEGORIAS.map((c) => (
+                            <option key={c.key} value={c.key}>{c.label}</option>
+                          ))}
+                        </select>
+                      </td>
                       <td className="px-4 py-2 text-right">
                         <Button size="sm" variant="ghost" onClick={() => setEstado(t.id, "to_abono")}>
                           <ArrowDownLeft className="mr-1 h-3.5 w-3.5" /> Es depósito
