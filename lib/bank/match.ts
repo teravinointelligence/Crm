@@ -58,7 +58,7 @@ function scoreAccount(acc: AccountOpenInvoices, txtTokens: string[], rawText: st
 }
 
 /** Busca una combinación de facturas que sume `target` (exacta). Hasta 3 facturas. */
-function findSubset(
+export function findSubset(
   invoices: OpenInvoiceForMatch[],
   target: number,
 ): OpenInvoiceForMatch[] | null {

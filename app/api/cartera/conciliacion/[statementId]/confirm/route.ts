@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
+import { payerSignature } from "@/lib/bank/aliases";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,6 +77,24 @@ export async function POST(req: Request, { params: _params }: { params: { statem
     p_notes: body.notes ?? "Conciliación bancaria",
   });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  // Aprende ordenante → cliente para autosugerir en el futuro (best-effort:
+  // si falla, no rompe la conciliación que ya quedó aplicada).
+  try {
+    const { data: txn } = await supabase
+      .from("bank_transactions")
+      .select("description, reference")
+      .eq("id", body.transaction_id)
+      .single();
+    const sig = txn
+      ? payerSignature((txn.description as string) ?? "", (txn.reference as string | null) ?? null)
+      : "";
+    if (sig) {
+      await supabase.rpc("learn_payer_alias", { p_signature: sig, p_account_id: body.account_id });
+    }
+  } catch {
+    // ignorar fallos del aprendizaje de alias
+  }
 
   return NextResponse.json({ ok: true, payment_id: data });
 }
