@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, BookUser } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
@@ -46,12 +46,19 @@ export default async function ConciliacionPage() {
         </Button>
       </div>
 
-      <div className="space-y-1">
-        <h1 className="font-display text-3xl">Conciliación bancaria</h1>
-        <p className="text-sm text-muted-foreground">
-          Sube el estado de cuenta del banco, concilia los abonos contra facturas y
-          confirma los pagos. Nada se aplica sin tu confirmación.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="font-display text-3xl">Conciliación bancaria</h1>
+          <p className="text-sm text-muted-foreground">
+            Sube el estado de cuenta del banco, concilia los abonos contra facturas y
+            confirma los pagos. Nada se aplica sin tu confirmación.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href="/cartera/conciliacion/catalogo">
+            <BookUser className="mr-1 h-4 w-4" /> Catálogo de pagadores
+          </Link>
+        </Button>
       </div>
 
       <UploadStatement />
