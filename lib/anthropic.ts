@@ -118,6 +118,8 @@ export async function extractBankTransactionsFromPdf(
           '{ "date": "YYYY-MM-DD" | null, "description": string, "reference": string | null,\n' +
           '  "amount": number (positivo), "kind": "abono" | "cargo" }\n' +
           "Reglas: `kind` = 'abono' para depósitos/ingresos/créditos, 'cargo' para retiros/egresos/débitos. " +
+          "OJO: 'SPEI RECIBIDO', 'DEPOSITO', 'PAGO CUENTA DE TERCERO' y 'ABONO' son DINERO QUE ENTRA → 'abono'. " +
+          "'SPEI ENVIADO', 'RETIRO', 'PAGO DE COMISION', 'IVA', 'SERV BANCA' son DINERO QUE SALE → 'cargo'. " +
           "`amount` siempre positivo (el signo lo da kind). No incluyas saldos ni totales, solo movimientos. " +
           "Responde solo con el arreglo JSON.",
       },

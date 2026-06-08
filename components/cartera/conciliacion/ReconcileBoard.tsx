@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Sparkles, Check, Ban, Undo2, Loader2 } from "lucide-react";
+import { Sparkles, Check, Ban, Undo2, Loader2, ArrowDownLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -56,7 +56,7 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
     }
   };
 
-  const setEstado = async (id: string, action: "ignore" | "reset") => {
+  const setEstado = async (id: string, action: "ignore" | "reset" | "to_abono" | "to_cargo") => {
     try {
       const res = await fetch(`/api/cartera/conciliacion/${statementId}/confirm`, {
         method: "POST",
@@ -150,6 +150,10 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
       {cargos.length > 0 && (
         <section className="space-y-2">
           <h2 className="font-display text-lg">Cargos (no identificados)</h2>
+          <p className="text-xs text-muted-foreground">
+            Egresos del banco. Si alguno es en realidad un <strong>depósito de un cliente</strong> mal
+            clasificado, márcalo como depósito para poder conciliarlo.
+          </p>
           <Card>
             <CardContent className="p-0">
               <table className="min-w-full text-sm">
@@ -159,6 +163,7 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
                     <th className="px-4 py-2">Concepto</th>
                     <th className="px-4 py-2">Referencia</th>
                     <th className="px-4 py-2 text-right">Monto</th>
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -168,6 +173,11 @@ export function ReconcileBoard({ statementId, txns }: { statementId: string; txn
                       <td className="px-4 py-2">{t.description}</td>
                       <td className="px-4 py-2 text-muted-foreground">{t.reference ?? "—"}</td>
                       <td className="px-4 py-2 text-right">{formatCurrency(t.amount)}</td>
+                      <td className="px-4 py-2 text-right">
+                        <Button size="sm" variant="ghost" onClick={() => setEstado(t.id, "to_abono")}>
+                          <ArrowDownLeft className="mr-1 h-3.5 w-3.5" /> Es depósito
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

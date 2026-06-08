@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 type Body = {
   transaction_id: string;
-  action: "confirm" | "ignore" | "reset";
+  action: "confirm" | "ignore" | "reset" | "to_abono" | "to_cargo";
   account_id?: string;
   allocations?: { invoice_id: string; amount: number }[];
   method?: string;
@@ -48,6 +48,22 @@ export async function POST(req: Request, { params: _params }: { params: { statem
       .update({
         estado_conciliacion: body.action === "ignore" ? "ignorado" : "sin_conciliar",
         ...(body.action === "reset" ? { suggestion: null, matched_account_id: null } : {}),
+      })
+      .eq("id", body.transaction_id);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Reclasificar un movimiento mal clasificado por el parser (cargo↔abono).
+  // Lo deja sin conciliar y limpia cualquier sugerencia previa.
+  if (body.action === "to_abono" || body.action === "to_cargo") {
+    const { error } = await supabase
+      .from("bank_transactions")
+      .update({
+        kind: body.action === "to_abono" ? "abono" : "cargo",
+        estado_conciliacion: "sin_conciliar",
+        suggestion: null,
+        matched_account_id: null,
       })
       .eq("id", body.transaction_id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
