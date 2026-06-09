@@ -208,6 +208,12 @@ export function ImportVentasClient() {
           <li><strong>Ventas por Vendedor</strong> (hoja "Detalle por Cliente") — solo totales por cliente, sin productos.</li>
         </ul>
         <p className="text-xs text-muted-foreground">El vendedor se deriva del <em>cliente asignado</em> en el CRM (# cliente CONTPAQ → cuenta → vendedor). Re-importar el mismo mes actualiza.</p>
+        <p className="text-xs">
+          <a href="/templates/plantilla_ventas.xlsx" className="text-brand-carmesi hover:underline">
+            Descargar plantilla "Ventas por Vendedor" (.xlsx)
+          </a>
+          <span className="text-muted-foreground"> — para el reporte CONTPAQ no hace falta, súbelo tal cual.</span>
+        </p>
       </CardContent></Card>
 
       <Card><CardContent className="space-y-4 p-6">
