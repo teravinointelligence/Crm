@@ -105,14 +105,23 @@ export function ServicesSection({
   }
 
   const sorted = [...services].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
+  // Para la bitácora: último kilometraje registrado (el del servicio más reciente
+  // con km). Útil como referencia rápida del estado del auto.
+  const ultimoKm = sorted.find((s) => s.km_at_service != null)?.km_at_service ?? null;
 
   return (
     <section className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 font-display text-lg">
-          <Wrench className="h-5 w-5 text-brand-carmesi" />
-          Servicios y reparaciones
-        </h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-lg">
+            <Wrench className="h-5 w-5 text-brand-carmesi" />
+            Bitácora de servicios y reparaciones
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            {sorted.length} registro{sorted.length === 1 ? "" : "s"}
+            {ultimoKm != null ? ` · último km registrado: ${ultimoKm.toLocaleString("es-MX")}` : ""}
+          </p>
+        </div>
         {mode === null ? (
           <Button variant="outline" size="sm" onClick={openNew}>
             <Plus className="mr-1 h-4 w-4" />
@@ -121,78 +130,84 @@ export function ServicesSection({
         ) : null}
       </div>
 
-      {mode === "new" ? (
+      {mode !== null ? (
         <ServiceForm
           values={values}
           set={set}
           pending={pending}
           onCancel={close}
           onSubmit={submit}
-          submitLabel="Registrar servicio"
+          submitLabel={mode === "new" ? "Registrar servicio" : "Guardar cambios"}
         />
       ) : null}
 
-      {sorted.length === 0 && mode === null ? (
-        <p className="text-sm text-muted-foreground">Sin servicios registrados.</p>
-      ) : null}
-
-      <div className="space-y-2">
-        {sorted.map((s) =>
-          mode === s.id ? (
-            <ServiceForm
-              key={s.id}
-              values={values}
-              set={set}
-              pending={pending}
-              onCancel={close}
-              onSubmit={submit}
-              submitLabel="Guardar cambios"
-            />
-          ) : (
-            <Card key={s.id}>
-              <CardContent className="space-y-1.5 p-4 text-sm">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="font-medium">
-                    {formatDate(s.date)} · {s.service_type}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {s.cost != null ? (
-                      <span className="text-muted-foreground">{formatCurrency(s.cost)}</span>
-                    ) : null}
-                    <Button variant="ghost" size="sm" onClick={() => openEdit(s)} disabled={pending}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => remove(s.id)} disabled={pending}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-                {s.description ? <p>{s.description}</p> : null}
-                <p className="text-xs text-muted-foreground">
-                  {[
-                    s.workshop ? `Taller: ${s.workshop}` : null,
-                    s.km_at_service != null ? `${s.km_at_service.toLocaleString("es-MX")} km` : null,
-                    s.next_service_date ? `Próximo: ${formatDate(s.next_service_date)}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || null}
-                </p>
-                {s.documento_pdf ? (
-                  <a
-                    href={s.documento_pdf}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 text-xs text-brand-carmesi hover:underline"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Ver comprobante
-                  </a>
-                ) : null}
-              </CardContent>
-            </Card>
-          ),
-        )}
-      </div>
+      {sorted.length === 0 ? (
+        mode === null ? (
+          <p className="text-sm text-muted-foreground">Sin servicios registrados.</p>
+        ) : null
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Fecha</th>
+                    <th className="px-3 py-2 text-right">Kilometraje</th>
+                    <th className="px-3 py-2 text-left">Tipo</th>
+                    <th className="px-3 py-2 text-left">Taller</th>
+                    <th className="px-3 py-2 text-right">Costo</th>
+                    <th className="px-3 py-2 text-left">Próximo</th>
+                    <th className="px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {sorted.map((s) => (
+                    <tr key={s.id} className="border-t align-top hover:bg-muted/20">
+                      <td className="whitespace-nowrap px-3 py-2">{formatDate(s.date)}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                        {s.km_at_service != null ? `${s.km_at_service.toLocaleString("es-MX")} km` : "—"}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span className="font-medium">{s.service_type}</span>
+                        {s.description ? (
+                          <span className="block text-xs text-muted-foreground">{s.description}</span>
+                        ) : null}
+                        {s.documento_pdf ? (
+                          <a
+                            href={s.documento_pdf}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="mt-0.5 inline-flex items-center gap-1 text-xs text-brand-carmesi hover:underline"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Comprobante
+                          </a>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{s.workshop ?? "—"}</td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                        {s.cost != null ? formatCurrency(s.cost) : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-muted-foreground">
+                        {s.next_service_date ? formatDate(s.next_service_date) : "—"}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-right">
+                        <Button variant="ghost" size="sm" onClick={() => openEdit(s)} disabled={pending}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => remove(s.id)} disabled={pending}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </section>
   );
 }
