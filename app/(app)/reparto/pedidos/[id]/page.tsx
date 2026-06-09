@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PedidoStepper } from "@/components/reparto/PedidoStepper";
 import { PedidoActions } from "@/components/reparto/PedidoActions";
 import { ClienteHorario } from "@/components/reparto/ClienteHorario";
+import { RegistrarEntrega } from "@/components/reparto/RegistrarEntrega";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus, type Prioridad } from "@/types/reparto";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
@@ -50,11 +51,16 @@ type Detail = {
     id: string; descripcion: string; cantidad: number; unidad: string | null;
     clave_sat: string | null; valor_unitario: number; importe: number; descuento: number | null;
   }>;
-  entregas: Array<{
-    id: string; timestamp_entrega: string | null; foto_url: string | null;
-    compartido_whatsapp: boolean | null; observaciones: string | null;
-    lat: number | null; lng: number | null; chofer_id: string | null;
-  }>;
+  // PostgREST incrusta esta relación como objeto (no arreglo) porque
+  // reparto.entregas.pedido_id es UNIQUE (una entrega por pedido). Se normaliza
+  // a arreglo más abajo.
+  entregas: EntregaRow | EntregaRow[] | null;
+};
+
+type EntregaRow = {
+  id: string; timestamp_entrega: string | null; foto_url: string | null;
+  compartido_whatsapp: boolean | null; observaciones: string | null;
+  lat: number | null; lng: number | null; chofer_id: string | null;
 };
 
 export default async function PedidoDetail({ params }: { params: { id: string } }) {
@@ -75,6 +81,11 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
 
   if (!pedidoRaw) notFound();
   const pedido = pedidoRaw as unknown as Detail;
+  const entregas: EntregaRow[] = Array.isArray(pedido.entregas)
+    ? pedido.entregas
+    : pedido.entregas
+      ? [pedido.entregas]
+      : [];
 
   // Horario de recepción según la cuenta del CRM enlazada por RFC (la fuente que
   // capturan los vendedores). Si no hay match, Reparto usa su propio respaldo.
@@ -185,10 +196,12 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
         </table>
       </CardContent></Card>
 
-      {pedido.entregas?.length > 0 && (
+      {pedido.estatus !== "entregado" && <RegistrarEntrega pedidoId={pedido.id} />}
+
+      {entregas.length > 0 && (
         <Card><CardContent className="space-y-3 p-5">
           <h3 className="font-display text-lg">Evidencia de entrega</h3>
-          {pedido.entregas.map((e) => (
+          {entregas.map((e) => (
             <div key={e.id} className="grid gap-3 sm:grid-cols-[160px_1fr]">
               {e.foto_url ? (
                 <a href={e.foto_url} target="_blank" rel="noreferrer" className="block">
