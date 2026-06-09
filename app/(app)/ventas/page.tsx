@@ -2,7 +2,7 @@
 // de periodo. Admin ve todo; vendedor ve solo lo suyo (RLS de monthly_sales).
 
 import Link from "next/link";
-import { Upload, TrendingUp } from "lucide-react";
+import { Upload, TrendingUp, Scale } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -83,11 +83,16 @@ export default async function VentasPage({
             {isAdmin ? "Ventas por vendedor, distribuidas por cliente." : "Tus ventas del periodo."}
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link href="/ventas/importar"><Upload className="mr-1 h-4 w-4" /> Importar ventas</Link>
+            <Link href="/ventas/conciliacion"><Scale className="mr-1 h-4 w-4" /> Conciliar vs cartera</Link>
           </Button>
-        )}
+          {isAdmin && (
+            <Button asChild variant="outline">
+              <Link href="/ventas/importar"><Upload className="mr-1 h-4 w-4" /> Importar ventas</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {periods.length === 0 ? (
