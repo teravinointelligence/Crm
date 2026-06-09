@@ -18,7 +18,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Calendar, GripVertical, Truck, AlertCircle } from "lucide-react";
+import { Calendar, GripVertical, Truck, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -41,6 +41,7 @@ type Pedido = {
   total: number | null;
   chofer_id: string | null;
   direccion_entrega: string | null;
+  horario_recepcion: string | null;
   clientes: { id: string; nombre: string; ciudad: string | null; zona: string | null } | null;
 };
 
@@ -257,6 +258,12 @@ function PedidoCardView({ pedido, dragging = false }: { pedido: Pedido; dragging
       <p className="truncate text-[11px] text-muted-foreground">
         {[pedido.clientes?.zona ?? pedido.clientes?.ciudad, pedido.direccion_entrega].filter(Boolean).join(" · ") || "Sin dirección"}
       </p>
+      {pedido.horario_recepcion && (
+        <p className="flex items-center gap-1 text-[11px] text-brand-carmesi" title="Horario de recepción de mercancía">
+          <Clock className="h-3 w-3 shrink-0" />
+          <span className="truncate">{pedido.horario_recepcion}</span>
+        </p>
+      )}
       <div className="flex items-center justify-between gap-2 text-[11px]">
         <div className="flex items-center gap-1.5">
           {pedido.ventana_inicio ? (
