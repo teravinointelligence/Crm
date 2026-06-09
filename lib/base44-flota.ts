@@ -9,6 +9,23 @@
 
 import "server-only";
 
+// Tipos, enums y helpers puros viven en un módulo aparte (sin server-only) para
+// que los componentes cliente los importen sin arrastrar la API key. Los
+// re-exportamos aquí para que el código server siga importándolos desde un
+// único lugar.
+export {
+  FLOTA_REQUIRED_FIELDS,
+  POLICY_COVERAGES,
+  SERVICE_TYPES,
+  missingFields,
+  daysUntil,
+  type FlotaVehicle,
+  type FlotaInsurancePolicy,
+  type FlotaMechanicalService,
+  type PolicyCoverage,
+  type ServiceType,
+} from "./flota-types";
+
 // Base de la REST API del app de Flota. Acepta el dominio publicado con o sin
 // sufijo /api (lo normalizamos). Default al subdominio publicado conocido.
 function baseUrl(): string {
@@ -71,46 +88,8 @@ export const base44Flota = {
         request<T>(`/entities/${name}`, { method: "POST", body: JSON.stringify(data) }),
       update: (id: string, data: Partial<T>) =>
         request<T>(`/entities/${name}/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      remove: (id: string) =>
+        request<unknown>(`/entities/${name}/${id}`, { method: "DELETE" }),
     };
   },
 };
-
-// ----- Tipos compartidos (seguros para el browser) -----
-
-export type FlotaVehicle = {
-  id: string;
-  brand: string;
-  model: string;
-  year: number;
-  version?: string | null;
-  plates?: string | null;
-  vin?: string | null;
-  holder?: string | null;
-  location?: string | null;
-  assigned_driver?: string | null;
-  current_km?: number | null;
-  estimated_value?: number | null;
-  notes?: string | null;
-  created_date?: string;
-  updated_date?: string;
-};
-
-// Campos que un vehículo "debería" tener llenos para considerarse completo.
-// El módulo Flota existe para que Logística complete justamente estos.
-export const FLOTA_REQUIRED_FIELDS = [
-  { key: "plates", label: "Placas" },
-  { key: "vin", label: "No. de serie (VIN)" },
-  { key: "holder", label: "Titular" },
-  { key: "assigned_driver", label: "Conductor asignado" },
-  { key: "location", label: "Plaza" },
-  { key: "current_km", label: "Kilometraje" },
-] as const satisfies ReadonlyArray<{ key: keyof FlotaVehicle; label: string }>;
-
-function isBlank(value: unknown): boolean {
-  return value == null || (typeof value === "string" && value.trim() === "");
-}
-
-/** Devuelve las etiquetas de los campos importantes que están vacíos. */
-export function missingFields(v: FlotaVehicle): string[] {
-  return FLOTA_REQUIRED_FIELDS.filter((f) => isBlank(v[f.key])).map((f) => f.label);
-}
