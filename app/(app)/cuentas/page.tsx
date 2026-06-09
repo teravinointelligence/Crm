@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2, Download, MailWarning } from "lucide-react";
+import { Link2, Download, MailWarning, Upload } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { AccountsListClient } from "@/components/accounts/AccountsListClient";
@@ -39,6 +39,11 @@ export default async function CuentasPage() {
               <a href="/api/cuentas/export">
                 <Download className="mr-1 h-4 w-4" /> Descargar Excel por vendedor
               </a>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/cuentas/importar">
+                <Upload className="mr-1 h-4 w-4" /> Cargar datos
+              </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/cuentas/sincronizar-clientes">

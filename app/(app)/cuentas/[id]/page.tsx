@@ -312,6 +312,8 @@ export default async function CuentaDetailPage({
               />
               <Detail label="RFC" value={account.rfc ?? "—"} />
               <Detail label="Razón social" value={account.fiscal_name ?? "—"} />
+              <Detail label="Uso CFDI" value={account.uso_cfdi ?? "—"} />
+              <Detail label="Régimen fiscal" value={account.regimen_fiscal ?? "—"} />
               <Detail
                 label="Días de crédito"
                 value={
