@@ -18,6 +18,7 @@ const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE
 });
 
 const DAYS = Math.max(1, Math.round(Number(process.argv[2]) || 15));
+const APP_URL = (env.NEXT_PUBLIC_APP_URL || "https://crm-steel-tau.vercel.app").replace(/\/+$/, "");
 const ESTADOS = ["activo", "prospecto"];
 const MS_DAY = 86_400_000;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -44,6 +45,9 @@ function buildHtml(repName, accounts) {
       <tbody>${rows}</tbody>
     </table>
     <p style="margin-top:16px;">Por favor dales seguimiento: agenda una visita, llamada o degustación y registra la actividad en el CRM. Mantener el contacto vivo evita que el cliente se enfríe.</p>
+    <p style="margin:24px 0;">
+      <a href="${APP_URL}/cuentas" style="display:inline-block;background:#7a1220;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px;">Abrir el CRM</a>
+    </p>
     <p style="color:#666;font-size:13px;margin-top:24px;">TERAVINO · CRM</p>
   </div>`;
 }
