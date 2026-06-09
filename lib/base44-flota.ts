@@ -1,33 +1,20 @@
 // Cliente Base44 para la app "Teravino Flota" (parque vehicular / flotilla).
 // SERVER-ONLY: usa la API key directa, nunca debe llegar al browser.
 //
-// A diferencia de Consignaciones y Docs (que pegan al subdominio publicado del
-// app, ej. teravino-docs.base44.app/api), Flota usa el endpoint de plataforma
-// basado en app_id: https://app.base44.com/api/apps/{appId}/entities/...
-// Así no depende de que el app esté publicado bajo un slug adivinable.
-//
-// Mismo patrón lazy que lib/base44-docs.ts: importar este módulo no falla si
+// Mismo patrón que lib/base44-docs.ts: pega al subdominio publicado del app
+// (teravino-flota.base44.app/api) y es lazy — importar este módulo no falla si
 // faltan env vars; solo al hacer la primera llamada se valida y se lanza un
 // error claro, para que una pantalla /flota/* no tire la app completa si todavía
 // no se configuraron los secretos en Vercel.
 
 import "server-only";
 
-// Tipos y etiquetas puras viven aquí mismo pero sin tocar la red ni la key, así
-// que los re-exportamos para que los componentes cliente los importen sin
-// arrastrar la API key (los exports `*Vehicle*` son seguros para el browser).
-
-// App "Teravino Flota" en Base44. Configurable por si rota el id.
-const DEFAULT_FLOTA_APP_ID = "6a2091d32a6360cbea06f7c2";
-
-function appId(): string {
-  return (process.env.BASE44_FLOTA_APP_ID || DEFAULT_FLOTA_APP_ID).trim();
-}
-
-// Base del REST de plataforma de Base44. Configurable por si cambia el host.
+// Base de la REST API del app de Flota. Acepta el dominio publicado con o sin
+// sufijo /api (lo normalizamos). Default al subdominio publicado conocido.
 function baseUrl(): string {
-  const host = (process.env.BASE44_FLOTA_API_URL || "https://app.base44.com").trim().replace(/\/+$/, "");
-  return `${host}/api/apps/${appId()}`;
+  const raw = (process.env.BASE44_FLOTA_URL || "https://teravino-flota.base44.app").trim();
+  const noSlash = raw.replace(/\/+$/, "");
+  return noSlash.endsWith("/api") ? noSlash : `${noSlash}/api`;
 }
 
 function authHeaders() {
