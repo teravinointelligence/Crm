@@ -33,16 +33,17 @@ const FIELDS: FieldDef[] = [
   { key: "estimated_value", label: "Valor estimado", type: "number" },
 ];
 
-export function VehicleForm({ vehicle }: { vehicle: FlotaVehicle }) {
+export function VehicleForm({ vehicle }: { vehicle?: FlotaVehicle | null }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const isEdit = !!vehicle;
 
   const initial: Record<string, string> = {};
   for (const f of FIELDS) {
-    const v = vehicle[f.key];
+    const v = vehicle?.[f.key];
     initial[f.key as string] = v == null ? "" : String(v);
   }
-  initial.notes = vehicle.notes ?? "";
+  initial.notes = vehicle?.notes ?? "";
 
   const [values, setValues] = useState<Record<string, string>>(initial);
 
@@ -57,14 +58,18 @@ export function VehicleForm({ vehicle }: { vehicle: FlotaVehicle }) {
 
     startTransition(async () => {
       try {
-        const res = await fetch(`/api/flota/${vehicle.id}`, {
-          method: "PUT",
+        const res = await fetch(isEdit ? `/api/flota/${vehicle!.id}` : "/api/flota", {
+          method: isEdit ? "PUT" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(values),
         });
         const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
-        if (!res.ok || !data.id) throw new Error(data.error ?? "No se pudieron guardar los cambios.");
-        toast.success("Vehículo actualizado.");
+        if (!res.ok || !data.id) {
+          throw new Error(
+            data.error ?? (isEdit ? "No se pudieron guardar los cambios." : "No se pudo crear el vehículo."),
+          );
+        }
+        toast.success(isEdit ? "Vehículo actualizado." : "Vehículo agregado.");
         router.push("/flota");
         router.refresh();
       } catch (e) {
@@ -112,7 +117,7 @@ export function VehicleForm({ vehicle }: { vehicle: FlotaVehicle }) {
           </Button>
           <Button onClick={submit} disabled={pending}>
             <Save className="mr-1 h-4 w-4" />
-            {pending ? "Guardando..." : "Guardar cambios"}
+            {pending ? "Guardando..." : isEdit ? "Guardar cambios" : "Agregar vehículo"}
           </Button>
         </div>
       </CardContent>

@@ -4,7 +4,8 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Car, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { Car, AlertTriangle, CheckCircle2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -36,11 +37,19 @@ export default async function FlotaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-display text-3xl">Flota</h1>
-        <p className="text-sm text-muted-foreground">
-          Parque vehicular de TERAVINO. Entra a cada auto para completar los datos que faltan.
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl">Flota</h1>
+          <p className="text-sm text-muted-foreground">
+            Parque vehicular de TERAVINO. Entra a cada auto para completar los datos que faltan.
+          </p>
+        </div>
+        <Button asChild>
+          <Link href="/flota/nuevo">
+            <Plus className="mr-1 h-4 w-4" />
+            Nuevo vehículo
+          </Link>
+        </Button>
       </div>
 
       {loadError ? (
