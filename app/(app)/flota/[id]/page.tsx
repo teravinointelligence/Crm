@@ -1,5 +1,6 @@
-// Detalle de un vehículo de la flota: muestra qué datos faltan y un formulario
-// para completarlos. Guardar escribe de vuelta en el app Base44 "Teravino Flota".
+// Detalle de un vehículo de la flota: datos del auto + seguro + servicios.
+// Muestra qué datos faltan y formularios para completar todo. Guardar escribe
+// de vuelta en el app Base44 "Teravino Flota".
 
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
@@ -7,8 +8,16 @@ import { ArrowLeft, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getCurrentRep } from "@/lib/auth";
 import { canAccessFlota } from "@/lib/modules";
-import { base44Flota, missingFields, type FlotaVehicle } from "@/lib/base44-flota";
+import {
+  base44Flota,
+  missingFields,
+  type FlotaVehicle,
+  type FlotaInsurancePolicy,
+  type FlotaMechanicalService,
+} from "@/lib/base44-flota";
 import { VehicleForm } from "@/components/flota/VehicleForm";
+import { InsuranceSection } from "@/components/flota/InsuranceSection";
+import { ServicesSection } from "@/components/flota/ServicesSection";
 
 export const metadata = { title: "Vehículo — Flota — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -26,10 +35,26 @@ export default async function VehicleDetailPage({ params }: { params: { id: stri
   }
   if (!vehicle) notFound();
 
+  // Seguro y servicios del vehículo (no crítico: si fallan, mostramos vacío).
+  let policies: FlotaInsurancePolicy[] = [];
+  let services: FlotaMechanicalService[] = [];
+  try {
+    [policies, services] = await Promise.all([
+      base44Flota
+        .entity<FlotaInsurancePolicy>("InsurancePolicy")
+        .list({ q: { vehicle_id: params.id }, sort_by: "-end_date", limit: 50 }),
+      base44Flota
+        .entity<FlotaMechanicalService>("MechanicalService")
+        .list({ q: { vehicle_id: params.id }, sort_by: "-date", limit: 100 }),
+    ]);
+  } catch {
+    // ignoramos: las secciones aparecen vacías y se pueden alta de todas formas.
+  }
+
   const missing = missingFields(vehicle);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
         <Link
           href="/flota"
@@ -60,6 +85,10 @@ export default async function VehicleDetailPage({ params }: { params: { id: stri
       </div>
 
       <VehicleForm vehicle={vehicle} />
+
+      <InsuranceSection vehicleId={vehicle.id} policies={policies} />
+
+      <ServicesSection vehicleId={vehicle.id} services={services} />
     </div>
   );
 }
