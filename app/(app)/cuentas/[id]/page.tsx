@@ -324,6 +324,7 @@ export default async function CuentaDetailPage({
                       : `${account.credit_days} días`
                 }
               />
+              <Detail label="Horario de recepción" value={account.horario_recepcion ?? "—"} full />
               <Detail label="Dirección" value={account.address ?? "—"} full />
               {account.notes && (
                 <div className="sm:col-span-2 border-t pt-4">
