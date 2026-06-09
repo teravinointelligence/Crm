@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/datos-faltantes",
       "schedule": "0 15 * * 1"
+    },
+    {
+      "path": "/api/cron/clientes-inactivos",
+      "schedule": "0 16 * * 1"
     }
   ]
 }
