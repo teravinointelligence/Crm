@@ -4,13 +4,15 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Camera, MessageCircle, FileText } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto } from "@/lib/modules";
+import { canAccessReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PedidoStepper } from "@/components/reparto/PedidoStepper";
 import { PedidoActions } from "@/components/reparto/PedidoActions";
+import { ClienteHorario } from "@/components/reparto/ClienteHorario";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus, type Prioridad } from "@/types/reparto";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
@@ -41,7 +43,7 @@ type Detail = {
   clientes: {
     id: string; nombre: string; rfc: string | null; ciudad: string | null; zona: string | null;
     direccion: string | null; contacto_nombre: string | null; contacto_tel: string | null;
-    contacto_email: string | null;
+    contacto_email: string | null; horario_recepcion: string | null;
   } | null;
   chofer: { id: string; nombre: string; email: string; telefono: string | null } | null;
   pedido_productos: Array<{
@@ -64,7 +66,7 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
     repartoAdmin
       .from("pedidos")
       .select(
-        "*, clientes:cliente_id(id, nombre, rfc, ciudad, zona, direccion, contacto_nombre, contacto_tel, contacto_email), chofer:chofer_id(id, nombre, email, telefono), pedido_productos(id, descripcion, cantidad, unidad, clave_sat, valor_unitario, importe, descuento), entregas(id, timestamp_entrega, foto_url, compartido_whatsapp, observaciones, chofer_id, lat, lng)",
+        "*, clientes:cliente_id(id, nombre, rfc, ciudad, zona, direccion, contacto_nombre, contacto_tel, contacto_email, horario_recepcion), chofer:chofer_id(id, nombre, email, telefono), pedido_productos(id, descripcion, cantidad, unidad, clave_sat, valor_unitario, importe, descuento), entregas(id, timestamp_entrega, foto_url, compartido_whatsapp, observaciones, chofer_id, lat, lng)",
       )
       .eq("id", params.id)
       .single(),
@@ -73,6 +75,22 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
 
   if (!pedidoRaw) notFound();
   const pedido = pedidoRaw as unknown as Detail;
+
+  // Horario de recepción según la cuenta del CRM enlazada por RFC (la fuente que
+  // capturan los vendedores). Si no hay match, Reparto usa su propio respaldo.
+  let accountHorario: string | null = null;
+  const rfc = pedido.clientes?.rfc?.trim();
+  if (rfc) {
+    const { data: acct } = await supabaseAdmin()
+      .from("accounts")
+      .select("horario_recepcion")
+      .ilike("rfc", rfc)
+      .not("horario_recepcion", "is", null)
+      .limit(1)
+      .maybeSingle();
+    accountHorario = (acct?.horario_recepcion as string | null) ?? null;
+  }
+  const canManage = canManageReparto(rep.role);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -114,6 +132,13 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
           {pedido.clientes?.contacto_nombre && <p className="text-sm">Contacto: {pedido.clientes.contacto_nombre}</p>}
           {pedido.clientes?.contacto_tel && <p className="text-sm">Tel: <a href={`tel:${pedido.clientes.contacto_tel}`} className="text-brand-carmesi hover:underline">{pedido.clientes.contacto_tel}</a></p>}
           {pedido.direccion_entrega && <p className="mt-2 rounded-md border bg-accent/10 p-2 text-sm"><strong>Dirección de entrega:</strong> {pedido.direccion_entrega}</p>}
+          <ClienteHorario
+            clienteId={pedido.clientes?.id ?? null}
+            repartoHorario={pedido.clientes?.horario_recepcion ?? null}
+            accountHorario={accountHorario}
+            accountRfc={accountHorario ? (rfc ?? null) : null}
+            canManage={canManage}
+          />
         </CardContent></Card>
 
         <Card><CardContent className="space-y-1 p-5">

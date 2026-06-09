@@ -22,6 +22,7 @@ export type Database = {
           credit_days: number | null;
           dias_pago: string | null;
           dias_revision: string | null;
+          horario_recepcion: string | null;
           ventana_revision: number | null;
           ventana_suspension: number | null;
           is_legacy: boolean | null;

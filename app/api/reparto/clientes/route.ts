@@ -14,7 +14,7 @@ export async function GET(req: Request) {
   const q = searchParams.get("q")?.trim() ?? "";
   let query = repartoAdmin
     .from("clientes")
-    .select("id, rfc, nombre, ciudad, zona, contacto_nombre, contacto_tel, contacto_email, direccion")
+    .select("id, rfc, nombre, ciudad, zona, contacto_nombre, contacto_tel, contacto_email, direccion, horario_recepcion")
     .order("nombre")
     .limit(50);
   if (q) query = query.or(`nombre.ilike.%${q}%,rfc.ilike.%${q}%,ciudad.ilike.%${q}%`);

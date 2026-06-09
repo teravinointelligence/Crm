@@ -73,6 +73,7 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
       })(),
       dias_pago: (formData.get("dias_pago") as string)?.trim() || null,
       dias_revision: (formData.get("dias_revision") as string)?.trim() || null,
+      horario_recepcion: (formData.get("horario_recepcion") as string)?.trim() || null,
       ventana_revision: (() => {
         const n = Number(String(formData.get("ventana_revision") ?? "").trim());
         return Number.isFinite(n) && n >= 0 ? Math.round(n) : 45;
@@ -289,6 +290,19 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
           defaultValue={account?.dias_revision ?? ""}
           placeholder="p. ej. Lunes"
         />
+      </div>
+
+      <div className="space-y-2 sm:col-span-2">
+        <Label htmlFor="horario_recepcion">Horario de recepción de mercancía</Label>
+        <Input
+          id="horario_recepcion"
+          name="horario_recepcion"
+          defaultValue={account?.horario_recepcion ?? ""}
+          placeholder="p. ej. Lun-Vie 8:00-13:00 · no recibe en fin de semana"
+        />
+        <p className="text-xs text-muted-foreground">
+          A qué hora y qué días recibe mercancía el cliente. Lo usa Reparto para planear entregas.
+        </p>
       </div>
 
       <div className="space-y-2">
