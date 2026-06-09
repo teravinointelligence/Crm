@@ -12,6 +12,7 @@ const headers = [
   "Vendedor",
   "# Cliente",
   "Nombre Comercial",
+  "No. Factura",
   "Venta Bruta",
   "Neto",
   "Descuento",
@@ -19,8 +20,8 @@ const headers = [
 ];
 
 const ejemplos = [
-  ["Emmanuel", "175", "HOTEL EJEMPLO SA DE CV", 12500.0, 12500.0, 0, 12500.0],
-  ["Citlali", "88", "RESTAURANTE DEMO", 8400.5, 9744.58, 1344.08, 8400.5],
+  ["Emmanuel", "175", "HOTEL EJEMPLO SA DE CV", "A1234, A1290", 12500.0, 12500.0, 0, 12500.0],
+  ["Citlali", "88", "RESTAURANTE DEMO", "A1305", 8400.5, 9744.58, 1344.08, 8400.5],
 ];
 
 const wsData = [headers, ...ejemplos];
@@ -29,6 +30,7 @@ ws["!cols"] = [
   { wch: 16 }, // Vendedor
   { wch: 12 }, // # Cliente
   { wch: 32 }, // Nombre Comercial
+  { wch: 18 }, // No. Factura
   { wch: 14 }, // Venta Bruta
   { wch: 14 }, // Neto
   { wch: 14 }, // Descuento
@@ -47,6 +49,7 @@ const instrucciones = [
   ["Vendedor          Informativo. El vendedor REAL se deriva del cliente asignado en el CRM, no de esta columna."],
   ["# Cliente         OBLIGATORIA para emparejar. Es el # de cliente de CONTPAQi. Los ceros a la izquierda no importan (00175 = 175)."],
   ["Nombre Comercial  Opcional. Nombre/razón social del cliente. Solo de apoyo visual."],
+  ["No. Factura       Opcional, SOLO REFERENCIA. Anota aquí la(s) factura(s) del mes (sepáralas con comas). El sistema NO la guarda; sirve para tu control y conciliación."],
   ["Venta Bruta       Monto de venta bruta del mes. Alimenta el total de ventas y el ranking."],
   ["Neto              Opcional. Importe neto antes de descuento."],
   ["Descuento         Opcional. Descuento aplicado."],
