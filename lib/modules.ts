@@ -60,6 +60,15 @@ export function canManageReparto(role: string | null | undefined): boolean {
   return role === "admin" || role === "jefe_logistica";
 }
 
+/**
+ * Pueden VER y editar el parque vehicular (módulo Flota). Es responsabilidad de
+ * logística: admin y jefe de logística (Isaí). Como `jefe_logistica` es un rol
+ * "solo-reparto", el middleware y el sidebar lo dejan llegar también a /flota.
+ */
+export function canAccessFlota(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },

@@ -21,16 +21,18 @@ import {
   TrendingUp,
   BookOpen,
   Radio,
+  Car,
 } from "lucide-react";
-import { canSeeFinance, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessFlota, canSeeFinance, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
   finance?: boolean;
+  flota?: boolean;
   moduleKey?: string;
   basePath: string;
   children: { href: string; label: string; icon: typeof LayoutDashboard }[];
@@ -66,6 +68,7 @@ export const navItems: Item[] = [
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, finance: true },
   { href: "/reportes", label: "Reportes", icon: BarChart3, finance: true },
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
+  { href: "/flota", label: "Flota", icon: Car, flota: true },
   { href: "/manuales", label: "Manuales", icon: BookOpen, moduleKey: "manuales" },
   {
     kind: "group",
@@ -94,11 +97,17 @@ export function visibleNavItems({
   modules?: string[];
   role?: string | null;
 }): Item[] {
-  // Roles solo-reparto: en el CRM web únicamente ven la sección Reparto.
+  // Roles solo-reparto: en el CRM web únicamente ven la sección Reparto, más
+  // Flota si su rol tiene acceso (ej. el jefe de logística completa la flotilla).
   if (isRepartoOnlyRole(role)) {
-    return navItems.filter((i) => i.kind === "group" && i.basePath === "/reparto");
+    return navItems.filter(
+      (i) =>
+        (i.kind === "group" && i.basePath === "/reparto") ||
+        (i.flota === true && canAccessFlota(role)),
+    );
   }
   return navItems.filter((i) => {
+    if (i.flota) return canAccessFlota(role);
     if (i.finance) return canSeeFinance(role);
     if (i.adminOnly) return isAdmin;
     if (isAdmin) return true;

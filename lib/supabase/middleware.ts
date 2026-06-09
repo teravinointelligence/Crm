@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessFlota, isRepartoOnlyRole } from "@/lib/modules";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -76,12 +76,20 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Confinamiento: un rol solo-reparto únicamente puede tocar /reparto/* y su API.
-    if (repartoOnly && !path.startsWith("/reparto") && !path.startsWith("/api/reparto")) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/reparto/dashboard";
-      url.search = "";
-      return NextResponse.redirect(url);
+    // Confinamiento: un rol solo-reparto únicamente puede tocar /reparto/* y su
+    // API, más /flota/* si su rol tiene acceso a la flotilla (jefe de logística).
+    if (repartoOnly) {
+      const flotaOk =
+        canAccessFlota(rep.role) &&
+        (path.startsWith("/flota") || path.startsWith("/api/flota"));
+      const allowed =
+        path.startsWith("/reparto") || path.startsWith("/api/reparto") || flotaOk;
+      if (!allowed) {
+        const url = request.nextUrl.clone();
+        url.pathname = "/reparto/dashboard";
+        url.search = "";
+        return NextResponse.redirect(url);
+      }
     }
   }
 
