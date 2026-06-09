@@ -31,6 +31,8 @@ export type Database = {
           price_tier: string | null;
           region: string | null;
           rfc: string | null;
+          uso_cfdi: string | null;
+          regimen_fiscal: string | null;
           status: string | null;
           updated_at: string | null;
         };

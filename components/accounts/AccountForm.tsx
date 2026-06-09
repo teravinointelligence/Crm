@@ -62,6 +62,8 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
       address: (formData.get("address") as string) || null,
       rfc: (formData.get("rfc") as string) || null,
       fiscal_name: (formData.get("fiscal_name") as string) || null,
+      uso_cfdi: (formData.get("uso_cfdi") as string)?.trim() || null,
+      regimen_fiscal: (formData.get("regimen_fiscal") as string)?.trim() || null,
       client_number: (formData.get("client_number") as string)?.trim() || null,
       credit_days: (() => {
         const raw = String(formData.get("credit_days") ?? "").trim();
@@ -227,6 +229,24 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
           id="fiscal_name"
           name="fiscal_name"
           defaultValue={account?.fiscal_name ?? ""}
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="uso_cfdi">Uso CFDI</Label>
+        <Input
+          id="uso_cfdi"
+          name="uso_cfdi"
+          defaultValue={account?.uso_cfdi ?? ""}
+          placeholder="p. ej. G01"
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="regimen_fiscal">Régimen fiscal</Label>
+        <Input
+          id="regimen_fiscal"
+          name="regimen_fiscal"
+          defaultValue={account?.regimen_fiscal ?? ""}
+          placeholder="p. ej. 601"
         />
       </div>
       <div className="space-y-2">
