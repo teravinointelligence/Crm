@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileSpreadsheet, AlertTriangle, CheckCircle2, Upload } from "lucide-react";
+import { FileSpreadsheet, AlertTriangle, CheckCircle2, Upload, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -243,13 +243,27 @@ export function ImportCarteraCuenta({
             <TabsTrigger value="facturas">Facturas</TabsTrigger>
             <TabsTrigger value="pagos">Pagos</TabsTrigger>
           </TabsList>
-          <TabsContent value="facturas" className="pt-2 text-xs text-muted-foreground">
-            Formatos: reporte de antigüedad CONTPAQi o listado plano (Folio, Fecha, Vencimiento,
-            Total…). El de antigüedad solo agrega folios nuevos; el listado plano hace upsert por folio.
+          <TabsContent value="facturas" className="space-y-2 pt-2 text-xs text-muted-foreground">
+            <p>
+              Formatos: reporte de antigüedad CONTPAQi o listado plano (Folio, Fecha, Vencimiento,
+              Total…). El de antigüedad solo agrega folios nuevos; el listado plano hace upsert por folio.
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <a href="/templates/plantilla_cartera_cliente_facturas.xlsx" download>
+                <Download className="mr-1 h-4 w-4" /> Descargar plantilla de facturas
+              </a>
+            </Button>
           </TabsContent>
-          <TabsContent value="pagos" className="pt-2 text-xs text-muted-foreground">
-            Columnas: Fecha pago, Folio factura, Monto, Método, Referencia. Cada pago se aplica a la
-            factura indicada (buscada dentro de este cliente).
+          <TabsContent value="pagos" className="space-y-2 pt-2 text-xs text-muted-foreground">
+            <p>
+              Columnas: Fecha pago, Folio factura, Monto, Método, Referencia. Cada pago se aplica a la
+              factura indicada (buscada dentro de este cliente).
+            </p>
+            <Button asChild variant="outline" size="sm">
+              <a href="/templates/plantilla_cartera_cliente_pagos.xlsx" download>
+                <Download className="mr-1 h-4 w-4" /> Descargar plantilla de pagos
+              </a>
+            </Button>
           </TabsContent>
         </Tabs>
 
