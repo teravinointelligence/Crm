@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Truck, Plus } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto } from "@/lib/modules";
+import { canViewReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,8 @@ type PedidoLite = {
 export default async function DashboardRepartoPage() {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (!canAccessReparto(rep.role)) redirect("/");
+  if (!canViewReparto(rep.role)) redirect("/");
+  const canManage = canManageReparto(rep.role);
 
   const today = new Date().toISOString().slice(0, 10);
   const startOfWeek = new Date();
@@ -112,12 +113,14 @@ export default async function DashboardRepartoPage() {
             Operación del día — {new Date().toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })}
           </p>
         </div>
-        <div className="flex gap-2">
-          <UploadCFDI />
-          <Button asChild>
-            <Link href="/reparto/pedidos/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido</Link>
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2">
+            <UploadCFDI />
+            <Button asChild>
+              <Link href="/reparto/pedidos/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido</Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto } from "@/lib/modules";
+import { canViewReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategoryBarChart, MonthlyBarChart } from "@/components/reports/Charts";
@@ -38,7 +38,7 @@ export default async function ReportesRepartoPage({
 }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (!canAccessReparto(rep.role)) redirect("/");
+  if (!canViewReparto(rep.role)) redirect("/");
 
   const period = (searchParams.period && ["30", "90", "ytd"].includes(searchParams.period) ? searchParams.period : "30") as Period;
   const range = rangeFor(period);

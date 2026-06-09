@@ -23,9 +23,9 @@ import {
   Radio,
   Car,
 } from "lucide-react";
-import { canAccessFlota, canSeeFinance, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessFlota, canManageReparto, canSeeFinance, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -33,9 +33,10 @@ export type GroupItem = {
   adminOnly?: boolean;
   finance?: boolean;
   flota?: boolean;
+  reparto?: boolean;
   moduleKey?: string;
   basePath: string;
-  children: { href: string; label: string; icon: typeof LayoutDashboard }[];
+  children: { href: string; label: string; icon: typeof LayoutDashboard; manageOnly?: boolean }[];
 };
 export type Item = LeafItem | GroupItem;
 
@@ -74,14 +75,14 @@ export const navItems: Item[] = [
     kind: "group",
     label: "Reparto",
     icon: Truck,
-    adminOnly: true,
+    reparto: true,
     basePath: "/reparto",
     children: [
       { href: "/reparto/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/reparto/pedidos", label: "Pedidos", icon: ClipboardList },
       { href: "/reparto/rutas", label: "Rutas", icon: Route },
       { href: "/reparto/bitacora", label: "Bitácora", icon: FileText },
-      { href: "/reparto/choferes", label: "Choferes", icon: UserCog },
+      { href: "/reparto/choferes", label: "Choferes", icon: UserCog, manageOnly: true },
       { href: "/reparto/reportes", label: "Reportes", icon: BarChart3 },
     ],
   },
@@ -97,21 +98,35 @@ export function visibleNavItems({
   modules?: string[];
   role?: string | null;
 }): Item[] {
+  // Dentro del grupo Reparto, "Choferes" es de gestión: ocúltalo a quien solo
+  // puede ver (vendedor, chofer).
+  const prune = (item: Item): Item => {
+    if (item.kind === "group" && item.basePath === "/reparto" && !canManageReparto(role)) {
+      return { ...item, children: item.children.filter((c) => !c.manageOnly) };
+    }
+    return item;
+  };
+
   // Roles solo-reparto: en el CRM web únicamente ven la sección Reparto, más
   // Flota si su rol tiene acceso (ej. el jefe de logística completa la flotilla).
   if (isRepartoOnlyRole(role)) {
-    return navItems.filter(
-      (i) =>
-        (i.kind === "group" && i.basePath === "/reparto") ||
-        (i.flota === true && canAccessFlota(role)),
-    );
+    return navItems
+      .filter(
+        (i) =>
+          (i.kind === "group" && i.basePath === "/reparto") ||
+          (i.flota === true && canAccessFlota(role)),
+      )
+      .map(prune);
   }
-  return navItems.filter((i) => {
-    if (i.flota) return canAccessFlota(role);
-    if (i.finance) return canSeeFinance(role);
-    if (i.adminOnly) return isAdmin;
-    if (isAdmin) return true;
-    if (!i.moduleKey) return true; // dashboard / siempre visible
-    return modules.includes(i.moduleKey);
-  });
+  return navItems
+    .filter((i) => {
+      if (i.flota) return canAccessFlota(role);
+      if (i.finance) return canSeeFinance(role);
+      if (i.reparto) return canViewReparto(role);
+      if (i.adminOnly) return isAdmin;
+      if (isAdmin) return true;
+      if (!i.moduleKey) return true; // dashboard / siempre visible
+      return modules.includes(i.moduleKey);
+    })
+    .map(prune);
 }
