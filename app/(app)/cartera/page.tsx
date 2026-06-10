@@ -83,6 +83,13 @@ export default async function CarteraPage() {
               </Link>
             </Button>
           )}
+          {isAdmin && (
+            <Button asChild variant="outline">
+              <a href="/api/cartera/auditoria-sin-pagos">
+                <Download className="mr-1 h-4 w-4" /> Auditoría: cuentas sin pagos
+              </a>
+            </Button>
+          )}
         </div>
       </div>
 
