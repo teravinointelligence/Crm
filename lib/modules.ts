@@ -92,6 +92,18 @@ export function canViewCreditoClientes(role: string | null | undefined): boolean
   return role === "admin" || role === "jefe_logistica";
 }
 
+/**
+ * Roles con acceso TOTAL (ver todo + operar) a los módulos de facturación —
+ * Consignaciones y Documentos. Es el admin y el facturista (que en TERAVINO es
+ * el jefe de logística, Isaí): factura a partir de consignaciones y genera
+ * documentos para cualquier cuenta, así que necesita el mismo alcance que admin
+ * en esos dos módulos. Como `jefe_logistica` es un rol "solo-reparto", el
+ * middleware y el sidebar lo dejan llegar también a /consignaciones y /documentos.
+ */
+export function canAccessFacturacion(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },

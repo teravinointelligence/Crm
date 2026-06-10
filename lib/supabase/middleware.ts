@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { canAccessFlota, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessFacturacion, canAccessFlota, isRepartoOnlyRole } from "@/lib/modules";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -82,8 +82,18 @@ export async function updateSession(request: NextRequest) {
       const flotaOk =
         canAccessFlota(rep.role) &&
         (path.startsWith("/flota") || path.startsWith("/api/flota"));
+      // El facturista (jefe de logística) además opera Consignaciones y Documentos.
+      const facturaOk =
+        canAccessFacturacion(rep.role) &&
+        (path.startsWith("/consignaciones") ||
+          path.startsWith("/api/consignaciones") ||
+          path.startsWith("/documentos") ||
+          path.startsWith("/api/documentos"));
       const allowed =
-        path.startsWith("/reparto") || path.startsWith("/api/reparto") || flotaOk;
+        path.startsWith("/reparto") ||
+        path.startsWith("/api/reparto") ||
+        flotaOk ||
+        facturaOk;
       if (!allowed) {
         const url = request.nextUrl.clone();
         url.pathname = "/reparto/dashboard";

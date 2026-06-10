@@ -7,6 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import {
   base44,
   resolveBase44Vendedor,
@@ -27,7 +28,7 @@ export async function loadConsignacionForRep(consignacionId: string): Promise<Sc
   if (!rep) {
     return { ok: false, response: NextResponse.json({ error: "No autenticado" }, { status: 401 }) };
   }
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let consignacion: Base44Consignacion;
   try {
@@ -52,7 +53,7 @@ export async function loadTomaForRep(tomaId: string): Promise<TomaScopeResult> {
   if (!rep) {
     return { ok: false, response: NextResponse.json({ error: "No autenticado" }, { status: 401 }) };
   }
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let toma: Base44TomaInventario;
   try {

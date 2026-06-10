@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Wine, Filter, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
 import {
   base44,
@@ -43,7 +44,7 @@ export default async function ConsignacionesPage({
   searchParams: { estado?: string };
 }) {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
   const estadoParam = (searchParams.estado ?? "") as Estado | "";
 
   // Scope por vendedor — si el rep no tiene match en Base44, mostramos empty state.

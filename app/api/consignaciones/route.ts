@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import {
   base44,
   resolveBase44Vendedor,
@@ -41,7 +42,7 @@ function bad(message: string, status = 400) {
 export async function POST(req: Request) {
   const rep = await getCurrentRep();
   if (!rep) return bad("No autenticado", 401);
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let input: CreateInput;
   try {

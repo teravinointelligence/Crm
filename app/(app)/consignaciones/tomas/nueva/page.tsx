@@ -7,6 +7,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import {
   base44,
   resolveBase44Vendedor,
@@ -25,7 +26,7 @@ export default async function NuevaTomaPage({
   searchParams: { consignacion?: string };
 }) {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
   const consignacionId = searchParams.consignacion;
   if (!consignacionId) redirect("/consignaciones");
 

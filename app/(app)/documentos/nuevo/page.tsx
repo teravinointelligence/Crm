@@ -1,12 +1,16 @@
 // Nuevo documento. Server component que pre-carga plantillas (Base44) y cuentas
-// del CRM (con la RLS del usuario) y se las pasa al form (client component).
+// del CRM y se las pasa al form (client component). El vendedor ve sus cuentas
+// (RLS); el facturista/admin ve todas (service-role) para poder documentar a
+// cualquier cliente.
 
 import { FileText } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { base44Docs, type Base44DocTemplate } from "@/lib/base44-docs";
 import { NuevoDocumentoForm } from "@/components/documentos/NuevoDocumentoForm";
 
@@ -18,7 +22,7 @@ export default async function NuevoDocumentoPage({
 }: {
   searchParams: { template?: string };
 }) {
-  await requireRep();
+  const rep = await requireRep();
 
   let templates: Base44DocTemplate[] = [];
   let loadError: string | null = null;
@@ -47,8 +51,9 @@ export default async function NuevoDocumentoPage({
     );
   }
 
-  // Cuentas del CRM visibles para el usuario (RLS). Solo activas si la columna existe.
-  const supabase = createClient();
+  // Cuentas del CRM. Facturista/admin ven todas (service-role); el resto, las
+  // suyas (RLS).
+  const supabase = canAccessFacturacion(rep.role) ? supabaseAdmin() : createClient();
   const { data: accounts } = await supabase
     .from("accounts")
     .select("id, business_name, rfc, region")

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { formatDateTime } from "@/lib/utils";
 import { base44Docs, type Base44GeneratedDoc } from "@/lib/base44-docs";
 import { DocumentoStatusControl } from "@/components/documentos/DocumentoStatusControl";
@@ -17,7 +18,7 @@ export const dynamic = "force-dynamic";
 
 export default async function DocumentoDetallePage({ params }: { params: { id: string } }) {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let doc: Base44GeneratedDoc | null = null;
   let loadError: string | null = null;

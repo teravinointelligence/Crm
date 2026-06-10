@@ -15,7 +15,9 @@ import {
   Hash,
 } from "lucide-react";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   base44,
   resolveBase44Vendedor,
@@ -68,7 +70,7 @@ const AUDITORIA_VARIANT: Record<
 
 export default async function TomaDetailPage({ params }: { params: { id: string } }) {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let toma: Base44TomaInventario;
   try {
@@ -101,7 +103,7 @@ export default async function TomaDetailPage({ params }: { params: { id: string 
     }
   }
 
-  const supabase = createClient();
+  const supabase = isAdmin ? supabaseAdmin() : createClient();
   let crmAccount: { id: string; business_name: string } | null = null;
   if (cliente?.numero_cliente) {
     const { data } = await supabase

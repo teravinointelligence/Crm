@@ -3,6 +3,7 @@
 
 import { Wine } from "lucide-react";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import {
   base44,
   resolveBase44Vendedor,
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic";
 
 export default async function NuevaConsignacionPage() {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   // Resolución de vendedor por defecto (para rep, forzado; para admin, sugerido).
   const ownVendedor = await resolveBase44Vendedor(rep.email);

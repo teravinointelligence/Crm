@@ -7,6 +7,7 @@
 import Link from "next/link";
 import { ClipboardList, Filter, PackageSearch } from "lucide-react";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import {
   base44,
   resolveBase44Vendedor,
@@ -87,7 +88,7 @@ export default async function TomasPage({
   searchParams: { estado?: string; inv?: string };
 }) {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
   const estadoParam = (searchParams.estado ?? "") as EstadoConsig | "";
   const invParam = (searchParams.inv ?? "") as Cobertura;
 
