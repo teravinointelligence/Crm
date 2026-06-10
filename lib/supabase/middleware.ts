@@ -77,7 +77,8 @@ export async function updateSession(request: NextRequest) {
     }
 
     // Confinamiento: un rol solo-reparto únicamente puede tocar /reparto/* y su
-    // API, más /flota/* si su rol tiene acceso a la flotilla (jefe de logística).
+    // API, los Manuales (SOPs, de consulta para todo el equipo), más /flota/*
+    // si su rol tiene acceso a la flotilla (jefe de logística).
     if (repartoOnly) {
       const flotaOk =
         canAccessFlota(rep.role) &&
@@ -92,6 +93,7 @@ export async function updateSession(request: NextRequest) {
       const allowed =
         path.startsWith("/reparto") ||
         path.startsWith("/api/reparto") ||
+        path.startsWith("/manuales") ||
         flotaOk ||
         facturaOk;
       if (!allowed) {

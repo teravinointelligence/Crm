@@ -116,13 +116,15 @@ export function visibleNavItems({
     return item;
   };
 
-  // Roles solo-reparto: en el CRM web únicamente ven la sección Reparto, más
-  // Flota si su rol tiene acceso (ej. el jefe de logística completa la flotilla).
+  // Roles solo-reparto: en el CRM web únicamente ven la sección Reparto y los
+  // Manuales (los SOPs son de consulta para todo el equipo, choferes incluidos),
+  // más Flota si su rol tiene acceso (ej. el jefe de logística completa la flotilla).
   if (isRepartoOnlyRole(role)) {
     return navItems
       .filter(
         (i) =>
           (i.kind === "group" && i.basePath === "/reparto") ||
+          i.moduleKey === "manuales" ||
           (i.flota === true && canAccessFlota(role)) ||
           // El facturista (jefe de logística) además ve Consignaciones y Documentos.
           (canAccessFacturacion(role) &&
