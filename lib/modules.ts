@@ -82,6 +82,16 @@ export function canAccessFlota(role: string | null | undefined): boolean {
   return role === "admin" || role === "jefe_logistica";
 }
 
+/**
+ * Pueden VER la lista de clientes por estatus de crédito (liberado / por revisar
+ * / suspendido) dentro de Reparto. Es una vista operativa para decidir entregas:
+ * admin y jefe de logística (Isaí). NO incluye choferes ni vendedores, y por
+ * diseño no expone montos $ (solo la clasificación de riesgo y días vencidos).
+ */
+export function canViewCreditoClientes(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },
