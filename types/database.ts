@@ -372,6 +372,66 @@ export const REGIONS: Region[] = [
   "Nayarit",
 ];
 
+// ---------------------------------------------------------------------
+// Academy (módulo de formación). Tablas creadas en 0047/0048; aún no están
+// en los tipos generados de Supabase, así que se declaran a mano.
+// ---------------------------------------------------------------------
+export type AcademyWine = {
+  id: string;
+  name: string;
+  producer: string | null;
+  region: string | null;
+  country: string | null;
+  type: string | null;
+  grape_varieties: string[] | null;
+  vintage: string | null;
+  price: number | null;
+  alcohol_content: number | null;
+  tasting_notes: string | null;
+  pairing: string | null;
+  aging: string | null;
+  serving_temperature: string | null;
+  image_url: string | null;
+  location: string | null;
+  base44_id: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AcademyQuizResult = {
+  id: string;
+  rep_id: string;
+  category: string;
+  score: number;
+  total_questions: number;
+  correct_answers: number;
+  time_spent_seconds: number | null;
+  streak: number | null;
+  created_at: string;
+};
+
+export type AcademyQuizResultInsert = {
+  rep_id: string;
+  category: string;
+  score: number;
+  total_questions: number;
+  correct_answers: number;
+  time_spent_seconds?: number | null;
+  streak?: number | null;
+};
+
+export type AcademyLeaderboardRow = {
+  rep_id: string;
+  full_name: string;
+  primary_region: string | null;
+  quizzes: number;
+  avg_score: number;
+  best_streak: number | null;
+  total_correct: number;
+  last_quiz_at: string;
+};
+
 export type PriceTier = "base" | "+10";
 
 export type AccountType =

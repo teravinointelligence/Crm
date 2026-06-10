@@ -20,6 +20,7 @@ import {
   HandCoins,
   TrendingUp,
   BookOpen,
+  GraduationCap,
   Radio,
   Car,
   ShieldCheck,
@@ -72,6 +73,7 @@ export const navItems: Item[] = [
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
   { href: "/flota", label: "Flota", icon: Car, flota: true },
   { href: "/manuales", label: "Manuales", icon: BookOpen, moduleKey: "manuales" },
+  { href: "/academy", label: "Academy", icon: GraduationCap, moduleKey: "academy" },
   {
     kind: "group",
     label: "Reparto",

@@ -119,6 +119,7 @@ export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "restock", label: "Restock", href: "/restock" },
   { key: "transito", label: "Tránsito", href: "/transito" },
   { key: "manuales", label: "Manuales", href: "/manuales" },
+  { key: "academy", label: "Academy", href: "/academy" },
 ];
 
 export const ALL_MODULE_KEYS = SELECTABLE_MODULES.map((m) => m.key);
