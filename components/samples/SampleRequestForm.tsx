@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
+import { peoplePerBottles, OUNCES_PER_PERSON } from "@/lib/samples";
 import type { Account, Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
@@ -62,6 +63,9 @@ export function SampleRequestForm({
   const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", supplier: null, qty: 1, notes: "" }]);
   const upd = (k: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === k ? { ...l, ...patch } : l)));
   const rm = (k: string) => setLines((prev) => prev.filter((l) => l.key !== k));
+
+  const totalBottles = useMemo(() => lines.reduce((s, l) => s + (l.qty || 0), 0), [lines]);
+  const totalPeople = useMemo(() => peoplePerBottles(totalBottles), [totalBottles]);
 
   const submit = (status: "borrador" | "enviada") => {
     if (!lines.length) { toast.error("Agrega al menos un vino"); return; }
@@ -133,17 +137,26 @@ export function SampleRequestForm({
         )}
         {lines.length === 0 ? <p className="text-sm text-muted-foreground">Aún no agregaste vinos.</p> : (
           <table className="min-w-full text-sm">
-            <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Vino</th><th className="py-2 pr-2 w-20">Botellas</th><th className="py-2 pr-2">Nota</th><th className="w-8" /></tr></thead>
+            <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Vino</th><th className="py-2 pr-2 w-20">Botellas</th><th className="py-2 pr-2 w-24 text-right">Rinde</th><th className="py-2 pr-2">Nota</th><th className="w-8" /></tr></thead>
             <tbody>
               {lines.map((l) => (
                 <tr key={l.key} className="border-b align-top">
                   <td className="py-2 pr-2"><Input value={l.product_name} onChange={(e) => upd(l.key, { product_name: e.target.value })} placeholder="Vino" />{l.supplier && <div className="mt-1 text-xs text-muted-foreground">{l.supplier}</div>}</td>
                   <td className="py-2 pr-2"><Input type="number" min={1} value={l.qty} onChange={(e) => upd(l.key, { qty: Number(e.target.value) || 0 })} /></td>
+                  <td className="py-2 pr-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">≈ {peoplePerBottles(l.qty)} pers.</td>
                   <td className="py-2 pr-2"><Input value={l.notes} onChange={(e) => upd(l.key, { notes: e.target.value })} placeholder="añada específica, urgencia…" /></td>
                   <td className="py-2"><Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => rm(l.key)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                 </tr>
               ))}
             </tbody>
+            <tfoot className="border-t">
+              <tr>
+                <td className="py-2 pr-2 text-right text-xs uppercase text-muted-foreground" colSpan={1}>Total</td>
+                <td className="py-2 pr-2 font-medium tabular-nums">{totalBottles}</td>
+                <td className="py-2 pr-2 text-right font-medium tabular-nums whitespace-nowrap">≈ {totalPeople} pers.</td>
+                <td className="py-2 pr-2 text-xs text-muted-foreground" colSpan={2}>{OUNCES_PER_PERSON} oz por persona · botella de 750 ml</td>
+              </tr>
+            </tfoot>
           </table>
         )}
       </CardContent></Card>
