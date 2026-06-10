@@ -26,6 +26,7 @@ export type Database = {
           ventana_revision: number | null;
           ventana_suspension: number | null;
           is_legacy: boolean | null;
+          es_socio: boolean | null;
           fiscal_name: string | null;
           id: string;
           notes: string | null;
@@ -210,6 +211,8 @@ export type Database = {
           last_stock_update: string | null;
           name: string;
           notes: string | null;
+          proposed_at: string | null;
+          proposed_by: string | null;
           region_origin: string | null;
           sku: string | null;
           stock_min_alert: number | null;
@@ -558,6 +561,7 @@ export type AccountBalance = {
   saldo_vencido: number | null;
   facturas_abiertas: number | null;
   dias_vencido: number | null;
+  es_socio: boolean | null;
 };
 
 export const PAYMENT_METHODS = [
