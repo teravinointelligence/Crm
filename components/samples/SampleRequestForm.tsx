@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
+import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON } from "@/lib/samples";
 import type { Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
@@ -28,8 +29,9 @@ type Cita = {
 // vino hacen falta 3 clientes distintos, pero eso se acumula después en la muestra.
 const MIN_PEDIR = 1;
 
-// Capacitaciones: 1 botella de 750 ml alcanza para 8 tastings (personas).
-const TASTINGS_POR_BOTELLA = 8;
+// Capacitaciones (estándar TERAVINO, ver lib/samples.ts): se sirven 2 oz por
+// persona, así que una botella de 750 ml rinde ~12 personas (antes se asumían 8).
+const TASTINGS_POR_BOTELLA = peopleServed(DEFAULT_BOTTLE_ML);
 const botellasParaPersonas = (personas: number) => Math.max(1, Math.ceil(personas / TASTINGS_POR_BOTELLA));
 
 export function SampleRequestForm({
@@ -127,6 +129,9 @@ export function SampleRequestForm({
   const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", supplier: null, qty: defaultQty(), notes: "" }]);
   const upd = (k: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === k ? { ...l, ...patch } : l)));
   const rm = (k: string) => setLines((prev) => prev.filter((l) => l.key !== k));
+
+  const totalBottles = useMemo(() => lines.reduce((s, l) => s + (l.qty || 0), 0), [lines]);
+  const totalPeople = useMemo(() => peoplePerBottles(totalBottles), [totalBottles]);
 
   const submit = (status: "borrador" | "enviada") => {
     if (!lines.length) { toast.error("Agrega al menos un vino"); return; }
@@ -239,7 +244,7 @@ export function SampleRequestForm({
             />
             {trainingPeople > 0 && (
               <p className="text-xs text-muted-foreground">
-                1 botella (750 ml) alcanza para {TASTINGS_POR_BOTELLA} personas → se piden{" "}
+                1 botella (750 ml) alcanza para {TASTINGS_POR_BOTELLA} personas ({OUNCES_PER_PERSON} oz c/u) → se piden{" "}
                 <strong className="text-foreground">{botellasParaPersonas(trainingPeople)} botella(s) por vino</strong>.
                 Puedes ajustarlas abajo.
               </p>
@@ -374,17 +379,26 @@ export function SampleRequestForm({
         )}
         {lines.length === 0 ? <p className="text-sm text-muted-foreground">Aún no agregaste vinos.</p> : (
           <table className="min-w-full text-sm">
-            <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Vino</th><th className="py-2 pr-2 w-20">Botellas</th><th className="py-2 pr-2">Nota</th><th className="w-8" /></tr></thead>
+            <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Vino</th><th className="py-2 pr-2 w-20">Botellas</th><th className="py-2 pr-2 w-24 text-right">Rinde</th><th className="py-2 pr-2">Nota</th><th className="w-8" /></tr></thead>
             <tbody>
               {lines.map((l) => (
                 <tr key={l.key} className="border-b align-top">
                   <td className="py-2 pr-2"><Input value={l.product_name} onChange={(e) => upd(l.key, { product_name: e.target.value })} placeholder="Vino" />{l.supplier && <div className="mt-1 text-xs text-muted-foreground">{l.supplier}</div>}</td>
                   <td className="py-2 pr-2"><Input type="number" min={1} value={l.qty} onChange={(e) => upd(l.key, { qty: Number(e.target.value) || 0 })} /></td>
+                  <td className="py-2 pr-2 text-right tabular-nums text-muted-foreground whitespace-nowrap">≈ {peoplePerBottles(l.qty)} pers.</td>
                   <td className="py-2 pr-2"><Input value={l.notes} onChange={(e) => upd(l.key, { notes: e.target.value })} placeholder="añada específica, urgencia…" /></td>
                   <td className="py-2"><Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => rm(l.key)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
                 </tr>
               ))}
             </tbody>
+            <tfoot className="border-t">
+              <tr>
+                <td className="py-2 pr-2 text-right text-xs uppercase text-muted-foreground">Total</td>
+                <td className="py-2 pr-2 font-medium tabular-nums">{totalBottles}</td>
+                <td className="py-2 pr-2 text-right font-medium tabular-nums whitespace-nowrap">≈ {totalPeople} pers.</td>
+                <td className="py-2 pr-2 text-xs text-muted-foreground" colSpan={2}>{OUNCES_PER_PERSON} oz por persona · botella de 750 ml</td>
+              </tr>
+            </tfoot>
           </table>
         )}
       </CardContent></Card>
