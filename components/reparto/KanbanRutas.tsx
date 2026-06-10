@@ -49,10 +49,12 @@ export function KanbanRutas({
   fecha,
   pedidos: initial,
   choferes,
+  canManage = true,
 }: {
   fecha: string;
   pedidos: Pedido[];
   choferes: Chofer[];
+  canManage?: boolean;
 }) {
   const router = useRouter();
   const [pedidos, setPedidos] = useState<Pedido[]>(initial);
@@ -76,9 +78,13 @@ export function KanbanRutas({
 
   const activePedido = pedidos.find((p) => p.id === activeId) ?? null;
 
-  const onDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
+  const onDragStart = (e: DragStartEvent) => {
+    if (!canManage) return;
+    setActiveId(String(e.active.id));
+  };
   const onDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
+    if (!canManage) return;
     const pedidoId = String(e.active.id);
     const targetCol = e.over ? String(e.over.id) : null;
     if (!targetCol) return;
@@ -162,7 +168,7 @@ export function KanbanRutas({
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {columns.map((col) => (
-            <Column key={col.id} id={col.id} titulo={col.titulo} subtitulo={col.subtitulo} pedidos={grouped.get(col.id) ?? []} />
+            <Column key={col.id} id={col.id} titulo={col.titulo} subtitulo={col.subtitulo} pedidos={grouped.get(col.id) ?? []} canManage={canManage} />
           ))}
         </div>
         <DragOverlay>
@@ -178,11 +184,13 @@ function Column({
   titulo,
   subtitulo,
   pedidos,
+  canManage,
 }: {
   id: string;
   titulo: string;
   subtitulo: string;
   pedidos: Pedido[];
+  canManage: boolean;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
   const isUnassigned = id === UNASSIGNED;
@@ -209,7 +217,7 @@ function Column({
             {isUnassigned ? "Sin pendientes." : "Sin pedidos asignados."}
           </p>
         ) : (
-          pedidos.map((p) => <PedidoCard key={p.id} pedido={p} />)
+          pedidos.map((p) => <PedidoCard key={p.id} pedido={p} canManage={canManage} />)
         )}
       </div>
       {pedidos.length > 0 && (
@@ -221,15 +229,16 @@ function Column({
   );
 }
 
-function PedidoCard({ pedido }: { pedido: Pedido }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: pedido.id });
+function PedidoCard({ pedido, canManage }: { pedido: Pedido; canManage: boolean }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: pedido.id, disabled: !canManage });
   return (
     <div
       ref={setNodeRef}
-      {...attributes}
-      {...listeners}
+      {...(canManage ? attributes : {})}
+      {...(canManage ? listeners : {})}
       className={cn(
-        "cursor-grab active:cursor-grabbing rounded-md border bg-background p-2.5 text-xs shadow-sm transition-opacity",
+        "rounded-md border bg-background p-2.5 text-xs shadow-sm transition-opacity",
+        canManage && "cursor-grab active:cursor-grabbing",
         isDragging && "opacity-30",
       )}
     >

@@ -4,7 +4,7 @@ import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Camera, MessageCircle, FileText } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto, canManageReparto } from "@/lib/modules";
+import { canViewReparto, canAccessReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
@@ -66,7 +66,7 @@ type EntregaRow = {
 export default async function PedidoDetail({ params }: { params: { id: string } }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (!canAccessReparto(rep.role)) redirect("/");
+  if (!canViewReparto(rep.role)) redirect("/");
 
   const [{ data: pedidoRaw }, { data: choferes }] = await Promise.all([
     repartoAdmin
@@ -102,6 +102,7 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
     accountHorario = (acct?.horario_recepcion as string | null) ?? null;
   }
   const canManage = canManageReparto(rep.role);
+  const canOperate = canAccessReparto(rep.role); // operación (chofer+): registrar entrega
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -196,7 +197,7 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
         </table>
       </CardContent></Card>
 
-      {pedido.estatus !== "entregado" && <RegistrarEntrega pedidoId={pedido.id} />}
+      {canOperate && pedido.estatus !== "entregado" && <RegistrarEntrega pedidoId={pedido.id} />}
 
       {entregas.length > 0 && (
         <Card><CardContent className="space-y-3 p-5">
@@ -240,20 +241,22 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
         </div>
       )}
 
-      <PedidoActions
-        pedidoId={pedido.id}
-        initial={{
-          estatus: pedido.estatus,
-          chofer_id: pedido.chofer_id,
-          prioridad: pedido.prioridad,
-          ventana_inicio: pedido.ventana_inicio,
-          ventana_fin: pedido.ventana_fin,
-          direccion_entrega: pedido.direccion_entrega,
-          notas: pedido.notas,
-          motivo_problema: pedido.motivo_problema,
-        }}
-        choferes={(choferes ?? []) as { id: string; nombre: string }[]}
-      />
+      {canManage && (
+        <PedidoActions
+          pedidoId={pedido.id}
+          initial={{
+            estatus: pedido.estatus,
+            chofer_id: pedido.chofer_id,
+            prioridad: pedido.prioridad,
+            ventana_inicio: pedido.ventana_inicio,
+            ventana_fin: pedido.ventana_fin,
+            direccion_entrega: pedido.direccion_entrega,
+            notas: pedido.notas,
+            motivo_problema: pedido.motivo_problema,
+          }}
+          choferes={(choferes ?? []) as { id: string; nombre: string }[]}
+        />
+      )}
     </div>
   );
 }

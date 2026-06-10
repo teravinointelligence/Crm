@@ -2,13 +2,13 @@
 // Validan que el usuario del CRM esté logueado con el rol adecuado antes de
 // exponer/escribir datos de Reparto (que usan service_role server-side).
 //
-//   requireReparto       → VER: admin, jefe_logistica, chofer (read-only).
+//   requireReparto       → VER: admin, jefe_logistica, chofer, vendedor (read-only).
 //   requireRepartoManage → GESTIONAR: admin, jefe_logistica (altas/edición).
 //   requireAdmin         → solo admin (diagnóstico/operaciones sensibles).
 
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto, canManageReparto } from "@/lib/modules";
+import { canViewReparto, canManageReparto } from "@/lib/modules";
 
 async function gate(predicate: (role: string | null | undefined) => boolean, forbiddenMsg: string) {
   const rep = await getCurrentRep();
@@ -26,7 +26,7 @@ export function requireAdmin() {
 }
 
 export function requireReparto() {
-  return gate(canAccessReparto, "Sin acceso a Reparto");
+  return gate(canViewReparto, "Sin acceso a Reparto");
 }
 
 export function requireRepartoManage() {

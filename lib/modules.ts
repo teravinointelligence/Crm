@@ -50,9 +50,22 @@ export function isRepartoOnlyRole(role: string | null | undefined): boolean {
   return role === "chofer" || role === "jefe_logistica";
 }
 
-/** Pueden VER Reparto (operación): admin, jefe de logística y choferes. */
+/**
+ * Roles de OPERACIÓN de Reparto: admin, jefe de logística y choferes. Además de
+ * ver, pueden registrar entregas (subir evidencia). NO incluye al vendedor, que
+ * es solo-lectura (ver `canViewReparto`).
+ */
 export function canAccessReparto(role: string | null | undefined): boolean {
   return role === "admin" || role === "jefe_logistica" || role === "chofer";
+}
+
+/**
+ * Pueden VER Reparto (solo lectura). Es la operación (admin, jefe, chofer) más
+ * el vendedor, que entra de visita para consultar el estatus de sus entregas
+ * pero no puede alterar nada. Se usa en los guards de las páginas/GETs de lectura.
+ */
+export function canViewReparto(role: string | null | undefined): boolean {
+  return canAccessReparto(role) || role === "rep";
 }
 
 /** Pueden GESTIONAR Reparto (altas, edición, asignación, alta de choferes). */

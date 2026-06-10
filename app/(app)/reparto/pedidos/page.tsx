@@ -4,7 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Plus, Truck } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto } from "@/lib/modules";
+import { canViewReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,8 @@ export default async function PedidosPage({
 }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (!canAccessReparto(rep.role)) redirect("/");
+  if (!canViewReparto(rep.role)) redirect("/");
+  const canManage = canManageReparto(rep.role);
 
   const page = Math.max(1, Number(searchParams.page ?? 1));
   const limit = 50;
@@ -83,12 +84,14 @@ export default async function PedidosPage({
           <h1 className="font-display text-3xl">Pedidos de reparto</h1>
           <p className="text-sm text-muted-foreground">Asignación, ventana horaria y seguimiento.</p>
         </div>
-        <div className="flex gap-2">
-          <UploadCFDI />
-          <Button asChild>
-            <Link href="/reparto/pedidos/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido</Link>
-          </Button>
-        </div>
+        {canManage && (
+          <div className="flex gap-2">
+            <UploadCFDI />
+            <Button asChild>
+              <Link href="/reparto/pedidos/nuevo"><Plus className="mr-1 h-4 w-4" /> Nuevo pedido</Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <PedidosFilters

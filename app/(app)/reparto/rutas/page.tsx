@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { getCurrentRep } from "@/lib/auth";
-import { canAccessReparto } from "@/lib/modules";
+import { canViewReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { KanbanRutas } from "@/components/reparto/KanbanRutas";
@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 export default async function RutasPage({ searchParams }: { searchParams: { fecha?: string } }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (!canAccessReparto(rep.role)) redirect("/");
+  if (!canViewReparto(rep.role)) redirect("/");
+  const canManage = canManageReparto(rep.role);
 
   const today = new Date().toISOString().slice(0, 10);
   const fecha = searchParams.fecha ?? today;
@@ -74,11 +75,14 @@ export default async function RutasPage({ searchParams }: { searchParams: { fech
       <div>
         <h1 className="font-display text-3xl">Rutas del día</h1>
         <p className="text-sm text-muted-foreground">
-          Arrastra los pedidos de la columna "Sin asignar" hacia un chofer. Vuelve a arrastrar para reasignar.
+          {canManage
+            ? 'Arrastra los pedidos de la columna "Sin asignar" hacia un chofer. Vuelve a arrastrar para reasignar.'
+            : "Vista de solo lectura: consulta cómo quedaron asignadas las rutas por chofer."}
         </p>
       </div>
       <KanbanRutas
         fecha={fecha}
+        canManage={canManage}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pedidos={pedidosEnriquecidos as any}
         choferes={(choferes ?? []) as { id: string; nombre: string; email: string }[]}
