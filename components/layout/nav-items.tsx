@@ -25,7 +25,7 @@ import {
   Car,
   ShieldCheck,
 } from "lucide-react";
-import { canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
 export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; moduleKey?: string };
 export type GroupItem = {
@@ -125,6 +125,7 @@ export function visibleNavItems({
         (i) =>
           (i.kind === "group" && i.basePath === "/reparto") ||
           i.moduleKey === "manuales" ||
+          (i.moduleKey === "academy" && canAccessAcademy(role)) ||
           (i.flota === true && canAccessFlota(role)) ||
           // El facturista (jefe de logística) además ve Consignaciones y Documentos.
           (canAccessFacturacion(role) &&

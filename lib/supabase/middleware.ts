@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { canAccessFacturacion, canAccessFlota, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, isRepartoOnlyRole } from "@/lib/modules";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -78,7 +78,7 @@ export async function updateSession(request: NextRequest) {
 
     // Confinamiento: un rol solo-reparto únicamente puede tocar /reparto/* y su
     // API, los Manuales (SOPs, de consulta para todo el equipo), más /flota/*
-    // si su rol tiene acceso a la flotilla (jefe de logística).
+    // y Academy si su rol tiene acceso (jefe de logística).
     if (repartoOnly) {
       const flotaOk =
         canAccessFlota(rep.role) &&
@@ -90,12 +90,14 @@ export async function updateSession(request: NextRequest) {
           path.startsWith("/api/consignaciones") ||
           path.startsWith("/documentos") ||
           path.startsWith("/api/documentos"));
+      const academyOk = canAccessAcademy(rep.role) && path.startsWith("/academy");
       const allowed =
         path.startsWith("/reparto") ||
         path.startsWith("/api/reparto") ||
         path.startsWith("/manuales") ||
         flotaOk ||
-        facturaOk;
+        facturaOk ||
+        academyOk;
       if (!allowed) {
         const url = request.nextUrl.clone();
         url.pathname = "/reparto/dashboard";

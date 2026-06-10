@@ -104,6 +104,15 @@ export function canAccessFacturacion(role: string | null | undefined): boolean {
   return role === "admin" || role === "jefe_logistica";
 }
 
+/**
+ * Pueden entrar a Academy aunque su rol esté confinado a Reparto: el jefe de
+ * logística (Isaí) también estudia el portafolio y hace quizzes. Para los roles
+ * estándar la visibilidad se controla por módulos (key "academy").
+ */
+export function canAccessAcademy(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },
