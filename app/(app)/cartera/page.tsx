@@ -143,6 +143,11 @@ export default async function CarteraPage() {
                     >
                       {b.business_name}
                     </Link>
+                    {b.es_socio && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
+                        Socio · sin vencido
+                      </span>
+                    )}
                     {clientNum.get(b.account_id) && (
                       <div className="text-xs text-muted-foreground">
                         # {clientNum.get(b.account_id)}
