@@ -12,6 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { formatDate } from "@/lib/utils";
 import {
   base44Docs,
@@ -33,7 +34,7 @@ const STATUS_VARIANT: Record<DocStatus, "warning" | "success" | "accent"> = {
 
 export default async function DocumentosPage() {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let templates: Base44DocTemplate[] = [];
   let docs: Base44GeneratedDoc[] = [];

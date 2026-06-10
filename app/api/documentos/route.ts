@@ -8,7 +8,9 @@
 
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   base44Docs,
   type Base44DocTemplate,
@@ -54,8 +56,9 @@ export async function POST(req: Request) {
     return bad("La plantilla no existe en Teravino Docs", 404);
   }
 
-  // 2) Cuenta del CRM (con RLS del usuario: solo ve las cuentas permitidas).
-  const supabase = createClient();
+  // 2) Cuenta del CRM. Facturista/admin pueden documentar cualquier cuenta
+  // (service-role); el vendedor solo las suyas (RLS).
+  const supabase = canAccessFacturacion(rep.role) ? supabaseAdmin() : createClient();
   const { data: account } = await supabase
     .from("accounts")
     .select("id, business_name, fiscal_name, rfc, address, city, region")

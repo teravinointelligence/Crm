@@ -5,7 +5,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, PackageX, FileDown, Plus } from "lucide-react";
 import { requireRep } from "@/lib/auth";
+import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   base44,
   resolveBase44Vendedor,
@@ -38,7 +40,7 @@ const ESTADO_VARIANT: Record<Base44Consignacion["estado"], "default" | "outline"
 
 export default async function ConsignacionDetailPage({ params }: { params: { id: string } }) {
   const rep = await requireRep();
-  const isAdmin = rep.role === "admin";
+  const isAdmin = canAccessFacturacion(rep.role);
 
   let consignacion: Base44Consignacion;
   try {
@@ -63,7 +65,7 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
     cliente = null;
   }
 
-  const supabase = createClient();
+  const supabase = isAdmin ? supabaseAdmin() : createClient();
   let crmAccount: { id: string; business_name: string } | null = null;
   if (cliente?.numero_cliente) {
     const { data } = await supabase
