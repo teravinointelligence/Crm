@@ -22,8 +22,9 @@ import {
   BookOpen,
   Radio,
   Car,
+  ShieldCheck,
 } from "lucide-react";
-import { canAccessFlota, canManageReparto, canSeeFinance, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
 export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; moduleKey?: string };
 export type GroupItem = {
@@ -36,7 +37,7 @@ export type GroupItem = {
   reparto?: boolean;
   moduleKey?: string;
   basePath: string;
-  children: { href: string; label: string; icon: typeof LayoutDashboard; manageOnly?: boolean }[];
+  children: { href: string; label: string; icon: typeof LayoutDashboard; manageOnly?: boolean; creditoOnly?: boolean }[];
 };
 export type Item = LeafItem | GroupItem;
 
@@ -79,6 +80,7 @@ export const navItems: Item[] = [
     basePath: "/reparto",
     children: [
       { href: "/reparto/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/reparto/credito", label: "Crédito clientes", icon: ShieldCheck, creditoOnly: true },
       { href: "/reparto/pedidos", label: "Pedidos", icon: ClipboardList },
       { href: "/reparto/rutas", label: "Rutas", icon: Route },
       { href: "/reparto/bitacora", label: "Bitácora", icon: FileText },
@@ -101,8 +103,13 @@ export function visibleNavItems({
   // Dentro del grupo Reparto, "Choferes" es de gestión: ocúltalo a quien solo
   // puede ver (vendedor, chofer).
   const prune = (item: Item): Item => {
-    if (item.kind === "group" && item.basePath === "/reparto" && !canManageReparto(role)) {
-      return { ...item, children: item.children.filter((c) => !c.manageOnly) };
+    if (item.kind === "group" && item.basePath === "/reparto") {
+      const children = item.children.filter(
+        (c) =>
+          (!c.manageOnly || canManageReparto(role)) &&
+          (!c.creditoOnly || canViewCreditoClientes(role)),
+      );
+      return { ...item, children };
     }
     return item;
   };
