@@ -16,9 +16,17 @@ import {
 } from "@/lib/excel/parseProducts";
 import { parseStockExcel, type StockRowParsed } from "@/lib/excel/parseStock";
 import { parsePortfolioExcel } from "@/lib/excel/parsePortfolio";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { WAREHOUSES, type Warehouse } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 
-type Mode = "catalogo" | "stock" | "portafolio";
+type Mode = "catalogo" | "stock" | "portafolio" | "almacen";
 
 export function ImportExcelClient({ repId }: { repId: string }) {
   const router = useRouter();
@@ -32,6 +40,7 @@ export function ImportExcelClient({ repId }: { repId: string }) {
   const [stockPreview, setStockPreview] = useState<
     ParseResult<StockRowParsed> | null
   >(null);
+  const [warehouse, setWarehouse] = useState<Warehouse | "">("");
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -49,6 +58,7 @@ export function ImportExcelClient({ repId }: { repId: string }) {
       setProductsPreview(res);
       setStockPreview(null);
     } else {
+      // "stock" y "almacen" usan el mismo formato: SKU + Existencia.
       const res = await parseStockExcel(buf);
       setStockPreview(res);
       setProductsPreview(null);
@@ -183,6 +193,97 @@ export function ImportExcelClient({ repId }: { repId: string }) {
     });
   };
 
+  const confirmWarehouseImport = () => {
+    if (!stockPreview || !warehouse) return;
+    const { rows, errors } = stockPreview;
+    if (!rows.length) {
+      toast.error("Sin filas válidas para importar");
+      return;
+    }
+    startTransition(async () => {
+      const now = new Date().toISOString();
+      const source = `Excel ${fileName ?? ""} → ${warehouse}`.trim();
+      const whErrors: typeof errors = [];
+
+      // Resuelve SKU → product_id en lotes (evita un query por fila).
+      const skuToId = new Map<string, string>();
+      const skus = rows.map((r) => r.sku);
+      for (let i = 0; i < skus.length; i += 200) {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, sku")
+          .in("sku", skus.slice(i, i + 200));
+        if (error) {
+          toast.error("Error al buscar productos", { description: error.message });
+          return;
+        }
+        for (const p of data ?? []) {
+          if (p.sku) skuToId.set(p.sku, p.id);
+        }
+      }
+
+      const payload: {
+        product_id: string;
+        warehouse: string;
+        stock_quantity: number;
+        last_update: string;
+        last_source: string;
+      }[] = [];
+      for (const r of rows) {
+        const productId = skuToId.get(r.sku);
+        if (!productId) {
+          whErrors.push({ row: 0, message: `SKU ${r.sku} no encontrado`, raw: r });
+          continue;
+        }
+        payload.push({
+          product_id: productId,
+          warehouse,
+          stock_quantity: r.stock_quantity,
+          last_update: now,
+          last_source: source,
+        });
+      }
+
+      let ok = 0;
+      for (let i = 0; i < payload.length; i += 500) {
+        const chunk = payload.slice(i, i + 500);
+        const { error } = await supabase
+          .from("product_warehouse_stock")
+          .upsert(chunk, { onConflict: "product_id,warehouse" });
+        if (error) {
+          whErrors.push({ row: 0, message: `Error al guardar: ${error.message}` });
+        } else {
+          ok += chunk.length;
+        }
+      }
+
+      await supabase.from("inventory_imports").insert({
+        imported_by: repId,
+        import_type: "inventario_almacen",
+        source_file_name: source,
+        rows_total: rows.length + errors.length,
+        rows_ok: ok,
+        rows_error: errors.length + whErrors.length,
+        error_log: [...errors, ...whErrors] as never,
+      });
+      if (whErrors.length) {
+        toast.warning(`Importación parcial: ${ok} ok, ${whErrors.length} errores`);
+      } else {
+        toast.success(`Inventario de ${warehouse} actualizado: ${ok} productos`);
+      }
+      setOutcome({
+        ok,
+        okLabel: `productos con existencias actualizadas en ${warehouse}`,
+        errors: [...errors, ...whErrors].map((e) =>
+          e.row ? `Fila ${e.row} — ${e.message}` : e.message,
+        ),
+        cta: { href: "/catalogo", label: "Ver catálogo" },
+      });
+      reset();
+      router.refresh();
+    });
+  };
+
   return (
     <div className="space-y-6">
       {outcome && <ImportResultPanel outcome={outcome} />}
@@ -190,6 +291,7 @@ export function ImportExcelClient({ repId }: { repId: string }) {
       <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); reset(); }}>
         <TabsList>
           <TabsTrigger value="stock">Solo stock (uso frecuente)</TabsTrigger>
+          <TabsTrigger value="almacen">Inventario por almacén</TabsTrigger>
           <TabsTrigger value="catalogo">Catálogo completo</TabsTrigger>
           <TabsTrigger value="portafolio">Portafolio TERAVINO</TabsTrigger>
         </TabsList>
@@ -205,6 +307,44 @@ export function ImportExcelClient({ repId }: { repId: string }) {
               </p>
               <p className="text-xs text-muted-foreground">
                 Esto solo actualiza <code className="rounded bg-muted px-1">stock_quantity</code> de los productos existentes — no crea ni modifica nada más.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="almacen">
+          <Card>
+            <CardContent className="space-y-3 p-6">
+              <h3 className="font-display text-lg">Inventario por almacén</h3>
+              <p className="text-sm text-muted-foreground">
+                Elige el almacén y sube un Excel con dos columnas:{" "}
+                <code className="rounded bg-muted px-1">SKU</code> y{" "}
+                <code className="rounded bg-muted px-1">Existencia</code>. Las
+                existencias se guardan por almacén sin tocar el stock global.
+              </p>
+              <div className="max-w-xs space-y-1.5">
+                <span className="text-xs font-medium uppercase text-muted-foreground">
+                  Almacén
+                </span>
+                <Select
+                  value={warehouse}
+                  onValueChange={(v) => setWarehouse(v as Warehouse)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona almacén…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WAREHOUSES.map((w) => (
+                      <SelectItem key={w} value={w}>
+                        {w}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Cada import reemplaza las existencias de ese almacén para los SKUs
+                incluidos; los demás almacenes no cambian.
               </p>
             </CardContent>
           </Card>
@@ -308,16 +448,25 @@ export function ImportExcelClient({ repId }: { repId: string }) {
               </Button>
               <Button
                 onClick={
-                  mode === "stock" ? confirmStockImport : confirmCatalogImport
+                  mode === "stock"
+                    ? confirmStockImport
+                    : mode === "almacen"
+                      ? confirmWarehouseImport
+                      : confirmCatalogImport
                 }
                 disabled={
                   pending ||
-                  (mode === "stock"
+                  (mode === "stock" || mode === "almacen"
                     ? !stockPreview?.rows.length
-                    : !productsPreview?.rows.length)
+                    : !productsPreview?.rows.length) ||
+                  (mode === "almacen" && !warehouse)
                 }
               >
-                {pending ? "Importando…" : "Confirmar import"}
+                {pending
+                  ? "Importando…"
+                  : mode === "almacen" && !warehouse
+                    ? "Selecciona un almacén"
+                    : "Confirmar import"}
               </Button>
             </div>
           </CardContent>
