@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, PackageX, FileDown, Plus } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, Package, PackageX, FileDown, Plus } from "lucide-react";
 import { requireRep } from "@/lib/auth";
 import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
@@ -80,6 +80,12 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
   const items = consignacion.items ?? [];
   const totalCantidad = items.reduce((s, i) => s + (Number(i.cantidad) || 0), 0);
 
+  // Unidades aún en el piso del cliente = consignadas − vendidas − devueltas.
+  // Misma fórmula que valida computeMovimiento al registrar movimientos.
+  const vendidas = Number(consignacion.cantidad_vendida ?? 0);
+  const devueltas = Number(consignacion.cantidad_devuelta ?? 0);
+  const pendientesPiso = Math.max(0, totalCantidad - vendidas - devueltas);
+
   // Tomas de inventario vinculadas a esta consignación.
   let tomas: Base44TomaInventario[] = [];
   try {
@@ -131,11 +137,43 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
 
       <ConsignacionActions consignacion={consignacion} totalCantidad={totalCantidad} />
 
+      {/* Advertencia no bloqueante: hay actividad (retiros o movimientos) pero
+          nadie asignó chofer. No impide operar — solo lo hace visible. */}
+      {!consignacion.chofer_id &&
+        (retiros.length > 0 || vendidas > 0 || devueltas > 0 || Number(consignacion.monto_cobrado ?? 0) > 0) && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>
+              Esta consignación ya tiene{" "}
+              {retiros.length > 0 ? "retiros registrados" : "movimientos registrados"} pero{" "}
+              <strong>no tiene chofer asignado</strong>. Usa “Asignar chofer” arriba para
+              dejar el dato completo.
+            </p>
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
         <InfoCard icon={Calendar} label="Fecha" value={formatDate(consignacion.fecha)} />
         <InfoCard icon={UserIcon} label="Vendedor" value={consignacion.vendedor_nombre ?? "—"} />
         <InfoCard icon={Truck} label="Chofer" value={consignacion.chofer_nombre ?? "Sin asignar"} />
+        <Card>
+          <CardContent className="space-y-1 p-4">
+            <div className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
+              <Package className="h-3.5 w-3.5" />
+              <span>Pendientes en piso</span>
+            </div>
+            {totalCantidad > 0 ? (
+              <p className="font-display text-2xl text-brand-carmesi">
+                {pendientesPiso}{" "}
+                <span className="font-sans text-sm font-normal text-muted-foreground">
+                  de {totalCantidad} unidades
+                </span>
+              </p>
+            ) : (
+              <p className="font-medium text-muted-foreground">Sin items cargados</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <Card>

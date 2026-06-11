@@ -16,10 +16,10 @@ import {
   resolveBase44Vendedor,
   type Base44Cliente,
   type Base44Consignacion,
-  type Base44ConsignacionItem,
   type Base44Producto,
   type Base44Vendedor,
 } from "@/lib/base44";
+import { buildConsignacionItems } from "./_lib/validate-items";
 
 type ItemInput = {
   producto_id: string;
@@ -96,29 +96,21 @@ export async function POST(req: Request) {
   }
 
   // Construir items con precio_unitario y subtotal calculados server-side.
-  const items: Base44ConsignacionItem[] = [];
-  for (const it of input.items) {
-    const cantidad = Number(it.cantidad);
-    if (!Number.isFinite(cantidad) || cantidad <= 0) {
-      return bad(`Cantidad inválida para producto ${it.producto_id}`);
-    }
-    const prod = byId.get(it.producto_id)!;
-    const precio = Number(
-      it.precio_unitario != null ? it.precio_unitario : prod.precio_unitario ?? 0,
-    );
-    if (!Number.isFinite(precio) || precio < 0) {
-      return bad(`Precio inválido para producto ${prod.nombre}`);
-    }
-    items.push({
-      producto_id: prod.id,
-      producto_nombre: prod.nombre,
-      cantidad,
-      precio_unitario: precio,
-      subtotal: Math.round(cantidad * precio * 100) / 100,
-    });
-  }
-
-  const total = Math.round(items.reduce((s, i) => s + i.subtotal, 0) * 100) / 100;
+  // Rechaza cantidad ≤ 0 y precio ≤ 0 — no se crean consignaciones de $0.00.
+  const result = buildConsignacionItems(
+    input.items.map((it) => {
+      const prod = byId.get(it.producto_id)!;
+      return {
+        producto_id: prod.id,
+        producto_nombre: prod.nombre,
+        cantidad: it.cantidad,
+        precio_unitario:
+          it.precio_unitario != null ? it.precio_unitario : prod.precio_unitario ?? 0,
+      };
+    }),
+  );
+  if (!result.ok) return bad(result.error);
+  const { items, total } = result;
 
   const payload: Partial<Base44Consignacion> = {
     cliente_id: cliente.id,

@@ -5,7 +5,7 @@
 // Scope: admin ve todas; vendedor ve solo las suyas (match por email).
 
 import Link from "next/link";
-import { ClipboardList, Filter, PackageSearch } from "lucide-react";
+import { AlertTriangle, ClipboardList, Filter, PackageSearch } from "lucide-react";
 import { requireRep } from "@/lib/auth";
 import { canAccessFacturacion } from "@/lib/modules";
 import {
@@ -18,6 +18,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { sugerirConsignaciones } from "@/app/api/consignaciones/_lib/match-toma";
+import {
+  VincularTomaDialog,
+  type CandidataVinculo,
+} from "@/components/consignaciones/VincularTomaDialog";
 
 export const metadata = { title: "Tomas de inventario — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -78,6 +83,42 @@ const AUDITORIA_VARIANT: Record<
 
 const requiereAtencion = (a?: Auditoria | null) =>
   a === "sospechosa" || a === "requiere_validacion";
+
+/** Días que lleva una toma esperando validación (desde la auditoría o la toma misma). */
+function diasPendienteValidacion(t: Base44TomaInventario): number | null {
+  const base = t.auditoria_fecha ?? t.fecha_toma;
+  const ts = base ? Date.parse(base) : NaN;
+  if (!Number.isFinite(ts)) return null;
+  return Math.max(0, Math.floor((Date.now() - ts) / 86_400_000));
+}
+
+/** Celda de auditoría compartida por ambas filas: badge + antigüedad si urge. */
+function AuditoriaCell({ toma }: { toma: Base44TomaInventario | null }) {
+  if (!toma?.auditoria_resultado) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  const urgente = toma.auditoria_resultado === "requiere_validacion";
+  const dias = urgente ? diasPendienteValidacion(toma) : null;
+  return (
+    <div className="flex flex-col gap-0.5">
+      <Badge variant={AUDITORIA_VARIANT[toma.auditoria_resultado]} className="w-fit">
+        {AUDITORIA_LABEL[toma.auditoria_resultado]}
+        {typeof toma.auditoria_score === "number" ? ` · ${toma.auditoria_score}` : ""}
+      </Badge>
+      {dias != null && (
+        <span className="text-xs font-medium text-red-700">
+          pendiente hace {dias} día{dias === 1 ? "" : "s"}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Fondo de fila para tomas que requieren validación — que no pasen desapercibidas. */
+const filaUrgenteClass = (toma: Base44TomaInventario | null) =>
+  toma?.auditoria_resultado === "requiere_validacion"
+    ? "border-t bg-red-50/70 hover:bg-red-50"
+    : "border-t hover:bg-muted/20";
 
 // Cobertura de inventario que se puede filtrar.
 type Cobertura = "" | "con" | "sin" | "atencion";
@@ -167,6 +208,28 @@ export default async function TomasPage({
     filas = filas.concat(huerfanas.map((t) => ({ kind: "huerfana" as const, t })));
   }
 
+  // Candidatas de vinculación para las tomas realmente sin consignacion_id
+  // (las que tienen un id que no cargó NO son huérfanas — ya están vinculadas).
+  // Solo sugerimos; la vinculación la confirma el usuario en el dialog.
+  const vinculables = huerfanas.filter((t) => !t.consignacion_id && t.estado !== "anulado");
+  const candidatasPorToma = new Map<string, CandidataVinculo[]>();
+  for (const t of vinculables) {
+    const sugerencias = sugerirConsignaciones(t, consignaciones);
+    candidatasPorToma.set(
+      t.id,
+      sugerencias.map((s) => ({
+        id: s.consignacion.id,
+        cliente_nombre: s.consignacion.cliente_nombre ?? "—",
+        vendedor_nombre: s.consignacion.vendedor_nombre ?? "—",
+        fecha: s.consignacion.fecha,
+        estado: ESTADO_CONSIG_LABEL[s.consignacion.estado],
+        total: s.consignacion.total ?? 0,
+        score: s.score,
+        motivos: s.motivos,
+      })),
+    );
+  }
+
   // Filtro de cobertura de inventario (post-join).
   const tomaDeFila = (f: Fila): Base44TomaInventario | null =>
     f.kind === "consig" ? f.toma : f.t;
@@ -198,6 +261,21 @@ export default async function TomasPage({
           </p>
         </div>
       </div>
+
+      {vinculables.length > 0 && !estadoParam && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            <strong>
+              {vinculables.length} toma{vinculables.length === 1 ? "" : "s"} huérfana
+              {vinculables.length === 1 ? "" : "s"} detectada{vinculables.length === 1 ? "" : "s"}
+            </strong>{" "}
+            — están firmadas pero sin consignación vinculada, por lo que sus consignaciones
+            siguen contando como pendientes de inventario. Usa “Vincular” en cada fila para
+            asignarlas.
+          </p>
+        </div>
+      )}
 
       <Card>
         <CardContent className="space-y-2 p-4 text-sm">
@@ -277,7 +355,12 @@ export default async function TomasPage({
                     f.kind === "consig" ? (
                       <ConsigRow key={`c-${f.c.id}`} c={f.c} toma={f.toma} count={f.count} isAdmin={isAdmin} />
                     ) : (
-                      <HuerfanaRow key={`h-${f.t.id}`} t={f.t} isAdmin={isAdmin} />
+                      <HuerfanaRow
+                        key={`h-${f.t.id}`}
+                        t={f.t}
+                        isAdmin={isAdmin}
+                        candidatas={candidatasPorToma.get(f.t.id) ?? null}
+                      />
                     ),
                   )}
                 </tbody>
@@ -302,7 +385,7 @@ function ConsigRow({
   isAdmin: boolean;
 }) {
   return (
-    <tr className="border-t hover:bg-muted/20">
+    <tr className={filaUrgenteClass(toma)}>
       <td className="px-4 py-2 whitespace-nowrap">
         <Link href={`/consignaciones/${c.id}`} className="text-brand-carmesi hover:underline">
           {formatDate(c.fecha)}
@@ -334,23 +417,38 @@ function ConsigRow({
       </td>
       <td className="px-4 py-2 text-right">{toma ? toma.total_botellas ?? 0 : "—"}</td>
       <td className="px-4 py-2">
-        {toma?.auditoria_resultado ? (
-          <Badge variant={AUDITORIA_VARIANT[toma.auditoria_resultado]}>
-            {AUDITORIA_LABEL[toma.auditoria_resultado]}
-            {typeof toma.auditoria_score === "number" ? ` · ${toma.auditoria_score}` : ""}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+        <AuditoriaCell toma={toma} />
       </td>
     </tr>
   );
 }
 
-function HuerfanaRow({ t, isAdmin }: { t: Base44TomaInventario; isAdmin: boolean }) {
+function HuerfanaRow({
+  t,
+  isAdmin,
+  candidatas,
+}: {
+  t: Base44TomaInventario;
+  isAdmin: boolean;
+  /** Candidatas rankeadas para vincular; null si la toma no es vinculable. */
+  candidatas: CandidataVinculo[] | null;
+}) {
   return (
-    <tr className="border-t hover:bg-muted/20">
-      <td className="px-4 py-2 whitespace-nowrap text-muted-foreground">— sin vincular —</td>
+    <tr className={filaUrgenteClass(t)}>
+      <td className="px-4 py-2 whitespace-nowrap">
+        {candidatas ? (
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">— sin vincular —</span>
+            <VincularTomaDialog
+              tomaId={t.id}
+              tomaLabel={t.numero_toma ?? t.id.slice(0, 8)}
+              candidatas={candidatas}
+            />
+          </div>
+        ) : (
+          <span className="text-muted-foreground">— sin vincular —</span>
+        )}
+      </td>
       <td className="px-4 py-2">{t.cliente_nombre ?? "—"}</td>
       {isAdmin && <td className="px-4 py-2">{t.vendedor_nombre ?? "—"}</td>}
       <td className="px-4 py-2 text-muted-foreground">—</td>
@@ -365,14 +463,7 @@ function HuerfanaRow({ t, isAdmin }: { t: Base44TomaInventario; isAdmin: boolean
       </td>
       <td className="px-4 py-2 text-right">{t.total_botellas ?? 0}</td>
       <td className="px-4 py-2">
-        {t.auditoria_resultado ? (
-          <Badge variant={AUDITORIA_VARIANT[t.auditoria_resultado]}>
-            {AUDITORIA_LABEL[t.auditoria_resultado]}
-            {typeof t.auditoria_score === "number" ? ` · ${t.auditoria_score}` : ""}
-          </Badge>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        )}
+        <AuditoriaCell toma={t} />
       </td>
     </tr>
   );
