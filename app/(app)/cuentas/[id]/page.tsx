@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { AccountHeader } from "@/components/accounts/AccountHeader";
+import { EnviarDatosClienteButton } from "@/components/accounts/EnviarDatosClienteButton";
+import { missingFlags } from "@/lib/missing-data";
 import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
@@ -126,6 +128,13 @@ export default async function CuentaDetailPage({
   );
   const canEditAccount = me.role === "admin" || account.assigned_rep_id === me.id;
 
+  // Datos faltantes de esta cuenta (para avisar al vendedor asignado). Admin-only.
+  const contactList = (contacts ?? []) as Contact[];
+  const accountMissing = missingFlags(
+    { rfc: account.rfc, fiscal_name: account.fiscal_name },
+    contactList.map((c) => ({ email: c.email, phone: c.phone, whatsapp: c.whatsapp, role: c.role })),
+  );
+
   const closedOrders = orderList.filter((o) => CLOSED_STATUSES.includes(o.status ?? ""));
   const totalComprado = closedOrders.reduce((s, o) => s + Number(o.total ?? 0), 0);
   const pipeline = orderList
@@ -214,6 +223,15 @@ export default async function CuentaDetailPage({
                 </Button>
               )}
             </div>
+
+            {me.role === "admin" && accountMissing.length > 0 && (
+              <EnviarDatosClienteButton
+                accountId={account.id}
+                missing={accountMissing}
+                repName={(rep as SalesRep | null)?.full_name ?? null}
+                repEmail={(rep as SalesRep | null)?.email ?? null}
+              />
+            )}
 
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-3">
