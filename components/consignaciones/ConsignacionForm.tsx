@@ -82,6 +82,13 @@ export function ConsignacionForm({
       .slice(0, 30);
   }, [clientes, clienteQuery]);
 
+  // Reporte de limpieza: consignables sin precio en TERAVINO Flow (ej. Clos du
+  // Temple). El precio real se corrige allá o se captura a mano en el renglón.
+  const consignablesSinPrecio = useMemo(
+    () => productos.filter((p) => !(Number(p.precio_unitario) > 0)).length,
+    [productos],
+  );
+
   const filteredProductos = useMemo(() => {
     const q = productQuery.trim().toLowerCase();
     if (!q) return productos.slice(0, 20);
@@ -280,6 +287,15 @@ export function ConsignacionForm({
             <h2 className="font-display text-lg">Productos</h2>
             <span className="text-xs text-muted-foreground">{items.length} en la consignación</span>
           </div>
+
+          {consignablesSinPrecio > 0 && (
+            <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+              {consignablesSinPrecio} producto{consignablesSinPrecio === 1 ? "" : "s"} del catálogo
+              de consignación {consignablesSinPrecio === 1 ? "no tiene" : "no tienen"} precio
+              cargado (aparecen con el badge “Sin precio”). Corrige el precio en TERAVINO Flow, o
+              captúralo manualmente en el renglón al agregarlo.
+            </p>
+          )}
 
           {/* Items */}
           {items.length > 0 && (

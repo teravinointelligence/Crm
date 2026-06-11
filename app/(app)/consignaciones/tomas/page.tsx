@@ -18,11 +18,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { sugerirConsignaciones } from "@/app/api/consignaciones/_lib/match-toma";
+import { clasificarParaLote, sugerirConsignaciones } from "@/app/api/consignaciones/_lib/match-toma";
 import {
   VincularTomaDialog,
   type CandidataVinculo,
 } from "@/components/consignaciones/VincularTomaDialog";
+import {
+  VincularLoteDialog,
+  type TomaLoteItem,
+} from "@/components/consignaciones/VincularLoteDialog";
 
 export const metadata = { title: "Tomas de inventario — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -212,22 +216,34 @@ export default async function TomasPage({
   // (las que tienen un id que no cargó NO son huérfanas — ya están vinculadas).
   // Solo sugerimos; la vinculación la confirma el usuario en el dialog.
   const vinculables = huerfanas.filter((t) => !t.consignacion_id && t.estado !== "anulado");
+  const toCandidata = (s: ReturnType<typeof sugerirConsignaciones<Base44Consignacion>>[number]): CandidataVinculo => ({
+    id: s.consignacion.id,
+    cliente_nombre: s.consignacion.cliente_nombre ?? "—",
+    vendedor_nombre: s.consignacion.vendedor_nombre ?? "—",
+    fecha: s.consignacion.fecha,
+    estado: ESTADO_CONSIG_LABEL[s.consignacion.estado],
+    total: s.consignacion.total ?? 0,
+    score: s.score,
+    motivos: s.motivos,
+  });
   const candidatasPorToma = new Map<string, CandidataVinculo[]>();
+  // Para el lote: solo elegible la toma con EXACTAMENTE UNA candidata; las
+  // ambiguas (ej. LA QUERENCIA duplicada) van marcadas "Requiere decisión manual".
+  const loteItems: TomaLoteItem[] = [];
   for (const t of vinculables) {
-    const sugerencias = sugerirConsignaciones(t, consignaciones);
-    candidatasPorToma.set(
-      t.id,
-      sugerencias.map((s) => ({
-        id: s.consignacion.id,
-        cliente_nombre: s.consignacion.cliente_nombre ?? "—",
-        vendedor_nombre: s.consignacion.vendedor_nombre ?? "—",
-        fecha: s.consignacion.fecha,
-        estado: ESTADO_CONSIG_LABEL[s.consignacion.estado],
-        total: s.consignacion.total ?? 0,
-        score: s.score,
-        motivos: s.motivos,
-      })),
-    );
+    candidatasPorToma.set(t.id, sugerirConsignaciones(t, consignaciones).map(toCandidata));
+    const clasif = clasificarParaLote(t, consignaciones);
+    loteItems.push({
+      tomaId: t.id,
+      tomaLabel: t.numero_toma ?? t.id.slice(0, 8),
+      fechaToma: t.fecha_toma,
+      clienteNombre: t.cliente_nombre ?? "—",
+      vendedorNombre: t.vendedor_nombre ?? "—",
+      clasificacion: clasif.tipo,
+      candidata: clasif.tipo === "unica" ? toCandidata(clasif.candidata) : undefined,
+      numCandidatas:
+        clasif.tipo === "unica" ? 1 : clasif.tipo === "ambigua" ? clasif.candidatas.length : 0,
+    });
   }
 
   // Filtro de cobertura de inventario (post-join).
@@ -263,17 +279,18 @@ export default async function TomasPage({
       </div>
 
       {vinculables.length > 0 && !estadoParam && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        <div className="flex flex-wrap items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-          <p>
+          <p className="min-w-0 flex-1">
             <strong>
               {vinculables.length} toma{vinculables.length === 1 ? "" : "s"} huérfana
               {vinculables.length === 1 ? "" : "s"} detectada{vinculables.length === 1 ? "" : "s"}
             </strong>{" "}
             — están firmadas pero sin consignación vinculada, por lo que sus consignaciones
-            siguen contando como pendientes de inventario. Usa “Vincular” en cada fila para
-            asignarlas.
+            siguen contando como pendientes de inventario. Usa “Vincular” en cada fila, o revisa
+            las de candidata única en lote.
           </p>
+          <VincularLoteDialog items={loteItems} />
         </div>
       )}
 

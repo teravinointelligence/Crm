@@ -54,6 +54,7 @@ export function ProductsListClient({
   const [category, setCategory] = useState<string>(ALL);
   const [warehouse, setWarehouse] = useState<string>(ALL);
   const [showInactive, setShowInactive] = useState(false);
+  const [onlyNoPrice, setOnlyNoPrice] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
 
@@ -62,10 +63,17 @@ export function ProductsListClient({
     [products],
   );
 
+  // Reporte de limpieza: productos activos sin precio cargado (base_price ≤ 0).
+  const sinPrecio = useMemo(
+    () => products.filter((p) => p.active && !(Number(p.base_price) > 0)).length,
+    [products],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
       if (!showInactive && !p.active) return false;
+      if (onlyNoPrice && Number(p.base_price) > 0) return false;
       if (supplier !== ALL && p.supplier !== supplier) return false;
       if (category !== ALL && p.category !== category) return false;
       if (warehouse !== ALL && warehouseStock[p.id]?.[warehouse] == null)
@@ -80,7 +88,7 @@ export function ProductsListClient({
         return false;
       return true;
     });
-  }, [products, query, supplier, category, warehouse, warehouseStock, showInactive]);
+  }, [products, query, supplier, category, warehouse, warehouseStock, showInactive, onlyNoPrice]);
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
@@ -193,6 +201,15 @@ export function ProductsListClient({
           />
           Incluir inactivos
         </label>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={onlyNoPrice}
+            onChange={(e) => setOnlyNoPrice(e.target.checked)}
+            className="h-4 w-4 rounded border-input"
+          />
+          Solo sin precio ({sinPrecio})
+        </label>
         {isAdmin && supplier !== ALL && (
           <Button variant="outline" onClick={() => setRenaming(supplier)}>
             <Tags className="mr-1 h-4 w-4" /> Renombrar proveedor «{supplier}»
@@ -276,7 +293,11 @@ export function ProductsListClient({
                     {p.category?.replace("_", " ") ?? "—"}
                   </td>
                   <td className="px-4 py-3 text-right font-medium">
-                    {formatCurrency(applyRegionPrice(p.base_price, "base"))}
+                    {Number(p.base_price) > 0 ? (
+                      formatCurrency(applyRegionPrice(p.base_price, "base"))
+                    ) : (
+                      <Badge variant="danger">Sin precio</Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="text-brand-carmesi">

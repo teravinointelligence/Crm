@@ -121,3 +121,24 @@ export function sugerirConsignaciones<T extends ConsignacionMatchInput>(
 
   return sugerencias.slice(0, max);
 }
+
+export type ClasificacionLote<T extends ConsignacionMatchInput> =
+  | { tipo: "unica"; candidata: Sugerencia<T> }
+  | { tipo: "ambigua"; candidatas: Sugerencia<T>[] }
+  | { tipo: "sin_candidata" };
+
+/**
+ * Clasifica una toma huérfana para la vinculación POR LOTES: solo es elegible
+ * si existe EXACTAMENTE UNA consignación candidata. Con 2+ candidatas (clientes
+ * duplicados, p. ej. LA QUERENCIA ×2) la decisión es humana, caso por caso —
+ * la fila queda fuera del lote, marcada "Requiere decisión manual".
+ */
+export function clasificarParaLote<T extends ConsignacionMatchInput>(
+  toma: TomaMatchInput,
+  consignaciones: T[],
+): ClasificacionLote<T> {
+  const candidatas = sugerirConsignaciones(toma, consignaciones, 10);
+  if (candidatas.length === 0) return { tipo: "sin_candidata" };
+  if (candidatas.length === 1) return { tipo: "unica", candidata: candidatas[0] };
+  return { tipo: "ambigua", candidatas };
+}

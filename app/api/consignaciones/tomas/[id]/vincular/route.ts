@@ -13,7 +13,7 @@
 //     bitácora en las observaciones de la toma.
 
 import { NextResponse } from "next/server";
-import { base44, type Base44TomaInventario } from "@/lib/base44";
+import { base44, type Base44Consignacion, type Base44TomaInventario } from "@/lib/base44";
 import { appendNota, loadConsignacionForRep, loadTomaForRep } from "../../../_lib/scope";
 
 type Body = {
@@ -71,6 +71,23 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       { error: e instanceof Error ? e.message : "Error al vincular la toma" },
       { status: 502 },
     );
+  }
+
+  // Auditoría también del lado de la consignación (quién vinculó qué y cuándo).
+  // La vinculación ya quedó hecha; si esta nota falla, no revertimos — solo avisamos.
+  try {
+    const notaConsig = appendNota(
+      consignacion.notas,
+      `Toma ${toma.numero_toma ?? toma.id} (${toma.fecha_toma}) vinculada a esta consignación`,
+      repFullName,
+    );
+    await base44.entity<Base44Consignacion>("Consignacion").update(consignacion.id, {
+      notas: notaConsig,
+    });
+  } catch {
+    warning = [warning, "La toma quedó vinculada pero no se pudo escribir la nota de auditoría en la consignación."]
+      .filter(Boolean)
+      .join(" ");
   }
 
   return NextResponse.json({ ok: true, consignacion_id: consignacion.id, warning });

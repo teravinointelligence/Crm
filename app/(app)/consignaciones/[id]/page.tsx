@@ -20,6 +20,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConsignacionActions } from "@/components/consignaciones/ConsignacionActions";
+import { ArchivarConsignacion } from "@/components/consignaciones/ArchivarConsignacion";
+import { CorregirPreciosDialog } from "@/components/consignaciones/CorregirPreciosDialog";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +88,15 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
   const devueltas = Number(consignacion.cantidad_devuelta ?? 0);
   const pendientesPiso = Math.max(0, totalCantidad - vendidas - devueltas);
 
+  // Corrección de precios (limpieza de heredadas en $0): solo sin movimientos,
+  // sin archivar y con algún precio en cero o total en cero.
+  const sinMovimientos =
+    vendidas === 0 && devueltas === 0 && Number(consignacion.monto_cobrado ?? 0) === 0;
+  const tienePrecioCero =
+    (consignacion.total ?? 0) <= 0 || items.some((it) => !(Number(it.precio_unitario) > 0));
+  const puedeCorregirPrecios =
+    items.length > 0 && tienePrecioCero && sinMovimientos && !consignacion.archivada;
+
   // Tomas de inventario vinculadas a esta consignación.
   let tomas: Base44TomaInventario[] = [];
   try {
@@ -136,6 +147,24 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
       </div>
 
       <ConsignacionActions consignacion={consignacion} totalCantidad={totalCantidad} />
+
+      {/* Limpieza de datos (solo admin): archivar duplicadas (reversible) o, ya
+          archivada, restaurar / eliminar definitivamente (doble confirmación). */}
+      {consignacion.archivada && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <p>
+            <strong>Consignación archivada</strong>
+            {consignacion.archivada_motivo ? ` — ${consignacion.archivada_motivo}` : ""}. No
+            aparece en listados ni KPIs; el historial está en las notas.
+          </p>
+          {isAdmin && <ArchivarConsignacion consignacion={consignacion} />}
+        </div>
+      )}
+      {!consignacion.archivada && isAdmin && (
+        <div className="flex justify-end">
+          <ArchivarConsignacion consignacion={consignacion} />
+        </div>
+      )}
 
       {/* Advertencia no bloqueante: hay actividad (retiros o movimientos) pero
           nadie asignó chofer. No impide operar — solo lo hace visible. */}
@@ -211,8 +240,14 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
 
       <Card>
         <CardContent className="p-0">
-          <div className="border-b p-4">
-            <h2 className="font-display text-lg">Productos consignados</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b p-4">
+            <div className="flex items-center gap-2">
+              <h2 className="font-display text-lg">Productos consignados</h2>
+              {tienePrecioCero && items.length > 0 && <Badge variant="danger">Sin valor</Badge>}
+            </div>
+            {puedeCorregirPrecios && (
+              <CorregirPreciosDialog consignacionId={consignacion.id} items={items} />
+            )}
           </div>
           {items.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">

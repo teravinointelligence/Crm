@@ -64,3 +64,35 @@ export function buildConsignacionItems(lineas: LineaInput[]): BuildItemsResult {
 
   return { ok: true, items, total };
 }
+
+export type PrecioCorregido = {
+  producto_id: string;
+  precio_unitario: unknown;
+};
+
+/**
+ * Corrección manual de precios sobre los renglones EXISTENTES de una
+ * consignación (herramienta de limpieza para las heredadas con total $0.00).
+ * Las cantidades no se tocan; solo se reemplazan los precios indicados y se
+ * recalculan subtotales/total con la misma validación que la creación
+ * (precio > 0 en TODOS los renglones — el resultado no puede quedar en $0).
+ */
+export function aplicarPreciosCorregidos(
+  itemsActuales: LineaNormalizada[],
+  precios: PrecioCorregido[],
+): BuildItemsResult {
+  if (!Array.isArray(itemsActuales) || itemsActuales.length === 0) {
+    return { ok: false, error: "La consignación no tiene items para corregir" };
+  }
+  const precioById = new Map(precios.map((p) => [p.producto_id, p.precio_unitario]));
+  return buildConsignacionItems(
+    itemsActuales.map((it) => ({
+      producto_id: it.producto_id,
+      producto_nombre: it.producto_nombre,
+      cantidad: it.cantidad,
+      precio_unitario: precioById.has(it.producto_id)
+        ? precioById.get(it.producto_id)
+        : it.precio_unitario,
+    })),
+  );
+}
