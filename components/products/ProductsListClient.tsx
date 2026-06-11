@@ -28,6 +28,7 @@ import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { StockBadge } from "./StockBadge";
+import { WAREHOUSES, WAREHOUSE_SHORT } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
@@ -37,9 +38,12 @@ const ALL = "_all";
 
 export function ProductsListClient({
   products,
+  warehouseStock = {},
   isAdmin,
 }: {
   products: Product[];
+  // product_id → { almacén: existencia } (carga vía Importar Excel → Inventario por almacén)
+  warehouseStock?: Record<string, Record<string, number>>;
   isAdmin: boolean;
 }) {
   const router = useRouter();
@@ -48,6 +52,7 @@ export function ProductsListClient({
   const [query, setQuery] = useState("");
   const [supplier, setSupplier] = useState<string>(ALL);
   const [category, setCategory] = useState<string>(ALL);
+  const [warehouse, setWarehouse] = useState<string>(ALL);
   const [showInactive, setShowInactive] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
@@ -63,6 +68,8 @@ export function ProductsListClient({
       if (!showInactive && !p.active) return false;
       if (supplier !== ALL && p.supplier !== supplier) return false;
       if (category !== ALL && p.category !== category) return false;
+      if (warehouse !== ALL && warehouseStock[p.id]?.[warehouse] == null)
+        return false;
       if (
         q &&
         !p.name.toLowerCase().includes(q) &&
@@ -73,7 +80,7 @@ export function ProductsListClient({
         return false;
       return true;
     });
-  }, [products, query, supplier, category, showInactive]);
+  }, [products, query, supplier, category, warehouse, warehouseStock, showInactive]);
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
@@ -164,6 +171,19 @@ export function ProductsListClient({
             ))}
           </SelectContent>
         </Select>
+        <Select value={warehouse} onValueChange={setWarehouse}>
+          <SelectTrigger className="sm:w-48">
+            <SelectValue placeholder="Almacén" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Todos los almacenes</SelectItem>
+            {WAREHOUSES.map((w) => (
+              <SelectItem key={w} value={w}>
+                {w}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
@@ -226,7 +246,9 @@ export function ProductsListClient({
                 <th className="px-4 py-3">Categoría</th>
                 <th className="px-4 py-3 text-right">Precio base</th>
                 <th className="px-4 py-3 text-right">+10%</th>
-                <th className="px-4 py-3">Stock</th>
+                <th className="px-4 py-3">
+                  {warehouse === ALL ? "Stock" : `Stock · ${warehouse}`}
+                </th>
                 {isAdmin && <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>}
               </tr>
             </thead>
@@ -262,14 +284,37 @@ export function ProductsListClient({
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <StockBadge
-                      quantity={p.stock_quantity}
-                      minAlert={p.stock_min_alert}
-                    />
+                    {warehouse === ALL ? (
+                      <StockBadge
+                        quantity={p.stock_quantity}
+                        minAlert={p.stock_min_alert}
+                      />
+                    ) : warehouseStock[p.id]?.[warehouse] != null ? (
+                      <StockBadge
+                        quantity={warehouseStock[p.id][warehouse]}
+                        minAlert={p.stock_min_alert}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">
+                        Sin dato
+                      </span>
+                    )}
                     {!p.active && (
                       <Badge variant="muted" className="ml-1">
                         Inactivo
                       </Badge>
+                    )}
+                    {warehouse === ALL && warehouseStock[p.id] && (
+                      <div className="mt-1 whitespace-nowrap text-xs text-muted-foreground">
+                        {WAREHOUSES.filter(
+                          (w) => warehouseStock[p.id][w] != null,
+                        )
+                          .map(
+                            (w) =>
+                              `${WAREHOUSE_SHORT[w]} ${warehouseStock[p.id][w]}`,
+                          )
+                          .join(" · ")}
+                      </div>
                     )}
                   </td>
                   {isAdmin && (

@@ -9,11 +9,18 @@ export default async function CatalogoPage() {
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
 
-  const { data } = await supabase
-    .from("products")
-    .select("*")
-    .order("supplier")
-    .order("name");
+  const [{ data }, { data: warehouseRows }] = await Promise.all([
+    supabase.from("products").select("*").order("supplier").order("name"),
+    supabase
+      .from("product_warehouse_stock")
+      .select("product_id, warehouse, stock_quantity"),
+  ]);
+
+  // product_id → { almacén: existencia } para el desglose en la tabla
+  const warehouseStock: Record<string, Record<string, number>> = {};
+  for (const r of warehouseRows ?? []) {
+    (warehouseStock[r.product_id] ??= {})[r.warehouse] = r.stock_quantity;
+  }
 
   return (
     <div className="space-y-6">
@@ -23,7 +30,11 @@ export default async function CatalogoPage() {
           Vinos y destilados de TERAVINO. Los precios mostrados son antes de IVA.
         </p>
       </div>
-      <ProductsListClient products={data ?? []} isAdmin={!!isAdmin} />
+      <ProductsListClient
+        products={data ?? []}
+        warehouseStock={warehouseStock}
+        isAdmin={!!isAdmin}
+      />
     </div>
   );
 }
