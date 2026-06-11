@@ -25,6 +25,8 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableScroll } from "@/components/ui/table-scroll";
 import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
+import { Pager } from "@/components/ui/pagination";
+import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { StockBadge } from "./StockBadge";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
@@ -72,6 +74,8 @@ export function ProductsListClient({
       return true;
     });
   }, [products, query, supplier, category, showInactive]);
+
+  const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
   const saveSupplierForProduct = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -214,7 +218,7 @@ export function ProductsListClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {paged.map((p) => (
                 <tr
                   key={p.id}
                   className="border-b last:border-b-0 hover:bg-muted/30"
@@ -273,6 +277,8 @@ export function ProductsListClient({
           </table>
         </TableScroll>
       )}
+
+      <Pager page={page} pageCount={pageCount} total={total} onPageChange={setPage} />
 
       {/* Edit single product's supplier */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>

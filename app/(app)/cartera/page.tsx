@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableScroll } from "@/components/ui/table-scroll";
 import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
+import { Pager, PAGE_SIZE } from "@/components/ui/pagination";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
 import { CobranzaEmails } from "@/components/cartera/CobranzaEmails";
 import { formatCurrency } from "@/lib/utils";
@@ -15,7 +16,11 @@ import type { AccountBalance } from "@/types/database";
 
 export const metadata = { title: "Cartera — TERAVINO CRM" };
 
-export default async function CarteraPage() {
+export default async function CarteraPage({
+  searchParams,
+}: {
+  searchParams: { page?: string };
+}) {
   const supabase = createClient();
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
@@ -52,6 +57,11 @@ export default async function CarteraPage() {
     },
     { facturado: 0, pagado: 0, pendiente: 0, vencido: 0 },
   );
+
+  // Paginación por searchParams (los KPIs de arriba siguen sumando todo).
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const page = Math.min(Math.max(1, Number(searchParams.page) || 1), pageCount);
+  const pagedRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div className="space-y-6">
@@ -133,7 +143,7 @@ export default async function CarteraPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((b) => (
+              {pagedRows.map((b) => (
                 <tr
                   key={b.account_id}
                   className="border-b last:border-b-0 hover:bg-muted/30"
@@ -199,6 +209,13 @@ export default async function CarteraPage() {
           </table>
         </TableScroll>
       )}
+
+      <Pager
+        page={page}
+        pageCount={pageCount}
+        total={rows.length}
+        hrefFor={(p) => `/cartera?page=${p}`}
+      />
     </div>
   );
 }
