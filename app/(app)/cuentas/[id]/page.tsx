@@ -13,6 +13,7 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
+import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import type {
@@ -212,6 +213,9 @@ export default async function CuentaDetailPage({
                     Estado de cuenta PDF
                   </a>
                 </Button>
+              )}
+              {(balance?.saldo_pendiente ?? 0) > 0 && (
+                <EnviarRecordatorioButton accountId={account.id} />
               )}
             </div>
 
