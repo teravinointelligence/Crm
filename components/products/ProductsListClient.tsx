@@ -201,7 +201,20 @@ export function ProductsListClient({
       {filtered.length === 0 ? (
         <EmptyState
           title="Sin productos"
-          description="Limpia los filtros o importa el catálogo / portafolio."
+          description={
+            products.length === 0
+              ? "Aún no hay productos: importa el catálogo o el portafolio para empezar."
+              : "Limpia los filtros o importa el catálogo / portafolio."
+          }
+          action={
+            isAdmin ? (
+              <Button asChild className="mt-2">
+                <Link href="/catalogo/importar">
+                  <Upload className="mr-1 h-4 w-4" /> Importar Excel
+                </Link>
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <TableScroll stickyRight={isAdmin}>

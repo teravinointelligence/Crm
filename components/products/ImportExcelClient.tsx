@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { FileSpreadsheet, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ImportResultPanel, type ImportOutcome } from "@/components/ui/import-result";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   parseProductsExcel,
@@ -31,11 +32,13 @@ export function ImportExcelClient({ repId }: { repId: string }) {
   const [stockPreview, setStockPreview] = useState<
     ParseResult<StockRowParsed> | null
   >(null);
+  const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
 
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setOutcome(null);
     const buf = await file.arrayBuffer();
     if (mode === "catalogo") {
       const res = await parseProductsExcel(buf);
@@ -104,8 +107,14 @@ export function ImportExcelClient({ repId }: { repId: string }) {
           ? `Portafolio importado: ${rows.length} vinos`
           : `Catálogo importado: ${rows.length} productos`,
       );
+      // Resultado persistente (el toast desaparece): filas procesadas + errores.
+      setOutcome({
+        ok: rows.length,
+        okLabel: isPortfolio ? "vinos importados" : "productos importados",
+        errors: errors.map((e) => `Fila ${e.row || "?"} — ${e.message}`),
+        cta: { href: "/catalogo", label: "Ver catálogo" },
+      });
       reset();
-      router.push("/catalogo");
       router.refresh();
     });
   };
@@ -162,14 +171,22 @@ export function ImportExcelClient({ repId }: { repId: string }) {
       } else {
         toast.success(`Stock actualizado en ${ok} productos`);
       }
+      // Resultado persistente (el toast desaparece): filas procesadas + errores.
+      setOutcome({
+        ok,
+        okLabel: "productos con stock actualizado",
+        errors: [...errors, ...stockErrors].map((e) => (e.row ? `Fila ${e.row} — ${e.message}` : e.message)),
+        cta: { href: "/catalogo", label: "Ver catálogo" },
+      });
       reset();
-      router.push("/catalogo");
       router.refresh();
     });
   };
 
   return (
     <div className="space-y-6">
+      {outcome && <ImportResultPanel outcome={outcome} />}
+
       <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); reset(); }}>
         <TabsList>
           <TabsTrigger value="stock">Solo stock (uso frecuente)</TabsTrigger>

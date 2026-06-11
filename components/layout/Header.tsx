@@ -18,17 +18,21 @@ export function Header({
 }) {
   return (
     <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur lg:px-6">
-      <div className="flex items-center gap-3">
+      {/* min-w-0 + truncate: en pantallas angostas (~390px) el lado izquierdo
+          cede espacio en vez de empujar el avatar fuera del borde derecho. */}
+      <div className="flex min-w-0 items-center gap-3">
         <MobileMenu isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
-        <div className="lg:hidden">
+        <div className="shrink-0 lg:hidden">
           <Wordmark size="sm" />
         </div>
-        <Badge variant={rep.role === "admin" ? "default" : "muted"}>
-          {rep.role === "admin"
-            ? "Admin"
-            : isRepartoOnlyRole(rep.role)
-              ? ROLE_LABEL[rep.role as "chofer" | "jefe_logistica"]
-              : rep.primary_region ?? "Vendedor"}
+        <Badge variant={rep.role === "admin" ? "default" : "muted"} className="min-w-0">
+          <span className="truncate">
+            {rep.role === "admin"
+              ? "Admin"
+              : isRepartoOnlyRole(rep.role)
+                ? ROLE_LABEL[rep.role as "chofer" | "jefe_logistica"]
+                : rep.primary_region ?? "Vendedor"}
+          </span>
         </Badge>
       </div>
       <UserMenu rep={rep} />
