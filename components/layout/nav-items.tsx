@@ -16,7 +16,6 @@ import {
   ClipboardList,
   Route,
   UserCog,
-  FileSignature,
   HandCoins,
   TrendingUp,
   BookOpen,
@@ -49,9 +48,11 @@ export const navItems: Item[] = [
   { href: "/contactos", label: "Contactos", icon: Users, moduleKey: "contactos" },
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
-  { href: "/cotizaciones", label: "Cotizaciones", icon: FileSignature, moduleKey: "cotizaciones" },
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
-  { href: "/pedidos", label: "Pedidos", icon: FileText, moduleKey: "pedidos" },
+  // Cotizaciones y pedidos viven en una sola lista (orders.order_type); la
+  // entrada vieja /cotizaciones redirige aquí. Compat: usuarios con el módulo
+  // legacy "cotizaciones" habilitado también ven esta entrada (ver filtro abajo).
+  { href: "/pedidos", label: "Pedidos y cotizaciones", icon: FileText, moduleKey: "pedidos" },
   { href: "/muestras", label: "Muestras", icon: FlaskConical, moduleKey: "muestras" },
   { href: "/ventas", label: "Ventas", icon: TrendingUp, moduleKey: "ventas" },
   { href: "/cartera", label: "Cartera", icon: Wallet, moduleKey: "cartera" },
@@ -141,6 +142,8 @@ export function visibleNavItems({
       if (i.adminOnly) return isAdmin;
       if (isAdmin) return true;
       if (!i.moduleKey) return true; // dashboard / siempre visible
+      // Compat: "cotizaciones" (módulo legacy, ya unificado) habilita Pedidos.
+      if (i.moduleKey === "pedidos") return modules.includes("pedidos") || modules.includes("cotizaciones");
       return modules.includes(i.moduleKey);
     })
     .map(prune);

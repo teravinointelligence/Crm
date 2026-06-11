@@ -53,7 +53,7 @@ export default async function PedidoDetailPage({
       <div className="flex items-center gap-2">
         <Button asChild variant="ghost" size="sm">
           <Link href="/pedidos">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Pedidos
+            <ArrowLeft className="mr-1 h-4 w-4" /> Pedidos y cotizaciones
           </Link>
         </Button>
       </div>
