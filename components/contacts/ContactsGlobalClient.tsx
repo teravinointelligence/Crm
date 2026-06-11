@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Pager } from "@/components/ui/pagination";
+import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { formatBirthday, birthdayInfo } from "@/lib/utils";
 import type { Contact } from "@/types/database";
 
@@ -56,6 +58,8 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
       return tokens.every((t) => haystack.includes(t));
     });
   }, [contacts, query]);
+
+  const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -118,7 +122,7 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
         </p>
       ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((c) => (
+        {paged.map((c) => (
           <Card key={c.id}>
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-2">
@@ -204,6 +208,8 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
         ))}
       </div>
       )}
+
+      <Pager page={page} pageCount={pageCount} total={total} onPageChange={setPage} />
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
