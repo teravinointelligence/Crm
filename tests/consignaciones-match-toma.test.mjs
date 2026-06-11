@@ -90,3 +90,35 @@ test("respeta el máximo de candidatas", () => {
   const r = sugerirConsignaciones(toma(), lista, 6);
   assert.equal(r.length, 6);
 });
+
+// --- clasificarParaLote (vinculación por lotes, Problema 1 de limpieza) ---
+
+import { clasificarParaLote } from "../app/api/consignaciones/_lib/match-toma.ts";
+
+test("lote: candidata única → elegible (caso YEO/BOSKE/NEMI…)", () => {
+  const r = clasificarParaLote(toma(), [
+    consig({ id: "unica" }),
+    consig({ id: "otro-cliente", cliente_id: "x", cliente_nombre: "GARZA BLANCA" }),
+  ]);
+  assert.equal(r.tipo, "unica");
+  assert.equal(r.candidata.consignacion.id, "unica");
+});
+
+test("lote: 2+ candidatas → ambigua, fuera del lote (caso LA QUERENCIA ×2)", () => {
+  const r = clasificarParaLote(
+    toma({ cliente_id: undefined, cliente_nombre: "LA QUERENCIA" }),
+    [
+      consig({ id: "q1", cliente_id: "q-1", cliente_nombre: "LA QUERENCIA" }),
+      consig({ id: "q2", cliente_id: "q-2", cliente_nombre: "LA QUERENCIA" }),
+    ],
+  );
+  assert.equal(r.tipo, "ambigua");
+  assert.equal(r.candidatas.length, 2);
+});
+
+test("lote: sin relación de cliente → sin_candidata", () => {
+  const r = clasificarParaLote(toma({ cliente_id: undefined, cliente_nombre: "NEMI" }), [
+    consig({ cliente_id: "x", cliente_nombre: "GARZA BLANCA" }),
+  ]);
+  assert.equal(r.tipo, "sin_candidata");
+});

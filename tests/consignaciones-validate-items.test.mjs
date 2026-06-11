@@ -64,3 +64,60 @@ test("items válidos → ok con subtotales y total redondeados", () => {
   assert.equal(r.items[1].subtotal, 0.02);
   assert.equal(r.total, 599.99);
 });
+
+// --- aplicarPreciosCorregidos (corrección de heredadas en $0, Problema 3) ---
+
+import { aplicarPreciosCorregidos } from "../app/api/consignaciones/_lib/validate-items.ts";
+
+const itemCero = (overrides = {}) => ({
+  producto_id: "p1",
+  producto_nombre: "INNATO Tinto",
+  cantidad: 12,
+  precio_unitario: 0,
+  subtotal: 0,
+  ...overrides,
+});
+
+test("corrige precios de una consignación $0 → total recalculado, cantidades intactas", () => {
+  const r = aplicarPreciosCorregidos(
+    [itemCero(), itemCero({ producto_id: "p2", producto_nombre: "OJA Blanco", cantidad: 6 })],
+    [
+      { producto_id: "p1", precio_unitario: 250 },
+      { producto_id: "p2", precio_unitario: 180.5 },
+    ],
+  );
+  assert.equal(r.ok, true);
+  assert.equal(r.items[0].cantidad, 12);
+  assert.equal(r.items[0].subtotal, 3000);
+  assert.equal(r.items[1].subtotal, 1083);
+  assert.equal(r.total, 4083);
+});
+
+test("si un renglón queda sin corregir (sigue en $0) → rechazado", () => {
+  const r = aplicarPreciosCorregidos(
+    [itemCero(), itemCero({ producto_id: "p2", producto_nombre: "OJA Blanco" })],
+    [{ producto_id: "p1", precio_unitario: 250 }],
+  );
+  assert.equal(r.ok, false);
+  assert.match(r.error, /OJA Blanco/);
+});
+
+test("precio corregido inválido (negativo) → rechazado", () => {
+  const r = aplicarPreciosCorregidos([itemCero()], [{ producto_id: "p1", precio_unitario: -5 }]);
+  assert.equal(r.ok, false);
+});
+
+test("sin items → rechazado", () => {
+  const r = aplicarPreciosCorregidos([], [{ producto_id: "p1", precio_unitario: 100 }]);
+  assert.equal(r.ok, false);
+});
+
+test("renglón con precio bueno se conserva si no se manda corrección para él", () => {
+  const r = aplicarPreciosCorregidos(
+    [itemCero({ precio_unitario: 300, subtotal: 3600 }), itemCero({ producto_id: "p2" })],
+    [{ producto_id: "p2", precio_unitario: 99 }],
+  );
+  assert.equal(r.ok, true);
+  assert.equal(r.items[0].precio_unitario, 300);
+  assert.equal(r.items[1].precio_unitario, 99);
+});

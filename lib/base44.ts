@@ -69,6 +69,9 @@ export const base44 = {
         request<T>(`/entities/${name}`, { method: "POST", body: JSON.stringify(data) }),
       update: (id: string, data: Partial<T>) =>
         request<T>(`/entities/${name}/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      /** IRREVERSIBLE. Solo para flujos con doble confirmación (limpieza de duplicados). */
+      delete: (id: string) =>
+        request<unknown>(`/entities/${name}/${id}`, { method: "DELETE" }),
     };
   },
   function<TIn, TOut>(name: string) {
@@ -137,6 +140,9 @@ export type Base44Consignacion = {
   cantidad_devuelta?: number;
   monto_cobrado?: number;
   notas?: string;
+  /** Archivada como duplicada/basura desde el CRM (reversible); fuera de listados y KPIs. */
+  archivada?: boolean;
+  archivada_motivo?: string;
   created_date?: string;
   updated_date?: string;
 };

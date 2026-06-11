@@ -2,7 +2,7 @@
 // Scope: admin ve todo, vendedor ve solo las suyas (match por email).
 
 import Link from "next/link";
-import { Wine, Filter, Plus } from "lucide-react";
+import { AlertTriangle, Archive, Wine, Filter, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { requireRep } from "@/lib/auth";
 import { canAccessFacturacion } from "@/lib/modules";
@@ -12,6 +12,7 @@ import {
   resolveBase44Vendedor,
   type Base44Consignacion,
 } from "@/lib/base44";
+import { detectarDuplicadas, idsEnDuplicados } from "@/app/api/consignaciones/_lib/duplicados";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -41,11 +42,18 @@ const ESTADO_VARIANT: Record<Estado, "default" | "outline" | "accent" | "success
 export default async function ConsignacionesPage({
   searchParams,
 }: {
-  searchParams: { estado?: string };
+  searchParams: { estado?: string; vista?: string };
 }) {
   const rep = await requireRep();
   const isAdmin = canAccessFacturacion(rep.role);
   const estadoParam = (searchParams.estado ?? "") as Estado | "";
+  // vista: "" (activas) | "duplicados" | "archivadas" | "cero" (total $0.00)
+  const vistaParam =
+    searchParams.vista === "duplicados" ||
+    searchParams.vista === "archivadas" ||
+    searchParams.vista === "cero"
+      ? searchParams.vista
+      : "";
 
   // Scope por vendedor — si el rep no tiene match en Base44, mostramos empty state.
   let scopeVendedorId: string | null = null;
@@ -57,15 +65,18 @@ export default async function ConsignacionesPage({
     scopeVendedorId = v.id;
   }
 
-  // Query Base44
+  // Query Base44. En las vistas de limpieza (duplicados/archivadas) no
+  // filtramos por estado: el criterio de duplicado no depende del estado.
   const query: Record<string, unknown> = {};
   if (scopeVendedorId) query.vendedor_id = scopeVendedorId;
-  if (estadoParam && ESTADOS.includes(estadoParam as Estado)) query.estado = estadoParam;
+  if (!vistaParam && estadoParam && ESTADOS.includes(estadoParam as Estado)) {
+    query.estado = estadoParam;
+  }
 
-  let consignaciones: Base44Consignacion[] = [];
+  let todas: Base44Consignacion[] = [];
   let loadError: string | null = null;
   try {
-    consignaciones = await base44.entity<Base44Consignacion>("Consignacion").list({
+    todas = await base44.entity<Base44Consignacion>("Consignacion").list({
       q: query,
       sort_by: "-fecha",
       limit: 200,
@@ -73,6 +84,26 @@ export default async function ConsignacionesPage({
   } catch (e) {
     loadError = e instanceof Error ? e.message : String(e);
   }
+
+  // Las archivadas (duplicadas/basura resueltas) salen del listado y los KPIs;
+  // se consultan con la vista "Archivadas". Los duplicados solo se DETECTAN —
+  // resolverlos (archivar/eliminar) es decisión humana en el detalle.
+  const archivadas = todas.filter((c) => c.archivada);
+  const activas = todas.filter((c) => !c.archivada);
+  const gruposDup = detectarDuplicadas(activas);
+  const dupIds = idsEnDuplicados(gruposDup);
+
+  const esSinValor = (c: Base44Consignacion) => Number(c.total ?? 0) <= 0;
+  const enCero = activas.filter(esSinValor);
+
+  const consignaciones =
+    vistaParam === "archivadas"
+      ? archivadas
+      : vistaParam === "duplicados"
+        ? activas.filter((c) => dupIds.has(c.id))
+        : vistaParam === "cero"
+          ? enCero
+          : activas;
 
   // Cruzamos con accounts del CRM por numero_cliente para enlazar a la ficha.
   // Base44 acepta MongoDB-style $in, así que traemos todos los clientes con una sola request.
@@ -140,19 +171,59 @@ export default async function ConsignacionesPage({
         </Button>
       </div>
 
+      {gruposDup.length > 0 && !vistaParam && (
+        <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <p className="min-w-0 flex-1">
+            <strong>
+              {gruposDup.length} grupo{gruposDup.length === 1 ? "" : "s"} de posibles duplicados
+            </strong>{" "}
+            (mismo cliente, vendedor, fecha y total). Revisa cuál conservar — desde el detalle
+            puedes archivar la sobrante (reversible).
+          </p>
+          <Link
+            href="/consignaciones?vista=duplicados"
+            className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium hover:bg-amber-200"
+          >
+            Ver posibles duplicados
+          </Link>
+        </div>
+      )}
+
       <Card>
-        <CardContent className="flex flex-wrap items-center gap-2 p-4 text-sm">
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <span className="text-muted-foreground">Estado:</span>
-          <FilterPill href="/consignaciones" active={!estadoParam} label="Todos" />
-          {ESTADOS.map((e) => (
+        <CardContent className="space-y-2 p-4 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Estado:</span>
+            <FilterPill href="/consignaciones" active={!estadoParam && !vistaParam} label="Todos" />
+            {ESTADOS.map((e) => (
+              <FilterPill
+                key={e}
+                href={`/consignaciones?estado=${e}`}
+                active={!vistaParam && estadoParam === e}
+                label={ESTADO_LABEL[e]}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Archive className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Limpieza:</span>
             <FilterPill
-              key={e}
-              href={`/consignaciones?estado=${e}`}
-              active={estadoParam === e}
-              label={ESTADO_LABEL[e]}
+              href="/consignaciones?vista=duplicados"
+              active={vistaParam === "duplicados"}
+              label={`Posibles duplicados (${dupIds.size})`}
             />
-          ))}
+            <FilterPill
+              href="/consignaciones?vista=cero"
+              active={vistaParam === "cero"}
+              label={`En $0.00 (${enCero.length})`}
+            />
+            <FilterPill
+              href="/consignaciones?vista=archivadas"
+              active={vistaParam === "archivadas"}
+              label={`Archivadas (${archivadas.length})`}
+            />
+          </div>
         </CardContent>
       </Card>
 
@@ -212,17 +283,26 @@ export default async function ConsignacionesPage({
                           </Link>
                         </td>
                         <td className="px-4 py-2">
-                          {linked ? (
-                            <Link href={`/cuentas/${linked.id}`} className="hover:underline">
-                              {c.cliente_nombre ?? linked.business_name}
-                            </Link>
-                          ) : (
-                            <span>{c.cliente_nombre ?? "—"}</span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {linked ? (
+                              <Link href={`/cuentas/${linked.id}`} className="hover:underline">
+                                {c.cliente_nombre ?? linked.business_name}
+                              </Link>
+                            ) : (
+                              <span>{c.cliente_nombre ?? "—"}</span>
+                            )}
+                            {dupIds.has(c.id) && <Badge variant="warning">Posible duplicado</Badge>}
+                            {c.archivada && <Badge variant="muted">Archivada</Badge>}
+                          </div>
                         </td>
                         {isAdmin && <td className="px-4 py-2">{c.vendedor_nombre ?? "—"}</td>}
                         <td className="px-4 py-2 text-muted-foreground">{c.chofer_nombre ?? "—"}</td>
-                        <td className="px-4 py-2 text-right whitespace-nowrap">{formatCurrency(c.total)}</td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5">
+                            {esSinValor(c) && <Badge variant="danger">Sin valor</Badge>}
+                            {formatCurrency(c.total)}
+                          </span>
+                        </td>
                         <td className="px-4 py-2 text-right whitespace-nowrap">{formatCurrency(c.monto_cobrado)}</td>
                         <td className="px-4 py-2 text-right whitespace-nowrap font-medium">{formatCurrency(saldo)}</td>
                         <td className="px-4 py-2">
