@@ -16,6 +16,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AccountStatusBadge } from "./AccountStatusBadge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableScroll } from "@/components/ui/table-scroll";
+import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import {
   ACCOUNT_STATUSES,
   ACCOUNT_TYPES,
@@ -170,7 +172,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
           }
         />
       ) : view === "table" ? (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <TableScroll stickyRight>
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -181,7 +183,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Vendedor</th>
-                <th className="px-4 py-3"></th>
+                <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
               </tr>
             </thead>
             <tbody>
@@ -220,7 +222,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                   <td className="px-4 py-3 text-muted-foreground">
                     {a.sales_reps?.full_name ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
                     <Button asChild size="sm" variant="ghost" title="Registrar actividad">
                       <Link href={`/actividades/nueva?account=${a.id}`}>
                         <CalendarPlus className="mr-1 h-4 w-4" /> Actividad
@@ -231,7 +233,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((a) => (

@@ -6,6 +6,8 @@ import { canSeeFinance } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableScroll } from "@/components/ui/table-scroll";
+import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
 import { CobranzaEmails } from "@/components/cartera/CobranzaEmails";
 import { formatCurrency } from "@/lib/utils";
@@ -115,7 +117,7 @@ export default async function CarteraPage() {
           }
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <TableScroll stickyRight>
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -127,7 +129,7 @@ export default async function CarteraPage() {
                 <th className="px-4 py-3 text-right">Pendiente</th>
                 <th className="px-4 py-3 text-right">Vencido</th>
                 <th className="px-4 py-3 text-center">Facturas</th>
-                <th className="px-4 py-3"></th>
+                <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
               </tr>
             </thead>
             <tbody>
@@ -186,7 +188,7 @@ export default async function CarteraPage() {
                   <td className="px-4 py-3 text-center text-muted-foreground">
                     {b.facturas_abiertas ?? 0}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
                     <Button asChild size="sm" variant="ghost">
                       <Link href={`/cartera/${b.account_id}`}>Estado de cuenta</Link>
                     </Button>
@@ -195,7 +197,7 @@ export default async function CarteraPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
     </div>
   );

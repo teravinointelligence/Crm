@@ -23,6 +23,8 @@ import {
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableScroll } from "@/components/ui/table-scroll";
+import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { StockBadge } from "./StockBadge";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
@@ -198,7 +200,7 @@ export function ProductsListClient({
           description="Limpia los filtros o importa el catálogo / portafolio."
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <TableScroll stickyRight={isAdmin}>
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -208,7 +210,7 @@ export function ProductsListClient({
                 <th className="px-4 py-3 text-right">Precio base</th>
                 <th className="px-4 py-3 text-right">+10%</th>
                 <th className="px-4 py-3">Stock</th>
-                {isAdmin && <th className="px-4 py-3"></th>}
+                {isAdmin && <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>}
               </tr>
             </thead>
             <tbody>
@@ -254,7 +256,7 @@ export function ProductsListClient({
                     )}
                   </td>
                   {isAdmin && (
-                    <td className="px-4 py-3 text-right">
+                    <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -269,7 +271,7 @@ export function ProductsListClient({
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
 
       {/* Edit single product's supplier */}

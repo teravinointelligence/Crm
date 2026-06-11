@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
 import { formatCurrency } from "@/lib/utils";
 import type { MonthlySale } from "@/types/database";
 
@@ -42,7 +43,7 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
           />
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <TableScroll className="rounded-none border-0">
         <table className="w-full text-sm">
           <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
             <tr>
@@ -79,7 +80,7 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
             )}
           </tbody>
         </table>
-      </div>
+      </TableScroll>
     </CardContent></Card>
   );
 }
