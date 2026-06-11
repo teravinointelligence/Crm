@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Phone, Mail, MessageCircle, Star, Pencil, Search, Cake } from "lucide-react";
+import { Phone, Mail, MessageCircle, Star, Pencil, Search, Cake, AlertTriangle } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,20 +27,36 @@ type ContactRow = Contact & {
   accounts: { id: string; business_name: string | null; region: string | null } | null;
 };
 
+// Datos mínimos de un contacto útil: email y alguna forma de llamarlo.
+// Mismo patrón "Falta: …" que Flota y que el módulo de datos faltantes de Cuentas.
+function missingFields(c: ContactRow): string[] {
+  const missing: string[] = [];
+  if (!c.email?.trim()) missing.push("email");
+  if (!c.phone?.trim() && !c.whatsapp?.trim()) missing.push("teléfono");
+  return missing;
+}
+
 export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
   const router = useRouter();
   const supabase = createClient();
   const [editing, setEditing] = useState<ContactRow | null>(null);
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
+  const [soloIncompletos, setSoloIncompletos] = useState(false);
 
   const norm = (s: unknown) =>
     String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
 
+  const totalIncompletos = useMemo(
+    () => contacts.filter((c) => missingFields(c).length > 0).length,
+    [contacts],
+  );
+
   const filtered = useMemo(() => {
     const tokens = norm(query).split(/\s+/).filter(Boolean);
-    if (!tokens.length) return contacts;
     return contacts.filter((c) => {
+      if (soloIncompletos && missingFields(c).length === 0) return false;
+      if (!tokens.length) return true;
       const haystack = norm(
         [
           c.full_name,
@@ -57,7 +73,7 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
       );
       return tokens.every((t) => haystack.includes(t));
     });
-  }, [contacts, query]);
+  }, [contacts, query, soloIncompletos]);
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
@@ -102,18 +118,36 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
 
   return (
     <>
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          placeholder="Buscar contacto, cuenta, cargo, email o teléfono…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-md flex-1 basis-64">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            placeholder="Buscar contacto, cuenta, cargo, email o teléfono…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {totalIncompletos > 0 && (
+          <button
+            type="button"
+            onClick={() => setSoloIncompletos((v) => !v)}
+            aria-pressed={soloIncompletos}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+              soloIncompletos
+                ? "border-amber-300 bg-amber-100 text-amber-900"
+                : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"
+            }`}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Datos faltantes ({totalIncompletos})
+          </button>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">
         {filtered.length} de {contacts.length} contacto(s)
+        {soloIncompletos ? " · solo con datos faltantes" : ""}
       </p>
 
       {filtered.length === 0 ? (
@@ -122,7 +156,9 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
         </p>
       ) : (
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {paged.map((c) => (
+        {paged.map((c) => {
+          const missing = missingFields(c);
+          return (
           <Card key={c.id}>
             <CardContent className="space-y-3 p-4">
               <div className="flex items-start justify-between gap-2">
@@ -200,12 +236,18 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
                   </div>
                 );
               })()}
+              {missing.length > 0 && (
+                <p className="text-[11px] text-amber-600">
+                  Falta: {missing.join(", ")}
+                </p>
+              )}
               {c.notes && (
                 <p className="border-t pt-2 text-xs text-muted-foreground">{c.notes}</p>
               )}
             </CardContent>
           </Card>
-        ))}
+          );
+        })}
       </div>
       )}
 
