@@ -106,6 +106,13 @@ export function ConsignacionForm({
       },
     ]);
     setProductQuery("");
+    // El catálogo trae productos con precio $0 (ej. Clos du Temple). Se pueden
+    // agregar, pero el renglón queda inválido hasta capturar el precio a mano.
+    if (!(Number(p.precio_unitario) > 0)) {
+      toast.warning(`"${p.nombre}" no tiene precio en el catálogo`, {
+        description: "Captura el precio unitario en el renglón para poder crear la consignación.",
+      });
+    }
   };
 
   const removeItem = (key: string) =>
@@ -123,12 +130,22 @@ export function ConsignacionForm({
     [items],
   );
 
+  // Precio ≤ 0 bloquea el submit: no se crean consignaciones con total $0.00.
+  const hasPrecioCero = items.some((i) => !(Number(i.precio_unitario) > 0));
   const canSubmit =
-    !!clienteId && !!fecha && items.length > 0 && items.every((i) => i.cantidad > 0 && i.precio_unitario >= 0);
+    !!clienteId &&
+    !!fecha &&
+    items.length > 0 &&
+    items.every((i) => i.cantidad > 0 && i.precio_unitario > 0) &&
+    total > 0;
 
   const submit = () => {
     if (!canSubmit) {
-      toast.error("Completa cliente, fecha y al menos un item válido");
+      toast.error(
+        hasPrecioCero
+          ? "Cada producto debe tener un precio unitario mayor a $0.00"
+          : "Completa cliente, fecha y al menos un item válido",
+      );
       return;
     }
     startTransition(async () => {
@@ -280,6 +297,7 @@ export function ConsignacionForm({
                 <tbody>
                   {items.map((it) => {
                     const sub = (Number(it.cantidad) || 0) * (Number(it.precio_unitario) || 0);
+                    const precioInvalido = !(Number(it.precio_unitario) > 0);
                     return (
                       <tr key={it.key} className="border-t">
                         <td className="px-3 py-2">{it.producto_nombre}</td>
@@ -302,7 +320,12 @@ export function ConsignacionForm({
                             onChange={(e) =>
                               updateItem(it.key, { precio_unitario: Number(e.target.value) })
                             }
-                            className="h-8 text-right"
+                            aria-invalid={precioInvalido}
+                            className={
+                              precioInvalido
+                                ? "h-8 text-right border-destructive focus-visible:ring-destructive"
+                                : "h-8 text-right"
+                            }
                           />
                         </td>
                         <td className="px-3 py-2 text-right whitespace-nowrap font-medium">
@@ -333,6 +356,13 @@ export function ConsignacionForm({
             </div>
           )}
 
+          {items.length > 0 && hasPrecioCero && (
+            <p className="text-sm text-destructive" role="alert">
+              Cada producto debe tener un precio unitario mayor a $0.00 — corrige los renglones
+              marcados para poder crear la consignación.
+            </p>
+          )}
+
           {/* Add product */}
           <div className="space-y-2">
             <Label>Agregar producto</Label>
@@ -351,30 +381,40 @@ export function ConsignacionForm({
                   <p className="p-3 text-xs text-muted-foreground">Sin resultados.</p>
                 ) : (
                   <ul className="divide-y text-sm">
-                    {filteredProductos.map((p) => (
-                      <li key={p.id}>
-                        <button
-                          type="button"
-                          onClick={() => addProduct(p)}
-                          className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/50"
-                        >
-                          <div>
-                            <p className="font-medium">{p.nombre}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {p.bodega ?? "—"}
-                              {p.codigo ? ` · SKU ${p.codigo}` : ""}
-                              {p.tipo ? ` · ${p.tipo}` : ""}
-                            </p>
-                          </div>
-                          <div className="text-right text-xs">
-                            <p className="font-medium">{formatCurrency(p.precio_unitario)}</p>
-                            <p className="text-muted-foreground">
-                              {p.stock != null ? `stock ${p.stock}` : ""}
-                            </p>
-                          </div>
-                        </button>
-                      </li>
-                    ))}
+                    {filteredProductos.map((p) => {
+                      const sinPrecio = !(Number(p.precio_unitario) > 0);
+                      const sinStock = p.stock != null && Number(p.stock) <= 0;
+                      return (
+                        <li key={p.id}>
+                          <button
+                            type="button"
+                            onClick={() => addProduct(p)}
+                            className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left hover:bg-muted/50"
+                          >
+                            <div>
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <p className="font-medium">{p.nombre}</p>
+                                {sinPrecio && <Badge variant="danger">Sin precio</Badge>}
+                                {sinStock && <Badge variant="warning">Sin stock</Badge>}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {p.bodega ?? "—"}
+                                {p.codigo ? ` · SKU ${p.codigo}` : ""}
+                                {p.tipo ? ` · ${p.tipo}` : ""}
+                              </p>
+                            </div>
+                            <div className="text-right text-xs">
+                              <p className={sinPrecio ? "font-medium text-destructive" : "font-medium"}>
+                                {formatCurrency(p.precio_unitario)}
+                              </p>
+                              <p className="text-muted-foreground">
+                                {p.stock != null ? `stock ${p.stock}` : ""}
+                              </p>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </div>
