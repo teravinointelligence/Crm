@@ -52,7 +52,7 @@ export type Urgency = {
 
 export function staleUrgency(days: number | null): Urgency {
   if (days == null)
-    return { level: "nunca", label: "Sin contacto", bg: "#F3F4F6", fg: "#374151" };
+    return { level: "nunca", label: "Sin actividad", bg: "#F3F4F6", fg: "#374151" };
   if (days >= 60)
     return { level: "alta", label: `${days} días`, bg: "#FEE2E2", fg: "#991B1B" };
   return { level: "media", label: `${days} días`, bg: "#FEF3C7", fg: "#92400E" };

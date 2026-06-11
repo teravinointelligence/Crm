@@ -172,6 +172,18 @@ export default async function DashboardPage() {
     last_activity_date: string | null;
   };
   const stale = (staleRes.data ?? []) as unknown as StaleRow[];
+  // Contactos registrados por cuenta, para que el vendedor sepa si ya tiene
+  // con quién hablar (el badge solo refleja actividad, no contactos).
+  const staleContactCounts: Record<string, number> = {};
+  if (stale.length) {
+    const { data: staleContacts } = await supabase
+      .from("contacts")
+      .select("account_id")
+      .in("account_id", stale.map((s) => s.account_id));
+    for (const c of (staleContacts ?? []) as { account_id: string }[]) {
+      staleContactCounts[c.account_id] = (staleContactCounts[c.account_id] ?? 0) + 1;
+    }
+  }
   const repFirst: Record<string, string> = Object.fromEntries(
     repsForCalendar.map((r) => [r.id, r.full_name.split(" ")[0]]),
   );
@@ -496,6 +508,13 @@ export default async function DashboardPage() {
                         {isAdmin && s.assigned_rep_id && repFirst[s.assigned_rep_id]
                           ? ` · ${repFirst[s.assigned_rep_id]}`
                           : ""}
+                        {staleContactCounts[s.account_id] ? (
+                          <span className="text-emerald-700">
+                            {` · ${staleContactCounts[s.account_id]} contacto${staleContactCounts[s.account_id] === 1 ? "" : "s"}`}
+                          </span>
+                        ) : (
+                          " · sin contactos"
+                        )}
                       </div>
                     </div>
                     <span
