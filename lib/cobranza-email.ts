@@ -14,7 +14,7 @@ const fmtDate = (d: string | null | undefined) =>
   d ? new Intl.DateTimeFormat("es-MX", { dateStyle: "medium" }).format(new Date(d)) : "—";
 
 export type RecordatorioResult =
-  | { ok: true; to: string; subject: string; html: string; estado: EstadoCobranza }
+  | { ok: true; to: string[]; subject: string; html: string; estado: EstadoCobranza }
   | { ok: false; status: number; error: string };
 
 export async function buildRecordatorio(
@@ -50,8 +50,19 @@ export async function buildRecordatorio(
       .maybeSingle(),
   ]);
 
-  const contact = (contacts ?? [])[0] as { full_name: string; email: string } | undefined;
-  if (!contact?.email) {
+  // Todos los correos registrados de la cuenta (contacto principal primero),
+  // deduplicados sin distinguir mayúsculas.
+  const seen = new Set<string>();
+  const to: string[] = [];
+  for (const c of (contacts ?? []) as { email: string | null }[]) {
+    const email = c.email?.trim();
+    if (!email || !email.includes("@")) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    to.push(email);
+  }
+  if (!to.length) {
     return {
       ok: false,
       status: 400,
@@ -116,7 +127,7 @@ export async function buildRecordatorio(
 
   return {
     ok: true,
-    to: contact.email,
+    to,
     subject: `Estado de cuenta TERAVINO — ${cliente}`,
     html,
     estado: semaforo.estado,
