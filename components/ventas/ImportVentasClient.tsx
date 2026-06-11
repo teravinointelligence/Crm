@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ImportResultPanel, type ImportOutcome } from "@/components/ui/import-result";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeClientNumber } from "@/lib/excel/parseCartera";
 import {
@@ -49,6 +50,7 @@ export function ImportVentasClient() {
   const [clientes, setClientes] = useState<VentaClienteParsed[] | null>(null); // contpaq
   const [parseErrors, setParseErrors] = useState<{ row: number; message: string }[]>([]);
   const [resolveErrors, setResolveErrors] = useState<string[]>([]);
+  const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
 
   const reset = () => {
     setFileName(null);
@@ -63,6 +65,7 @@ export function ImportVentasClient() {
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setOutcome(null);
     setResolveErrors([]);
     setRows(null);
     setClientes(null);
@@ -116,7 +119,15 @@ export function ImportVentasClient() {
       const { error } = await supabase.from("monthly_sales").upsert(payload, { onConflict: "account_id,period" });
       if (error) { toast.error("Error al importar ventas", { description: error.message }); return; }
       toast.success(`${payload.length} ventas importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
-      if (!errs.length) { reset(); router.push(`/ventas?period=${period}`); router.refresh(); }
+      // Resultado persistente (el toast desaparece): filas procesadas + errores.
+      setOutcome({
+        ok: payload.length,
+        okLabel: `ventas importadas para ${period}`,
+        errors: errs,
+        cta: { href: `/ventas?period=${period}`, label: "Ver ventas del periodo" },
+      });
+      if (!errs.length) reset();
+      router.refresh();
     });
   };
 
@@ -175,7 +186,15 @@ export function ImportVentasClient() {
       }
 
       toast.success(`${matched.length} clientes · ${itemsPayload.length} líneas de producto importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
-      if (!errs.length) { reset(); router.push(`/ventas?period=${period}`); router.refresh(); }
+      // Resultado persistente (el toast desaparece): filas procesadas + errores.
+      setOutcome({
+        ok: matched.length,
+        okLabel: `clientes (${itemsPayload.length} líneas de producto) importados para ${period}`,
+        errors: errs,
+        cta: { href: `/ventas?period=${period}`, label: "Ver ventas del periodo" },
+      });
+      if (!errs.length) reset();
+      router.refresh();
     });
   };
 
@@ -200,6 +219,8 @@ export function ImportVentasClient() {
 
   return (
     <div className="space-y-6">
+      {outcome && <ImportResultPanel outcome={outcome} />}
+
       <Card><CardContent className="space-y-2 p-6 text-sm">
         <h3 className="font-display text-lg">Carga de ventas mensuales</h3>
         <p className="text-muted-foreground">Acepta dos formatos (autodetectados):</p>

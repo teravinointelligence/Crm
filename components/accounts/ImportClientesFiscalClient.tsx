@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ImportResultPanel, type ImportOutcome } from "@/components/ui/import-result";
 import { createClient } from "@/lib/supabase/client";
 import { normalizeClientNumber } from "@/lib/excel/parseCartera";
 import {
@@ -59,6 +60,7 @@ export function ImportClientesFiscalClient({ accounts }: { accounts: AccountLite
   const [rows, setRows] = useState<ClienteFiscalRow[] | null>(null);
   const [parseErrors, setParseErrors] = useState<{ row: number; message: string }[]>([]);
   const [overwrite, setOverwrite] = useState(false);
+  const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
 
   // Índice de cuentas por # cliente normalizado. Un # puede tener varias cuentas.
   const byClientNum = useMemo(() => {
@@ -83,6 +85,7 @@ export function ImportClientesFiscalClient({ accounts }: { accounts: AccountLite
     const file = e.target.files?.[0];
     if (!file) return;
     setFileName(file.name);
+    setOutcome(null);
     const buf = await file.arrayBuffer();
     const result = parseClientesFiscal(buf);
     setRows(result.rows);
@@ -141,10 +144,15 @@ export function ImportClientesFiscalClient({ accounts }: { accounts: AccountLite
       }
       if (ok) toast.success(`${ok} cuenta${ok === 1 ? "" : "s"} actualizada${ok === 1 ? "" : "s"}`);
       if (errs.length) toast.error(`${errs.length} con error`, { description: errs.slice(0, 3).join(" · ") });
-      if (!errs.length) {
-        reset();
-        router.refresh();
-      }
+      // Resultado persistente (el toast desaparece): cuentas actualizadas + errores.
+      setOutcome({
+        ok,
+        okLabel: `cuenta${ok === 1 ? "" : "s"} actualizada${ok === 1 ? "" : "s"}`,
+        errors: errs,
+        cta: { href: "/cuentas", label: "Ver cuentas" },
+      });
+      if (!errs.length) reset();
+      router.refresh();
     });
   };
 
@@ -152,6 +160,8 @@ export function ImportClientesFiscalClient({ accounts }: { accounts: AccountLite
 
   return (
     <div className="space-y-6">
+      {outcome && <ImportResultPanel outcome={outcome} />}
+
       <Card>
         <CardContent className="space-y-2 p-6 text-sm">
           <h3 className="font-display text-lg">Cómo funciona</h3>

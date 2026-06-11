@@ -16,6 +16,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AccountStatusBadge } from "./AccountStatusBadge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableScroll } from "@/components/ui/table-scroll";
+import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
+import { Pager } from "@/components/ui/pagination";
+import { usePagedRows } from "@/components/ui/use-paged-rows";
 import {
   ACCOUNT_STATUSES,
   ACCOUNT_TYPES,
@@ -60,6 +64,8 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
       return true;
     });
   }, [accounts, query, region, type, status, rep]);
+
+  const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
   return (
     <div className="space-y-4">
@@ -170,7 +176,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
           }
         />
       ) : view === "table" ? (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <TableScroll stickyRight>
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -181,11 +187,11 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Vendedor</th>
-                <th className="px-4 py-3"></th>
+                <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a) => (
+              {paged.map((a) => (
                 <tr key={a.id} className="border-b last:border-b-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                     {a.client_number ?? "—"}
@@ -220,7 +226,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                   <td className="px-4 py-3 text-muted-foreground">
                     {a.sales_reps?.full_name ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
                     <Button asChild size="sm" variant="ghost" title="Registrar actividad">
                       <Link href={`/actividades/nueva?account=${a.id}`}>
                         <CalendarPlus className="mr-1 h-4 w-4" /> Actividad
@@ -231,10 +237,10 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((a) => (
+          {paged.map((a) => (
             <Card key={a.id} className="flex h-full flex-col transition hover:border-brand-carmesi">
               <Link href={`/cuentas/${a.id}`} className="flex-1">
                 <CardContent className="space-y-2 p-5">
@@ -275,6 +281,8 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
           ))}
         </div>
       )}
+
+      <Pager page={page} pageCount={pageCount} total={total} onPageChange={setPage} />
     </div>
   );
 }

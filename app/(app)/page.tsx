@@ -186,13 +186,18 @@ export default async function DashboardPage() {
   const birthdays = (birthdaysRes.data ?? []) as unknown as UpcomingBirthday[];
 
   // Conteo inicial de "en línea" (activos en los últimos 5 min) para el header.
+  // Mínimo 1: quien está viendo el dashboard está en línea aunque su heartbeat
+  // (touch_presence) aún no haya aterrizado — evita el brinco "0 → 1 en línea".
   const presenceRes = await supabase
     .from("sales_reps")
     .select("last_seen_at")
     .eq("active", true);
-  const onlineNow = (presenceRes.data ?? []).filter(
-    (r) => r.last_seen_at && Date.now() - new Date(r.last_seen_at).getTime() < 5 * 60_000,
-  ).length;
+  const onlineNow = Math.max(
+    1,
+    (presenceRes.data ?? []).filter(
+      (r) => r.last_seen_at && Date.now() - new Date(r.last_seen_at).getTime() < 5 * 60_000,
+    ).length,
+  );
 
   const pipelineTotal = (pipelineRes.data ?? []).reduce(
     (sum, o) => sum + Number(o.total ?? 0),

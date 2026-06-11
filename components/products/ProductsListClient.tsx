@@ -23,6 +23,10 @@ import {
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableScroll } from "@/components/ui/table-scroll";
+import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
+import { Pager } from "@/components/ui/pagination";
+import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { StockBadge } from "./StockBadge";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
@@ -70,6 +74,8 @@ export function ProductsListClient({
       return true;
     });
   }, [products, query, supplier, category, showInactive]);
+
+  const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
   const saveSupplierForProduct = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -195,10 +201,23 @@ export function ProductsListClient({
       {filtered.length === 0 ? (
         <EmptyState
           title="Sin productos"
-          description="Limpia los filtros o importa el catálogo / portafolio."
+          description={
+            products.length === 0
+              ? "Aún no hay productos: importa el catálogo o el portafolio para empezar."
+              : "Limpia los filtros o importa el catálogo / portafolio."
+          }
+          action={
+            isAdmin ? (
+              <Button asChild className="mt-2">
+                <Link href="/catalogo/importar">
+                  <Upload className="mr-1 h-4 w-4" /> Importar Excel
+                </Link>
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
-        <div className="overflow-x-auto rounded-lg border bg-card">
+        <TableScroll stickyRight={isAdmin}>
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -208,11 +227,11 @@ export function ProductsListClient({
                 <th className="px-4 py-3 text-right">Precio base</th>
                 <th className="px-4 py-3 text-right">+10%</th>
                 <th className="px-4 py-3">Stock</th>
-                {isAdmin && <th className="px-4 py-3"></th>}
+                {isAdmin && <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>}
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {paged.map((p) => (
                 <tr
                   key={p.id}
                   className="border-b last:border-b-0 hover:bg-muted/30"
@@ -254,7 +273,7 @@ export function ProductsListClient({
                     )}
                   </td>
                   {isAdmin && (
-                    <td className="px-4 py-3 text-right">
+                    <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -269,8 +288,10 @@ export function ProductsListClient({
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
+
+      <Pager page={page} pageCount={pageCount} total={total} onPageChange={setPage} />
 
       {/* Edit single product's supplier */}
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>

@@ -20,15 +20,23 @@ export function OnlinePill({ initialOnline }: { initialOnline: number }) {
         .eq("active", true);
       if (!alive || !data) return;
       const now = Date.now();
+      // Mínimo 1: quien ve el dashboard está en línea aunque su heartbeat
+      // todavía no se refleje en last_seen_at (evita el brinco "0 → 1").
       setOnline(
-        data.filter(
-          (r) => r.last_seen_at && now - new Date(r.last_seen_at).getTime() < ONLINE_MS,
-        ).length,
+        Math.max(
+          1,
+          data.filter(
+            (r) => r.last_seen_at && now - new Date(r.last_seen_at).getTime() < ONLINE_MS,
+          ).length,
+        ),
       );
     };
+    // Primer refresh enseguida (tras dar tiempo al heartbeat inicial), luego cada 30s.
+    const first = setTimeout(refresh, 3_000);
     const int = setInterval(refresh, 30_000);
     return () => {
       alive = false;
+      clearTimeout(first);
       clearInterval(int);
     };
   }, []);

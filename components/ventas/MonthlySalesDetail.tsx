@@ -5,6 +5,9 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { TableScroll } from "@/components/ui/table-scroll";
+import { Pager } from "@/components/ui/pagination";
+import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { formatCurrency } from "@/lib/utils";
 import type { MonthlySale } from "@/types/database";
 
@@ -28,6 +31,8 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
     );
   }, [sales, query]);
 
+  const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
+
   return (
     <Card><CardContent className="p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
@@ -42,7 +47,7 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
           />
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <TableScroll className="rounded-none border-0">
         <table className="w-full text-sm">
           <thead className="bg-muted/30 text-xs uppercase text-muted-foreground">
             <tr>
@@ -62,7 +67,7 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
                 </td>
               </tr>
             ) : (
-              filtered.map((v) => (
+              paged.map((v) => (
                 <tr key={v.id} className="border-t hover:bg-muted/20">
                   <td className="px-4 py-2 font-mono text-xs">{v.client_number ?? "—"}</td>
                   <td className="px-4 py-2">
@@ -79,7 +84,8 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
             )}
           </tbody>
         </table>
-      </div>
+      </TableScroll>
+      <Pager page={page} pageCount={pageCount} total={total} onPageChange={setPage} className="border-t px-4 py-3" />
     </CardContent></Card>
   );
 }

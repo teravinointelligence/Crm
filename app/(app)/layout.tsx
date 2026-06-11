@@ -37,7 +37,9 @@ export default async function AppLayout({
       <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} isAdmin={isAdmin} modules={modules} badges={badges} />
-        <main className="flex-1 px-4 pb-24 pt-6 lg:px-8 lg:pb-8">
+        {/* pb-36 en móvil: deja libre la franja del FAB (bottom-16 + h-14 ≈ 120px)
+            para que la última fila de las listas no quede tapada. */}
+        <main className="flex-1 px-4 pb-36 pt-6 lg:px-8 lg:pb-8">
           {children}
         </main>
         {!repartoOnly && <Fab />}

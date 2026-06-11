@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
+import { TableScroll } from "@/components/ui/table-scroll";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { bucketDeDias, BUCKET_LABEL, diasVencidos, type BucketKey } from "@/lib/cartera";
 import type { Invoice } from "@/types/database";
@@ -124,6 +125,7 @@ export function InvoicesTable({
           Sin facturas en esta vista.
         </div>
       ) : (
+        <TableScroll className="rounded-none border-0">
         <table className="min-w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
             <tr>
@@ -178,6 +180,7 @@ export function InvoicesTable({
             </tr>
           </tfoot>
         </table>
+        </TableScroll>
       )}
     </div>
   );

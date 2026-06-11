@@ -18,7 +18,7 @@ export function UserMenu({ rep }: { rep: SalesRep }) {
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex shrink-0 items-center gap-3">
       <div className="hidden text-right text-xs sm:block">
         <div className="font-medium">{rep.full_name}</div>
         <div className="text-muted-foreground">{rep.email}</div>
