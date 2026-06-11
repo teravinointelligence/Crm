@@ -18,13 +18,12 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Calendar, GripVertical, Truck, AlertCircle, Clock } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Calendar, GripVertical, AlertCircle, Clock, History } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { buildRutasUrl, esRezagado } from "@/lib/reparto-rutas";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 
 const UNASSIGNED = "__sin_asignar__";
@@ -47,11 +46,13 @@ type Pedido = {
 
 export function KanbanRutas({
   fecha,
+  incluirRezagados = false,
   pedidos: initial,
   choferes,
   canManage = true,
 }: {
   fecha: string;
+  incluirRezagados?: boolean;
   pedidos: Pedido[];
   choferes: Chofer[];
   canManage?: boolean;
@@ -60,7 +61,17 @@ export function KanbanRutas({
   const [pedidos, setPedidos] = useState<Pedido[]>(initial);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [dateValue, setDateValue] = useState(fecha);
+
+  // El estado local existe solo para el update optimista del drag&drop; cuando
+  // el server manda datos nuevos (cambio de fecha, toggle de rezagados o
+  // router.refresh) hay que re-sincronizar. Patrón de React de "reset durante
+  // render" — sin esto el tablero se queda con la lista vieja (el bug del
+  // "Cargar" con desfase de un clic).
+  const [prevInitial, setPrevInitial] = useState(initial);
+  if (prevInitial !== initial) {
+    setPrevInitial(initial);
+    setPedidos(initial);
+  }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
@@ -77,6 +88,11 @@ export function KanbanRutas({
   }, [pedidos, choferes]);
 
   const activePedido = pedidos.find((p) => p.id === activeId) ?? null;
+
+  // Conteo del encabezado: los del día se reportan igual que siempre; los
+  // rezagados (fecha anterior, aún sin entregar) se desglosan aparte.
+  const rezagadosCount = pedidos.filter((p) => esRezagado(p, fecha)).length;
+  const delDiaCount = pedidos.length - rezagadosCount;
 
   const onDragStart = (e: DragStartEvent) => {
     if (!canManage) return;
@@ -146,33 +162,54 @@ export function KanbanRutas({
   return (
     <>
       <div className="flex flex-wrap items-end justify-between gap-3 pb-2">
-        <div className="flex items-end gap-2">
+        <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="fecha">Fecha de operación</Label>
             <div className="relative">
               <Calendar className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input id="fecha" type="date" value={dateValue} onChange={(e) => setDateValue(e.target.value)} className="pl-9" />
+              {/* La URL es la única fuente de verdad: el input no tiene estado
+                  propio (defaultValue + key) y navega al cambiar — un solo
+                  gesto recarga URL, encabezado y tarjetas, sin desfase. */}
+              <Input
+                id="fecha"
+                type="date"
+                key={fecha}
+                defaultValue={fecha}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v && v !== fecha) router.push(buildRutasUrl(v, incluirRezagados));
+                }}
+                className="pl-9"
+              />
             </div>
           </div>
-          <Button
-            variant="outline"
-            disabled={dateValue === fecha}
-            onClick={() => router.push(`/reparto/rutas?fecha=${dateValue}`)}
-          >
-            Cargar
-          </Button>
+          <label className="flex items-center gap-2 pb-2.5 text-sm text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={incluirRezagados}
+              onChange={(e) => router.push(buildRutasUrl(fecha, e.target.checked))}
+              className="h-4 w-4 rounded border-input"
+            />
+            Incluir pendientes de días anteriores
+          </label>
         </div>
-        <p className="text-xs text-muted-foreground">{pedidos.length} pedido(s) en {fecha}{pending && " · guardando…"}</p>
+        <p className="text-xs text-muted-foreground">
+          {delDiaCount} pedido(s) en {fecha}
+          {rezagadosCount > 0 && (
+            <span className="text-amber-700"> · +{rezagadosCount} rezagado(s)</span>
+          )}
+          {pending && " · guardando…"}
+        </p>
       </div>
 
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {columns.map((col) => (
-            <Column key={col.id} id={col.id} titulo={col.titulo} subtitulo={col.subtitulo} pedidos={grouped.get(col.id) ?? []} canManage={canManage} />
+            <Column key={col.id} id={col.id} titulo={col.titulo} subtitulo={col.subtitulo} pedidos={grouped.get(col.id) ?? []} canManage={canManage} fechaOperacion={fecha} />
           ))}
         </div>
         <DragOverlay>
-          {activePedido ? <PedidoCardView pedido={activePedido} dragging /> : null}
+          {activePedido ? <PedidoCardView pedido={activePedido} fechaOperacion={fecha} dragging /> : null}
         </DragOverlay>
       </DndContext>
     </>
@@ -185,12 +222,14 @@ function Column({
   subtitulo,
   pedidos,
   canManage,
+  fechaOperacion,
 }: {
   id: string;
   titulo: string;
   subtitulo: string;
   pedidos: Pedido[];
   canManage: boolean;
+  fechaOperacion: string;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
   const isUnassigned = id === UNASSIGNED;
@@ -217,7 +256,7 @@ function Column({
             {isUnassigned ? "Sin pendientes." : "Sin pedidos asignados."}
           </p>
         ) : (
-          pedidos.map((p) => <PedidoCard key={p.id} pedido={p} canManage={canManage} />)
+          pedidos.map((p) => <PedidoCard key={p.id} pedido={p} canManage={canManage} fechaOperacion={fechaOperacion} />)
         )}
       </div>
       {pedidos.length > 0 && (
@@ -229,7 +268,7 @@ function Column({
   );
 }
 
-function PedidoCard({ pedido, canManage }: { pedido: Pedido; canManage: boolean }) {
+function PedidoCard({ pedido, canManage, fechaOperacion }: { pedido: Pedido; canManage: boolean; fechaOperacion: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: pedido.id, disabled: !canManage });
   return (
     <div
@@ -242,14 +281,32 @@ function PedidoCard({ pedido, canManage }: { pedido: Pedido; canManage: boolean 
         isDragging && "opacity-30",
       )}
     >
-      <PedidoCardView pedido={pedido} />
+      <PedidoCardView pedido={pedido} fechaOperacion={fechaOperacion} />
     </div>
   );
 }
 
-function PedidoCardView({ pedido, dragging = false }: { pedido: Pedido; dragging?: boolean }) {
+function PedidoCardView({
+  pedido,
+  fechaOperacion,
+  dragging = false,
+}: {
+  pedido: Pedido;
+  fechaOperacion?: string;
+  dragging?: boolean;
+}) {
+  const rezagado = fechaOperacion ? esRezagado(pedido, fechaOperacion) : false;
   return (
     <div className={cn("space-y-1", dragging && "rounded-md border bg-card p-2.5 shadow-lg")}>
+      {rezagado && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800"
+          title="Pedido pendiente de un día anterior"
+        >
+          <History className="h-3 w-3" />
+          Rezagado · {formatDate(pedido.fecha)}
+        </span>
+      )}
       <div className="flex items-start justify-between gap-2">
         <Link
           href={`/reparto/pedidos/${pedido.id}`}
