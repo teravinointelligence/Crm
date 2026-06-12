@@ -50,6 +50,7 @@ export function PedidoForm() {
   const [choferId, setChoferId] = useState<string>("");
 
   const [tipo, setTipo] = useState<PedidoTipo>("factura");
+  const [pdf, setPdf] = useState<File | null>(null);
   const [numFactura, setNumFactura] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [prioridad, setPrioridad] = useState<Prioridad>("normal");
@@ -134,7 +135,24 @@ export function PedidoForm() {
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al crear pedido"); return; }
-      toast.success("Pedido creado");
+      // PDF del documento (traspaso, consignación, patrocinio…): se adjunta
+      // después de crear; si falla, el pedido ya existe y se puede resubir
+      // desde su detalle.
+      if (pdf) {
+        const fd = new FormData();
+        fd.append("pdf", pdf);
+        const up = await fetch(`/api/reparto/pedidos/${json.data.id}/pdf`, { method: "POST", body: fd });
+        if (!up.ok) {
+          const upJson = await up.json().catch(() => ({}));
+          toast.warning("Pedido creado, pero el PDF no se subió", {
+            description: upJson.error ?? `HTTP ${up.status} — vuelve a intentarlo desde el detalle del pedido`,
+          });
+          router.push(`/reparto/pedidos/${json.data.id}`);
+          router.refresh();
+          return;
+        }
+      }
+      toast.success(pdf ? "Pedido creado con su PDF" : "Pedido creado");
       router.push(`/reparto/pedidos/${json.data.id}`);
       router.refresh();
     });
@@ -276,6 +294,20 @@ export function PedidoForm() {
           <Input type="time" value={ventanaInicio} onChange={(e) => setVentanaInicio(e.target.value)} /></div>
         <div className="space-y-2"><Label>Ventana fin</Label>
           <Input type="time" value={ventanaFin} onChange={(e) => setVentanaFin(e.target.value)} /></div>
+
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Documento PDF {tipo === "factura" ? "(opcional)" : "del documento (opcional)"}</Label>
+          <Input
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={(e) => setPdf(e.target.files?.[0] ?? null)}
+          />
+          <p className="text-xs text-muted-foreground">
+            {tipo === "factura"
+              ? "PDF de la factura, si lo tienes a la mano (máx 10 MB)."
+              : "Sube el PDF del traspaso / consignación / patrocinio para que el chofer lo lleve consigo (máx 10 MB)."}
+          </p>
+        </div>
 
         <div className="space-y-2 sm:col-span-2"><Label>Dirección de entrega</Label>
           <Input value={direccion} onChange={(e) => setDireccion(e.target.value)} placeholder="Calle, número, colonia, ciudad…" /></div>
