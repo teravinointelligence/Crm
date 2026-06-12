@@ -56,6 +56,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
       if (
         q &&
         !a.business_name.toLowerCase().includes(q) &&
+        !(a.fiscal_name ?? "").toLowerCase().includes(q) &&
         !(a.rfc ?? "").toLowerCase().includes(q) &&
         !(a.city ?? "").toLowerCase().includes(q) &&
         !(a.client_number ?? "").toLowerCase().includes(q)
@@ -73,7 +74,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
         <div className="relative flex-1 min-w-[180px]">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar por nombre, # cliente, RFC, ciudad…"
+            placeholder="Buscar por nombre, razón social, # cliente, RFC, ciudad…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -203,8 +204,17 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                     >
                       {a.business_name}
                     </Link>
-                    {a.city && (
-                      <div className="text-xs text-muted-foreground">{a.city}</div>
+                    {(a.fiscal_name || a.city) && (
+                      <div className="text-xs text-muted-foreground">
+                        {[
+                          a.fiscal_name && a.fiscal_name !== a.business_name
+                            ? a.fiscal_name
+                            : null,
+                          a.city,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
@@ -247,6 +257,9 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="font-display text-lg">{a.business_name}</h3>
+                      {a.fiscal_name && a.fiscal_name !== a.business_name && (
+                        <p className="text-xs text-muted-foreground">{a.fiscal_name}</p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {[
                           a.client_number ? `# ${a.client_number}` : null,

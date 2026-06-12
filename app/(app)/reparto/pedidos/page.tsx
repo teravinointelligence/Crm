@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PedidosFilters } from "@/components/reparto/PedidosFilters";
 import { UploadCFDI } from "@/components/reparto/UploadCFDI";
-import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_BADGE, type PedidoEstatus, type PedidoTipo } from "@/types/reparto";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Pedidos — Reparto" };
@@ -20,6 +20,7 @@ export const dynamic = "force-dynamic";
 type Row = {
   id: string;
   numero_factura: string;
+  tipo: PedidoTipo | null;
   fecha: string;
   ventana_inicio: string | null;
   ventana_fin: string | null;
@@ -49,7 +50,7 @@ export default async function PedidosPage({
   let query = repartoAdmin
     .from("pedidos")
     .select(
-      "id, numero_factura, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, rfc), chofer:chofer_id(id, nombre)",
+      "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, rfc), chofer:chofer_id(id, nombre)",
       { count: "exact" },
     )
     .order("fecha", { ascending: false })
@@ -166,6 +167,9 @@ export default async function PedidosPage({
                 <tr key={r.id} className="border-b last:border-b-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">
                     <Link href={`/reparto/pedidos/${r.id}`} className="hover:text-brand-carmesi">{r.numero_factura}</Link>
+                    {r.tipo && r.tipo !== "factura" && (
+                      <Badge variant="accent" className="ml-2 text-[10px]">{TIPO_BADGE[r.tipo]}</Badge>
+                    )}
                     {r.prioridad && r.prioridad !== "normal" && (
                       <Badge variant="warning" className="ml-2 text-[10px]">{r.prioridad}</Badge>
                     )}

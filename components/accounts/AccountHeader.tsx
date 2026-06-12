@@ -22,6 +22,11 @@ export function AccountHeader({ account, rep }: Props) {
               <Badge variant="accent">+10%</Badge>
             )}
           </div>
+          {account.fiscal_name && account.fiscal_name !== account.business_name && (
+            <p className="text-sm text-muted-foreground">
+              Razón social: <span className="text-foreground/80">{account.fiscal_name}</span>
+            </p>
+          )}
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
             {account.account_type && <span>{account.account_type}</span>}
             {account.region && (

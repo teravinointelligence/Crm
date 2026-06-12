@@ -4,12 +4,13 @@
 import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { requireReparto, requireRepartoManage } from "../_lib/guard";
-import { PEDIDO_ESTATUS, PRIORIDADES } from "@/types/reparto";
+import { PEDIDO_ESTATUS, PEDIDO_TIPOS, PRIORIDADES } from "@/types/reparto";
 
 export const dynamic = "force-dynamic";
 
 const ALLOWED_ESTATUS = new Set<string>(PEDIDO_ESTATUS);
 const ALLOWED_PRIORIDADES = new Set<string>(PRIORIDADES);
+const ALLOWED_TIPOS = new Set<string>(PEDIDO_TIPOS);
 
 export async function GET(req: Request) {
   const { response } = await requireReparto();
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
   let query = repartoAdmin
     .from("pedidos")
     .select(
-      "id, numero_factura, uuid_fiscal, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, moneda, origen, direccion_entrega, notas, created_at, cliente_id, chofer_id, clientes:cliente_id(id, nombre, rfc, ciudad), chofer:chofer_id(id, nombre, email)",
+      "id, numero_factura, uuid_fiscal, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, moneda, origen, direccion_entrega, notas, created_at, cliente_id, chofer_id, clientes:cliente_id(id, nombre, rfc, ciudad), chofer:chofer_id(id, nombre, email)",
       { count: "exact" },
     )
     .order("fecha", { ascending: false })
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
   if (!productos.length) return NextResponse.json({ error: "Agrega al menos una partida" }, { status: 400 });
 
   const prioridad = ALLOWED_PRIORIDADES.has(body?.prioridad) ? body.prioridad : "normal";
+  const tipo = ALLOWED_TIPOS.has(body?.tipo) ? body.tipo : "factura";
   const subtotal = productos.reduce((s, p) => {
     const importe = Number(p.importe);
     if (Number.isFinite(importe) && importe > 0) return s + importe;
@@ -99,6 +101,7 @@ export async function POST(req: Request) {
     .insert({
       numero_factura,
       uuid_fiscal: body?.uuid_fiscal?.trim() || null,
+      tipo,
       cliente_id: body.cliente_id,
       chofer_id: body?.chofer_id || null,
       fecha,

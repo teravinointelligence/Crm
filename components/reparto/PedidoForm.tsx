@@ -19,7 +19,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/utils";
-import { PRIORIDADES, type Prioridad } from "@/types/reparto";
+import { PEDIDO_TIPOS, PRIORIDADES, TIPO_LABEL, type PedidoTipo, type Prioridad } from "@/types/reparto";
 
 // Radix Select v2 no permite <SelectItem value="">; usamos un centinela para
 // la opción "Sin asignar" y lo mapeamos a "" (→ null al crear el pedido).
@@ -49,6 +49,7 @@ export function PedidoForm() {
   const [choferes, setChoferes] = useState<ChoferLite[]>([]);
   const [choferId, setChoferId] = useState<string>("");
 
+  const [tipo, setTipo] = useState<PedidoTipo>("factura");
   const [numFactura, setNumFactura] = useState("");
   const [fecha, setFecha] = useState(new Date().toISOString().slice(0, 10));
   const [prioridad, setPrioridad] = useState<Prioridad>("normal");
@@ -92,9 +93,12 @@ export function PedidoForm() {
     setPartidas((p) => p.map((x) => (x.key === key ? { ...x, ...patch } : x)));
   const rmPartida = (key: string) => setPartidas((p) => p.filter((x) => x.key !== key));
 
+  const folioLabel =
+    tipo === "factura" ? "Folio / # factura" : tipo === "traspaso" ? "Folio del traspaso" : "Folio / referencia";
+
   const submit = () => {
     if (!cliente) { toast.error("Selecciona un cliente"); return; }
-    if (!numFactura.trim()) { toast.error("Folio / # de factura requerido"); return; }
+    if (!numFactura.trim()) { toast.error(`${folioLabel} requerido`); return; }
     if (!fecha) { toast.error("Fecha requerida"); return; }
     if (partidas.some((p) => !p.descripcion.trim() || p.cantidad <= 0)) {
       toast.error("Revisa descripción y cantidad de las partidas");
@@ -106,6 +110,7 @@ export function PedidoForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           numero_factura: numFactura.trim(),
+          tipo,
           fecha,
           cliente_id: cliente.id,
           chofer_id: choferId || null,
@@ -225,8 +230,29 @@ export function PedidoForm() {
           </Dialog>
         </div>
 
-        <div className="space-y-2"><Label>Folio / # factura *</Label>
-          <Input value={numFactura} onChange={(e) => setNumFactura(e.target.value)} placeholder="FA14315" /></div>
+        <div className="space-y-2 sm:col-span-2"><Label>Tipo de pedido *</Label>
+          <Select value={tipo} onValueChange={(v) => setTipo(v as PedidoTipo)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {PEDIDO_TIPOS.map((t) => (
+                <SelectItem key={t} value={t}>{TIPO_LABEL[t]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {tipo === "traspaso" && (
+            <p className="text-xs text-muted-foreground">
+              Resurtido de consignación: se entrega como traspaso de almacén al almacén de consignación del cliente (sin factura).
+            </p>
+          )}
+          {tipo === "consignacion" && (
+            <p className="text-xs text-muted-foreground">
+              Entrega de una consignación nueva (sin factura); registra el folio o referencia del documento de consignación.
+            </p>
+          )}
+        </div>
+
+        <div className="space-y-2"><Label>{folioLabel} *</Label>
+          <Input value={numFactura} onChange={(e) => setNumFactura(e.target.value)} placeholder={tipo === "factura" ? "FA14315" : tipo === "traspaso" ? "TR-0042" : "CONS-0042"} /></div>
         <div className="space-y-2"><Label>Fecha *</Label>
           <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></div>
         <div className="space-y-2"><Label>Prioridad</Label>
