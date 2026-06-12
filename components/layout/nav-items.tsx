@@ -23,10 +23,11 @@ import {
   Radio,
   Car,
   ShieldCheck,
+  Trophy,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; incentivos?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -35,6 +36,7 @@ export type GroupItem = {
   finance?: boolean;
   flota?: boolean;
   reparto?: boolean;
+  incentivos?: boolean;
   moduleKey?: string;
   basePath: string;
   children: { href: string; label: string; icon: typeof LayoutDashboard; manageOnly?: boolean; creditoOnly?: boolean }[];
@@ -55,6 +57,8 @@ export const navItems: Item[] = [
   { href: "/pedidos", label: "Pedidos y cotizaciones", icon: FileText, moduleKey: "pedidos" },
   { href: "/muestras", label: "Muestras", icon: FlaskConical, moduleKey: "muestras" },
   { href: "/ventas", label: "Ventas", icon: TrendingUp, moduleKey: "ventas" },
+  // Programa de incentivos (GB 2026): vendedores ven su avance; admin, el equipo.
+  { href: "/incentivos", label: "Incentivos", icon: Trophy, incentivos: true },
   { href: "/cartera", label: "Cartera", icon: Wallet, moduleKey: "cartera" },
   {
     kind: "group",
@@ -141,6 +145,7 @@ export function visibleNavItems({
       if (i.flota) return canAccessFlota(role);
       if (i.finance) return canSeeFinance(role);
       if (i.reparto) return canViewReparto(role);
+      if (i.incentivos) return canViewIncentivos(role);
       if (i.adminOnly) return isAdmin;
       if (isAdmin) return true;
       if (!i.moduleKey) return true; // dashboard / siempre visible

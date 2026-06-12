@@ -125,6 +125,15 @@ export function canViewCuentas(role: string | null | undefined): boolean {
   return role === "admin" || role === "jefe_logistica";
 }
 
+/**
+ * Pueden VER el Programa de Incentivos (/incentivos): los vendedores (su
+ * propio avance), el admin (dashboard del equipo + gestión) y el contador
+ * (consulta los montos comprometidos). No aplica a roles de reparto.
+ */
+export function canViewIncentivos(role: string | null | undefined): boolean {
+  return role === "admin" || role === "rep" || role === "contador";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },
