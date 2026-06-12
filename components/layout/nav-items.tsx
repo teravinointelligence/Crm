@@ -24,7 +24,7 @@ import {
   Car,
   ShieldCheck,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
 export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; moduleKey?: string };
 export type GroupItem = {
@@ -130,7 +130,9 @@ export function visibleNavItems({
           (i.flota === true && canAccessFlota(role)) ||
           // El facturista (jefe de logística) además ve Consignaciones y Documentos.
           (canAccessFacturacion(role) &&
-            (i.moduleKey === "consignaciones" || i.moduleKey === "documentos")),
+            (i.moduleKey === "consignaciones" || i.moduleKey === "documentos")) ||
+          // …y consulta las fichas de clientes (Cuentas, solo lectura).
+          (i.moduleKey === "cuentas" && canViewCuentas(role)),
       )
       .map(prune);
   }
