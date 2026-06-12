@@ -14,6 +14,8 @@ import { AccountWines } from "@/components/accounts/AccountWines";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
+import { repartoAdmin } from "@/lib/supabase-reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import type {
@@ -107,6 +109,55 @@ export default async function CuentaDetailPage({
     .eq("active", true)
     .order("supplier")
     .order("name");
+
+  // Pedidos reales del módulo Reparto (facturas), cruzados por RFC contra
+  // reparto.clientes (96 de 99 clientes de Reparto cruzan por RFC). Si la
+  // cuenta no tiene RFC o no está en Reparto, la sección cae a las
+  // cotizaciones del CRM como antes.
+  type PedidoReparto = {
+    id: string;
+    numero_factura: string;
+    fecha: string;
+    estatus: PedidoEstatus;
+    total: number | null;
+  };
+  let pedidosReparto: PedidoReparto[] = [];
+  const accountRfc = (account.rfc as string | null)?.trim().toUpperCase();
+  // Los RFC genéricos del SAT (público en general / extranjero) los comparten
+  // muchas cuentas: cruzarlos mezclaría pedidos de otros clientes.
+  const RFC_GENERICOS = ["XAXX010101000", "XEXX010101000"];
+  const rfcCruzable = accountRfc && !RFC_GENERICOS.includes(accountRfc);
+  try {
+    let clienteIds: string[] = [];
+    if (rfcCruzable) {
+      const { data: clientesReparto } = await repartoAdmin
+        .from("clientes")
+        .select("id")
+        .ilike("rfc", accountRfc);
+      clienteIds = ((clientesReparto ?? []) as { id: string }[]).map((c) => c.id);
+    }
+    if (!clienteIds.length) {
+      // Respaldo: nombre exacto (case-insensitive) — cubre cuentas con RFC
+      // genérico o sin RFC, p.ej. VENTAS TIJUANA MOSTRADOR.
+      const { data: porNombre } = await repartoAdmin
+        .from("clientes")
+        .select("id")
+        .ilike("nombre", (account.business_name as string).trim());
+      clienteIds = ((porNombre ?? []) as { id: string }[]).map((c) => c.id);
+    }
+    if (clienteIds.length) {
+      const { data: pedidos } = await repartoAdmin
+        .from("pedidos")
+        .select("id, numero_factura, fecha, estatus, total")
+        .in("cliente_id", clienteIds)
+        .order("fecha", { ascending: false })
+        .limit(6);
+      pedidosReparto = (pedidos ?? []) as PedidoReparto[];
+    }
+  } catch {
+    // Sin SUPABASE_SERVICE_ROLE_KEY (p.ej. entorno local incompleto) la
+    // ficha sigue funcionando con las cotizaciones del CRM.
+  }
 
   const orderList = (orders ?? []) as Order[];
   const activityList = (activities ?? []) as Activity[];
@@ -235,8 +286,40 @@ export default async function CuentaDetailPage({
                 )}
               </div>
               <div className="space-y-3">
-                <h3 className="font-display text-lg">Últimos pedidos</h3>
-                {orderList.length ? (
+                <h3 className="font-display text-lg">
+                  Últimos pedidos
+                  {pedidosReparto.length > 0 && (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      · Reparto
+                    </span>
+                  )}
+                </h3>
+                {pedidosReparto.length ? (
+                  <Card>
+                    <CardContent className="space-y-2 p-4">
+                      {pedidosReparto.map((p) => (
+                        <Link
+                          key={p.id}
+                          href={`/reparto/pedidos/${p.id}`}
+                          className="flex items-center justify-between gap-2 rounded-md border bg-card p-3 hover:border-brand-carmesi"
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate font-medium">{p.numero_factura}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(p.fecha)}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <Badge variant={ESTATUS_VARIANT[p.estatus] ?? "muted"}>
+                              {ESTATUS_LABEL[p.estatus] ?? p.estatus}
+                            </Badge>
+                            <span className="font-medium">{formatCurrency(p.total ?? 0)}</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ) : orderList.length ? (
                   <Card>
                     <CardContent className="space-y-2 p-4">
                       {orderList.slice(0, 6).map((o) => (
