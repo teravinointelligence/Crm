@@ -34,6 +34,8 @@ export default async function DashboardRepartoPage() {
   if (!rep) redirect("/login");
   if (!canViewReparto(rep.role)) redirect("/");
   const canManage = canManageReparto(rep.role);
+  // Los choferes ven la operación (pedidos, entregas), no montos de facturación.
+  const esChofer = rep.role === "chofer";
 
   const today = new Date().toISOString().slice(0, 10);
   const startOfWeek = new Date();
@@ -163,12 +165,16 @@ export default async function DashboardRepartoPage() {
         </CardContent></Card>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card><CardContent className="space-y-1 p-5 lg:col-span-1">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Facturado últimos 7 días</p>
-          <p className="font-display text-3xl text-brand-carmesi">{formatCurrency(totalSemana)}</p>
-          <p className="text-xs text-muted-foreground">{semana.length} pedido(s) en la semana</p>
-        </CardContent></Card>
+      <section className={`grid gap-4 ${esChofer ? "" : "lg:grid-cols-3"}`}>
+        {/* Montos $ solo para roles de gestión/consulta — los choferes ven
+            la operación (pedidos y entregas), no la facturación. */}
+        {!esChofer && (
+          <Card><CardContent className="space-y-1 p-5 lg:col-span-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Facturado últimos 7 días</p>
+            <p className="font-display text-3xl text-brand-carmesi">{formatCurrency(totalSemana)}</p>
+            <p className="text-xs text-muted-foreground">{semana.length} pedido(s) en la semana</p>
+          </CardContent></Card>
+        )}
 
         <Card className="lg:col-span-2"><CardContent className="p-0">
           <div className="border-b px-4 py-3">
@@ -220,7 +226,7 @@ export default async function DashboardRepartoPage() {
           ) : (
             <table className="min-w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                <tr><th className="px-4 py-2">Folio</th><th className="px-4 py-2">Cliente</th><th className="px-4 py-2">Chofer</th><th className="px-4 py-2">Fecha / ventana</th><th className="px-4 py-2">Estatus</th><th className="px-4 py-2 text-right">Total</th></tr>
+                <tr><th className="px-4 py-2">Folio</th><th className="px-4 py-2">Cliente</th><th className="px-4 py-2">Chofer</th><th className="px-4 py-2">Fecha / ventana</th><th className="px-4 py-2">Estatus</th>{!esChofer && <th className="px-4 py-2 text-right">Total</th>}</tr>
               </thead>
               <tbody>
                 {proximas.map((p) => (
@@ -239,7 +245,7 @@ export default async function DashboardRepartoPage() {
                       {p.ventana_inicio && ` · ${p.ventana_inicio.slice(0, 5)}${p.ventana_fin ? `–${p.ventana_fin.slice(0, 5)}` : ""}`}
                     </td>
                     <td className="px-4 py-2"><Badge variant={ESTATUS_VARIANT[p.estatus]}>{ESTATUS_LABEL[p.estatus]}</Badge></td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(p.total)}</td>
+                    {!esChofer && <td className="px-4 py-2 text-right">{formatCurrency(p.total)}</td>}
                   </tr>
                 ))}
               </tbody>
