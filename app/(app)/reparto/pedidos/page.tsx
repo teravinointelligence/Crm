@@ -6,6 +6,7 @@ import { Plus, Truck } from "lucide-react";
 import { getCurrentRep } from "@/lib/auth";
 import { canViewReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PedidosFilters } from "@/components/reparto/PedidosFilters";
@@ -77,6 +78,39 @@ export default async function PedidosPage({
   const rows = ((data ?? []) as unknown) as Row[];
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / limit));
 
+  // Número de cliente CONTPAQi (accounts.client_number) por cliente de Reparto.
+  // No hay FK: se cruza por RFC (excluyendo los genéricos del SAT, que
+  // comparten muchas cuentas) con respaldo por nombre exacto.
+  const RFC_GENERICOS = ["XAXX010101000", "XEXX010101000"];
+  const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+  const clienteNumero: Record<string, string> = {};
+  if (rows.some((r) => r.clientes)) {
+    try {
+      const { data: accts } = await supabaseAdmin()
+        .from("accounts")
+        .select("rfc, business_name, client_number")
+        .not("client_number", "is", null);
+      const byRfc = new Map<string, string>();
+      const byNombre = new Map<string, string>();
+      for (const a of (accts ?? []) as { rfc: string | null; business_name: string; client_number: string }[]) {
+        const rfc = (a.rfc ?? "").trim().toUpperCase();
+        if (rfc && !RFC_GENERICOS.includes(rfc) && !byRfc.has(rfc)) byRfc.set(rfc, a.client_number);
+        const nombre = norm(a.business_name);
+        if (nombre && !byNombre.has(nombre)) byNombre.set(nombre, a.client_number);
+      }
+      for (const r of rows) {
+        if (!r.clientes || clienteNumero[r.clientes.id]) continue;
+        const rfc = (r.clientes.rfc ?? "").trim().toUpperCase();
+        const num =
+          (rfc && !RFC_GENERICOS.includes(rfc) ? byRfc.get(rfc) : undefined) ??
+          byNombre.get(norm(r.clientes.nombre));
+        if (num) clienteNumero[r.clientes.id] = num;
+      }
+    } catch {
+      // Sin service-role local, la lista funciona sin el número de cliente.
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,7 +173,16 @@ export default async function PedidosPage({
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(r.fecha)}</td>
                   <td className="px-4 py-3">
                     {r.clientes?.nombre ?? "—"}
-                    {r.clientes?.ciudad && <div className="text-xs text-muted-foreground">{r.clientes.ciudad}</div>}
+                    {r.clientes && (clienteNumero[r.clientes.id] || r.clientes.ciudad) && (
+                      <div className="text-xs text-muted-foreground">
+                        {[
+                          clienteNumero[r.clientes.id] ? `# ${clienteNumero[r.clientes.id]}` : null,
+                          r.clientes.ciudad,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.chofer?.nombre ?? <span className="text-amber-700">sin asignar</span>}</td>
                   <td className="px-4 py-3 text-muted-foreground text-xs">
