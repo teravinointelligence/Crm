@@ -74,7 +74,7 @@ export function filterByCriteria(
 }
 
 export type DigestResult =
-  | { ok: true; to: string; subject: string; html: string; count: number; repName: string }
+  | { ok: true; to: string; subject: string; html: string; count: number; repName: string; accountName?: string }
   | { ok: false; status: number; error: string };
 
 /** Arma el correo-resumen para un vendedor con SUS cuentas incompletas.
@@ -132,6 +132,72 @@ export async function buildMissingDataDigest(
     html,
     count: accounts.length,
     repName: rep.full_name ?? rep.email,
+  };
+}
+
+/** Arma el correo para el vendedor de UNA sola cuenta con sus datos faltantes.
+ *  `criteria` limita qué faltantes cuentan (si se omite, todos). */
+export async function buildSingleAccountDigest(
+  supabase: DbClient,
+  accountId: string,
+  criteria?: MissingFlag[],
+): Promise<DigestResult> {
+  const { data: account } = await supabase
+    .from("accounts")
+    .select("id, business_name, rfc, fiscal_name, assigned_rep_id")
+    .eq("id", accountId)
+    .maybeSingle();
+  if (!account) return { ok: false, status: 404, error: "Cuenta no encontrada" };
+  if (!account.assigned_rep_id) {
+    return { ok: false, status: 400, error: "La cuenta no tiene vendedor asignado" };
+  }
+
+  const { data: rep } = await supabase
+    .from("sales_reps")
+    .select("full_name, email")
+    .eq("id", account.assigned_rep_id)
+    .maybeSingle();
+  if (!rep) return { ok: false, status: 404, error: "Vendedor no encontrado" };
+  if (!rep.email) return { ok: false, status: 400, error: "El vendedor no tiene email registrado" };
+
+  const { data: contacts } = await supabase
+    .from("contacts")
+    .select("email, phone, whatsapp, role")
+    .eq("account_id", accountId);
+
+  let missing = missingFlags(account, (contacts ?? []) as ContactLite[]);
+  if (criteria && criteria.length) {
+    const set = new Set(criteria);
+    missing = missing.filter((m) => set.has(m));
+  }
+  if (!missing.length) {
+    return { ok: false, status: 400, error: "Esta cuenta no tiene datos faltantes." };
+  }
+
+  const items = missing
+    .map(
+      (m) =>
+        `<li style="margin:4px 0;color:#b45309;">${escapeHtml(MISSING_LABEL[m])}</li>`,
+    )
+    .join("");
+
+  const html = `
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
+    <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Datos pendientes de un cliente</h2>
+    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(rep.full_name ?? "")}, a la cuenta <strong>${escapeHtml(account.business_name)}</strong> que tienes asignada le faltan estos datos:</p>
+    <ul style="font-size:14px;margin:12px 0;padding-left:20px;">${items}</ul>
+    <p style="margin-top:16px;">Por favor entra al CRM, abre esta cuenta y completa los datos faltantes (contactos con email y teléfono, contacto de cuentas por pagar, y datos fiscales). Tener esto al día nos permite facturar y cobrar sin fricción.</p>
+    <p style="color:#666;font-size:13px;margin-top:24px;">TERAVINO · CRM</p>
+  </div>`;
+
+  return {
+    ok: true,
+    to: rep.email,
+    subject: `Datos pendientes — ${account.business_name}`,
+    html,
+    count: missing.length,
+    repName: rep.full_name ?? rep.email,
+    accountName: account.business_name,
   };
 }
 
