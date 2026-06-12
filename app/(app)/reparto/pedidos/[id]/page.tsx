@@ -14,7 +14,7 @@ import { PedidoStepper } from "@/components/reparto/PedidoStepper";
 import { PedidoActions } from "@/components/reparto/PedidoActions";
 import { ClienteHorario } from "@/components/reparto/ClienteHorario";
 import { RegistrarEntrega } from "@/components/reparto/RegistrarEntrega";
-import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus, type Prioridad } from "@/types/reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_LABEL, type PedidoEstatus, type PedidoTipo, type Prioridad } from "@/types/reparto";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +23,7 @@ type Detail = {
   id: string;
   numero_factura: string;
   uuid_fiscal: string | null;
+  tipo: PedidoTipo | null;
   fecha: string;
   ventana_inicio: string | null;
   ventana_fin: string | null;
@@ -116,6 +117,9 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
             <h1 className="font-display text-3xl">{pedido.numero_factura}</h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant={ESTATUS_VARIANT[pedido.estatus]}>{ESTATUS_LABEL[pedido.estatus]}</Badge>
+              {pedido.tipo && pedido.tipo !== "factura" && (
+                <Badge variant="accent">{TIPO_LABEL[pedido.tipo]}</Badge>
+              )}
               {pedido.prioridad && pedido.prioridad !== "normal" && <Badge variant="warning">{pedido.prioridad}</Badge>}
               <span>{formatDate(pedido.fecha)}</span>
               {pedido.ventana_inicio && (

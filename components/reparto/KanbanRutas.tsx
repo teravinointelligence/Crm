@@ -25,7 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency } from "@/lib/utils";
-import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_BADGE, type PedidoEstatus, type PedidoTipo } from "@/types/reparto";
 
 const UNASSIGNED = "__sin_asignar__";
 
@@ -33,6 +33,7 @@ type Chofer = { id: string; nombre: string; email: string };
 type Pedido = {
   id: string;
   numero_factura: string;
+  tipo: PedidoTipo | null;
   fecha: string;
   ventana_inicio: string | null;
   ventana_fin: string | null;
@@ -259,9 +260,16 @@ function PedidoCardView({ pedido, dragging = false }: { pedido: Pedido; dragging
           <GripVertical className="h-3 w-3 text-muted-foreground" />
           {pedido.numero_factura}
         </Link>
-        <Badge variant={ESTATUS_VARIANT[pedido.estatus]} className="text-[10px]">
-          {ESTATUS_LABEL[pedido.estatus]}
-        </Badge>
+        <span className="flex shrink-0 items-center gap-1">
+          {pedido.tipo && pedido.tipo !== "factura" && (
+            <Badge variant="accent" className="text-[10px]">
+              {TIPO_BADGE[pedido.tipo]}
+            </Badge>
+          )}
+          <Badge variant={ESTATUS_VARIANT[pedido.estatus]} className="text-[10px]">
+            {ESTATUS_LABEL[pedido.estatus]}
+          </Badge>
+        </span>
       </div>
       <p className="truncate font-medium">{pedido.clientes?.nombre ?? "—"}</p>
       <p className="truncate text-[11px] text-muted-foreground">

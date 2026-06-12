@@ -23,7 +23,7 @@ export default async function RutasPage({ searchParams }: { searchParams: { fech
     repartoAdmin
       .from("pedidos")
       .select(
-        "id, numero_factura, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)",
+        "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)",
       )
       .eq("fecha", fecha)
       .in("estatus", ["pendiente_asignar", "asignado", "en_ruta", "entregado", "no_entregado"])
