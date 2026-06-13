@@ -5,7 +5,15 @@ import { requireRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
 import { VendorIncentives } from "@/components/incentivos/VendorIncentives";
 import { TeamIncentives } from "@/components/incentivos/TeamIncentives";
-import type { IncentiveDetailRow, IncentiveLevel, IncentiveProgram } from "@/lib/incentivos";
+import { BogleVendor } from "@/components/incentivos/BogleVendor";
+import { BogleAdmin } from "@/components/incentivos/BogleAdmin";
+import type {
+  IncentiveDetailRow,
+  IncentiveLevel,
+  IncentivePlacement,
+  IncentiveProgram,
+  IncentiveRaceRow,
+} from "@/lib/incentivos";
 
 export const metadata = { title: "Incentivos — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -19,15 +27,18 @@ export default async function IncentivosPage({
   const supabase = createClient();
   const seesAll = canSeeFinance(rep.role); // admin y contador
 
-  const { data: program } = await supabase
+  // Pueden convivir varios programas activos con mecánicas distintas:
+  // 'puntos' (Gerard Bertrand, niveles) y 'encartes' (Bogle, carrera).
+  const { data: programsData } = await supabase
     .from("incentive_programs")
     .select("*")
     .eq("active", true)
-    .order("start_date", { ascending: false })
-    .limit(1)
-    .maybeSingle<IncentiveProgram>();
+    .order("start_date", { ascending: false });
+  const programs = (programsData ?? []) as IncentiveProgram[];
+  const puntosProg = programs.find((p) => p.tipo === "puntos") ?? null;
+  const encartesProg = programs.find((p) => p.tipo === "encartes") ?? null;
 
-  if (!program) {
+  if (!puntosProg && !encartesProg) {
     return (
       <div className="space-y-2">
         <h1 className="font-display text-3xl">Incentivos</h1>
@@ -36,32 +47,43 @@ export default async function IncentivosPage({
     );
   }
 
-  const [{ data: levels }, { data: detail }, { data: participants }] = await Promise.all([
-    supabase
-      .from("incentive_levels")
-      .select("*")
-      .eq("program_id", program.id)
-      .order("sort_order"),
-    // Trae TODO el detalle facturado (cobrado va como flag por renglón): la
-    // función aplica la autorización (el vendedor solo recibe lo suyo).
-    supabase.rpc("get_incentive_detail", { p_program_id: program.id, p_require_paid: false }),
-    supabase
-      .from("incentive_participants")
-      .select("rep_id, sales_reps(id, full_name)")
-      .eq("program_id", program.id),
-  ]);
-
+  // --- Datos del programa de PUNTOS (GB) ---
+  const [{ data: levels }, { data: detail }, { data: participants }] = puntosProg
+    ? await Promise.all([
+        supabase.from("incentive_levels").select("*").eq("program_id", puntosProg.id).order("sort_order"),
+        supabase.rpc("get_incentive_detail", { p_program_id: puntosProg.id, p_require_paid: false }),
+        supabase.from("incentive_participants").select("rep_id, sales_reps(id, full_name)").eq("program_id", puntosProg.id),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }];
   const rows = (detail ?? []) as IncentiveDetailRow[];
   const lvls = (levels ?? []) as IncentiveLevel[];
-  const participantIds = new Set((participants ?? []).map((p) => p.rep_id));
+  const gbParticipantIds = new Set((participants ?? []).map((p) => p.rep_id));
 
-  // Admin/contador: dashboard del equipo, o el detalle de un vendedor (?rep=).
+  // --- Datos del programa de ENCARTES (Bogle) ---
+  // placements viene acotado por RLS: el vendedor solo recibe los suyos.
+  const [{ data: placementsData }, { data: raceData }] = encartesProg
+    ? await Promise.all([
+        supabase
+          .from("incentive_placements")
+          .select("*")
+          .eq("program_id", encartesProg.id)
+          .order("fecha_deteccion"),
+        supabase.rpc("get_incentive_race", { p_program_id: encartesProg.id }),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const placements = (placementsData ?? []) as IncentivePlacement[];
+  const race = (raceData ?? []) as IncentiveRaceRow[];
+  const bogleParticipantIds = new Set(race.map((r) => r.rep_id));
+
+  // --- Admin/contador ---
   if (seesAll) {
     const repId = searchParams.rep;
     if (repId) {
       const part = (participants ?? []).find((p) => p.rep_id === repId);
       const name =
-        (part?.sales_reps as unknown as { full_name: string } | null)?.full_name ?? "Vendedor";
+        (part?.sales_reps as unknown as { full_name: string } | null)?.full_name ??
+        race.find((r) => r.rep_id === repId)?.rep_name ??
+        "Vendedor";
       return (
         <div className="space-y-4">
           <div>
@@ -72,75 +94,101 @@ export default async function IncentivosPage({
               <ArrowLeft className="h-4 w-4" /> Equipo
             </Link>
             <h1 className="font-display text-3xl">Incentivos · {name}</h1>
-            <p className="text-sm text-muted-foreground">{program.name}</p>
           </div>
-          <VendorIncentives
-            program={program}
-            levels={lvls}
-            rows={rows.filter((r) => r.rep_id === repId)}
-            repId={repId}
-            repName={name}
-            isSelf={false}
-            seenPoints={null}
-          />
+          {encartesProg && bogleParticipantIds.has(repId) && (
+            <BogleVendor
+              program={encartesProg}
+              placements={placements.filter((p) => p.rep_id === repId)}
+              race={race}
+              repId={repId}
+              isSelf={false}
+            />
+          )}
+          {puntosProg && (
+            <VendorIncentives
+              program={puntosProg}
+              levels={lvls}
+              rows={rows.filter((r) => r.rep_id === repId)}
+              repId={repId}
+              repName={name}
+              isSelf={false}
+              seenPoints={null}
+            />
+          )}
         </div>
       );
     }
+
     const participantNames: Record<string, string> = {};
     for (const p of participants ?? []) {
       const sr = p.sales_reps as unknown as { id: string; full_name: string } | null;
       if (sr) participantNames[p.rep_id] = sr.full_name;
     }
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div>
           <h1 className="font-display text-3xl">Programa de Incentivos · Equipo</h1>
           <p className="text-sm text-muted-foreground">
-            {program.name} · vigencia {program.start_date} a {program.end_date} · financiado por{" "}
-            {program.provider}
+            {programs.map((p) => p.name).join(" · ")}
           </p>
         </div>
-        <TeamIncentives program={program} levels={lvls} rows={rows} participantNames={participantNames} />
+        {encartesProg && <BogleAdmin program={encartesProg} placements={placements} race={race} />}
+        {puntosProg && (
+          <TeamIncentives program={puntosProg} levels={lvls} rows={rows} participantNames={participantNames} />
+        )}
       </div>
     );
   }
 
-  // Vendedor: su propia página.
-  if (!participantIds.has(rep.id)) {
+  // --- Vendedor ---
+  const enGB = puntosProg && gbParticipantIds.has(rep.id);
+  const enBogle = encartesProg && bogleParticipantIds.has(rep.id);
+  if (!enGB && !enBogle) {
     return (
       <div className="space-y-2">
         <h1 className="font-display text-3xl">Incentivos</h1>
         <p className="text-sm text-muted-foreground">
-          No participas en el programa activo ({program.name}). Pregunta a dirección si crees que es un error.
+          No participas en los programas activos. Pregunta a dirección si crees que es un error.
         </p>
       </div>
     );
   }
 
-  const { data: seen } = await supabase
-    .from("incentive_points_seen")
-    .select("points_seen")
-    .eq("program_id", program.id)
-    .eq("rep_id", rep.id)
-    .maybeSingle();
+  const { data: seen } = enGB
+    ? await supabase
+        .from("incentive_points_seen")
+        .select("points_seen")
+        .eq("program_id", puntosProg.id)
+        .eq("rep_id", rep.id)
+        .maybeSingle()
+    : { data: null };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl">Mis Incentivos</h1>
-        <p className="text-sm text-muted-foreground">
-          {program.name} · vigencia {program.start_date} a {program.end_date}
-        </p>
+        <p className="text-sm text-muted-foreground">{programs.map((p) => p.name).join(" · ")}</p>
       </div>
-      <VendorIncentives
-        program={program}
-        levels={lvls}
-        rows={rows.filter((r) => r.rep_id === rep.id)}
-        repId={rep.id}
-        repName={rep.full_name}
-        isSelf
-        seenPoints={Number(seen?.points_seen ?? 0)}
-      />
+      {enBogle && (
+        <BogleVendor
+          program={encartesProg}
+          placements={placements}
+          race={race}
+          repId={rep.id}
+          isSelf
+        />
+      )}
+      {enGB && (
+        <VendorIncentives
+          program={puntosProg}
+          levels={lvls}
+          rows={rows.filter((r) => r.rep_id === rep.id)}
+          repId={rep.id}
+          repName={rep.full_name}
+          isSelf
+          seenPoints={Number(seen?.points_seen ?? 0)}
+        />
+      )}
     </div>
   );
 }

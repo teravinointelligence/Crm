@@ -9,18 +9,27 @@ import type { IncentiveProgram } from "@/lib/incentivos";
 export const metadata = { title: "Gestión de Incentivos — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
 
-export default async function GestionIncentivosPage() {
+export default async function GestionIncentivosPage({
+  searchParams,
+}: {
+  searchParams: { programa?: string };
+}) {
   const rep = await requireRep();
   if (rep.role !== "admin") redirect("/incentivos");
 
   const supabase = createClient();
-  const { data: program } = await supabase
+  // Puede haber varios programas activos (GB puntos + Bogle encartes):
+  // se gestiona uno a la vez, seleccionable por ?programa=.
+  const { data: programsData } = await supabase
     .from("incentive_programs")
     .select("*")
     .eq("active", true)
-    .order("start_date", { ascending: false })
-    .limit(1)
-    .maybeSingle<IncentiveProgram>();
+    .order("start_date", { ascending: false });
+  const programs = (programsData ?? []) as IncentiveProgram[];
+  const program =
+    programs.find((p) => p.id === searchParams.programa) ??
+    programs.find((p) => p.tipo === "puntos") ??
+    programs[0];
 
   if (!program) redirect("/incentivos");
 
@@ -51,6 +60,23 @@ export default async function GestionIncentivosPage() {
         <p className="text-sm text-muted-foreground">
           Mapeo de productos, exclusiones de clientes y configuración del cálculo.
         </p>
+        {programs.length > 1 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {programs.map((p) => (
+              <Link
+                key={p.id}
+                href={`/incentivos/gestion?programa=${p.id}`}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  p.id === program.id
+                    ? "border-carmesi bg-carmesi text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {p.name}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
       <GestionIncentivos
         program={program}
