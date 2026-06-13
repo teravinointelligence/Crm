@@ -148,6 +148,20 @@ export function rewardValueReached(points: number, levels: IncentiveLevel[]): nu
 }
 
 /**
+ * Valor MXN ACUMULADO al alcanzar cada nivel (los niveles son acumulables:
+ * Plata vale $17,500 pero al ganarla llevas $25,000 con el Coravin de Bronce).
+ */
+export function cumulativeRewardByLevel(levels: IncentiveLevel[]): Map<string, number> {
+  const map = new Map<string, number>();
+  let acc = 0;
+  for (const l of [...levels].sort((a, b) => a.sort_order - b.sort_order)) {
+    acc += Number(l.reward_value_mxn);
+    map.set(l.id, acc);
+  }
+  return map;
+}
+
+/**
  * Proyección a diciembre: puntos × 12 / meses COMPLETOS transcurridos del
  * periodo del programa. En junio van 5 meses completos (ene–may). Antes de
  * cerrar el primer mes no hay proyección.

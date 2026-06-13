@@ -20,6 +20,7 @@ import {
   CATEGORY_ORDER,
   LEVEL_SWATCH,
   NO_LEVEL_LABEL,
+  cumulativeRewardByLevel,
   currentLevel,
   fullYearSeries,
   levelsReached,
@@ -92,6 +93,7 @@ export function VendorIncentives({
   const nivelProyectado = proyeccion ? currentLevel(proyeccion.points, levels) : null;
   const faltan = siguiente ? siguiente.points_required - points : 0;
   const equivalencias = simulatorEquivalences(faltan);
+  const acumPorNivel = cumulativeRewardByLevel(levels);
 
   // Barra de progreso: del nivel anterior al siguiente.
   const baseAnterior = nivel?.points_required ?? 0;
@@ -212,6 +214,11 @@ export function VendorIncentives({
                   <span>{num(baseAnterior)}</span>
                   <span>{num(siguiente.points_required)} pts</span>
                 </div>
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  Al llegar a {num(siguiente.points_required)} pts ganas {siguiente.reward}{" "}
+                  ({mxn(Number(siguiente.reward_value_mxn))}) y acumulas{" "}
+                  <span className="font-semibold text-oro">{mxn(acumPorNivel.get(siguiente.id) ?? 0)}</span> en recompensas.
+                </p>
               </>
             ) : (
               <p className="text-sm font-medium" style={{ color: LEVEL_SWATCH.Platino.fg }}>
@@ -257,7 +264,10 @@ export function VendorIncentives({
                   <p className="mt-2 text-sm font-medium" style={ganado ? { color: sw?.fg } : undefined}>
                     {l.reward}
                   </p>
-                  <p className="text-xs text-muted-foreground">{mxn(Number(l.reward_value_mxn))}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {mxn(Number(l.reward_value_mxn))} · acumulado{" "}
+                    <span className="font-medium">{mxn(acumPorNivel.get(l.id) ?? 0)}</span>
+                  </p>
                 </CardContent>
               </Card>
             );
@@ -278,19 +288,24 @@ export function VendorIncentives({
           </CardHeader>
           <CardContent>
             {proyeccion ? (
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="font-display text-3xl">{num(proyeccion.points)} pts</span>
                 {nivelProyectado ? (
-                  <Badge
-                    className="gap-1 border"
-                    style={{
-                      background: LEVEL_SWATCH[nivelProyectado.name]?.bg,
-                      color: LEVEL_SWATCH[nivelProyectado.name]?.fg,
-                      borderColor: LEVEL_SWATCH[nivelProyectado.name]?.solid,
-                    }}
-                  >
-                    <Medal className="h-3.5 w-3.5" /> {nivelProyectado.name} proyectado
-                  </Badge>
+                  <>
+                    <Badge
+                      className="gap-1 border"
+                      style={{
+                        background: LEVEL_SWATCH[nivelProyectado.name]?.bg,
+                        color: LEVEL_SWATCH[nivelProyectado.name]?.fg,
+                        borderColor: LEVEL_SWATCH[nivelProyectado.name]?.solid,
+                      }}
+                    >
+                      <Medal className="h-3.5 w-3.5" /> {nivelProyectado.name} proyectado
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      acumularías <span className="font-semibold text-oro">{mxn(acumPorNivel.get(nivelProyectado.id) ?? 0)}</span>
+                    </span>
+                  </>
                 ) : (
                   <Badge variant="outline" className="text-muted-foreground">{NO_LEVEL_LABEL}</Badge>
                 )}
