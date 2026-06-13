@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { Medal, Settings2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ReglasPrograma } from "@/components/incentivos/ReglasPrograma";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableScroll } from "@/components/ui/table-scroll";
@@ -311,6 +312,9 @@ export function TeamIncentives({
           )}
         </CardContent>
       </Card>
+
+      {/* Reglas y escala de puntos por vino */}
+      <ReglasPrograma program={program} />
     </div>
   );
 }
