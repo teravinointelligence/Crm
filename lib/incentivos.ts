@@ -51,6 +51,21 @@ export const CATEGORY_POINTS: Record<Category, number> = {
   Volumen: 1,
 };
 
+// Vinos de ejemplo por categoría — la escala oficial del programa GB 2026
+// (incluye las aclaraciones de dirección del 12-jun-2026: la línea Héritage
+// "An XXX" —Pinot Noir 940, Picpoul, Aspres— es Volumen; Banyuls y Muscat
+// de Rivesaltes son los Héritage VDN Premium). El mapeo real de cada SKU
+// vive en incentive_product_rules; esto es solo la guía para el equipo.
+export const CATEGORY_EXAMPLES: Record<Category, string> = {
+  Volumen:
+    "Gris Blanc · La Grande Bleue · Côte des Roses · Héritage excepto Crémants (An 940 Pinot Noir, Picpoul de Pinet, Aspres…) · Prima Nature · 6ème Sens",
+  Premium:
+    "French Cancan · Papilou Pet Nat · Héritage Crémants (An 825 Crémant de Limoux) · Héritage VDN (Banyuls, Muscat de Rivesaltes) · Orange Gold · Domaine de l'Aigle · Kosmos",
+  Châteaux: "Château l'Hospitalet · Château de Villemajou · Cigalus (blanco y tinto)",
+  Parcelarias: "Selecciones parcelarias",
+  Íconos: "Clos du Temple · Clos d'Ora · Villa Soleilla · Legend Vintage",
+};
+
 // Vinos de referencia para el simulador "¿cuánto me falta?". El programa
 // premia mezcla premium: 3 botellas de Clos du Temple valen lo que 150 de
 // volumen, y ESO es lo que queremos que el vendedor vea.

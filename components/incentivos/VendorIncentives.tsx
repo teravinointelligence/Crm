@@ -14,6 +14,7 @@ import { Award, Lock, Medal, Sparkles, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ReglasPrograma } from "@/components/incentivos/ReglasPrograma";
 import { Badge } from "@/components/ui/badge";
 import { TableScroll } from "@/components/ui/table-scroll";
 import {
@@ -449,6 +450,9 @@ export function VendorIncentives({
           )}
         </CardContent>
       </Card>
+
+      {/* Reglas y escala de puntos por vino */}
+      <ReglasPrograma program={program} />
     </div>
   );
 }
