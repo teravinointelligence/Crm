@@ -21,6 +21,7 @@ import { REP_PALETTE } from "@/lib/colors";
 import {
   LEVEL_SWATCH,
   NO_LEVEL_LABEL,
+  cumulativeRewardByLevel,
   currentLevel,
   fullYearSeries,
   monthLabel,
@@ -119,6 +120,7 @@ export function TeamIncentives({
     };
   });
 
+  const acumPorNivel = cumulativeRewardByLevel(levels);
   const totPts = filas.reduce((a, f) => a + f.points, 0);
   const totBot = filas.reduce((a, f) => a + f.bottles, 0);
   const totGanado = filas.reduce((a, f) => a + f.ganadoMxn, 0);
@@ -236,6 +238,42 @@ export function TeamIncentives({
                     </td>
                     <td className="py-2 pr-3 text-right">{num(f.proyPts)}</td>
                     <td className="py-2"><LevelBadge level={f.proyNivel} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        </CardContent>
+      </Card>
+
+      {/* Niveles de recompensa — la escala oficial del programa */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Niveles de recompensa · acumulables</CardTitle>
+          <CardDescription>
+            Alcanzar un nivel gana esa recompensa ADEMÁS de las anteriores. Financia {program.provider}.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TableScroll>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                  <th className="py-2 pr-3">Nivel</th>
+                  <th className="py-2 pr-3 text-right">Pts requeridos</th>
+                  <th className="py-2 pr-3">Recompensa</th>
+                  <th className="py-2 pr-3 text-right">Valor MXN</th>
+                  <th className="py-2 text-right">Acum. MXN</th>
+                </tr>
+              </thead>
+              <tbody>
+                {levels.map((l) => (
+                  <tr key={l.id} className="border-b last:border-0">
+                    <td className="py-2 pr-3"><LevelBadge level={l} /></td>
+                    <td className="py-2 pr-3 text-right font-medium">{num(l.points_required)}</td>
+                    <td className="py-2 pr-3">{l.reward}</td>
+                    <td className="py-2 pr-3 text-right">{mxn(Number(l.reward_value_mxn))}</td>
+                    <td className="py-2 text-right font-semibold text-oro">{mxn(acumPorNivel.get(l.id) ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>
