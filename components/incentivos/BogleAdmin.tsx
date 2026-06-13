@@ -204,7 +204,8 @@ export function BogleAdmin({
                         #{p.client_number} {p.client_name} <span className="font-normal text-muted-foreground">· {rep?.rep_name}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {monthLabel(p.period)} {p.period.slice(0, 4)} · cobrado el {p.fecha_deteccion}
+                        {monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
+                        {program.require_paid ? "cobrado el" : "factura del"} {p.fecha_deteccion}
                         {p.estado === "en_revision" && " · EN REVISIÓN"}
                       </p>
                     </div>
