@@ -193,7 +193,7 @@ export function BogleVendor({
           <p className="mb-1.5 text-sm font-medium">Mis encartes</p>
           {mios.length === 0 ? (
             <p className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
-              Aún no tienes encartes. Coloca Bogle con un cliente, factura y cobra — la detección es automática.
+              Aún no tienes encartes. Coloca Bogle con un cliente y factúrale — la detección es automática.
             </p>
           ) : (
             <ul className="divide-y rounded-md border">
@@ -204,7 +204,8 @@ export function BogleVendor({
                       #{p.client_number} {p.client_name}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Primera venta Bogle: {monthLabel(p.period)} {p.period.slice(0, 4)} · cobrada el {p.fecha_deteccion}
+                      Primera venta Bogle: {monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
+                      {program.require_paid ? "cobrada el" : "factura del"} {p.fecha_deteccion}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
@@ -252,16 +253,20 @@ export function BogleVendor({
         <div className="space-y-1 text-xs text-muted-foreground">
           <p>
             · Cuentan clientes <span className="font-medium text-foreground">nuevos y existentes</span>: lo que importa es que
-            compren Bogle entre junio y septiembre 2026 (facturado y cobrado). Un cliente cuenta una sola vez,
-            sin importar cuántas compras haga.
+            compren Bogle entre junio y septiembre 2026 —{" "}
+            {program.require_paid ? "facturado y cobrado" : "con la venta facturada basta, no hace falta esperar el cobro"}.
+            Un cliente cuenta una sola vez, sin importar cuántas compras haga.
           </p>
           <p>
             · <span className="font-medium text-foreground">Requisito para viajar: visa estadounidense vigente.</span> Si no la
             tienes, inicia el trámite hoy — no afecta tu conteo, pero sin visa no hay viaje.
           </p>
           <p>
-            · El orden de llegada lo define la fecha de cobro de la factura que completa tu encarte #{meta}; la
-            validación de dirección confirma cada encarte pero no altera el orden.
+            · El orden de llegada lo define{" "}
+            {program.require_paid
+              ? `la fecha de cobro de la factura que completa tu encarte #${meta}`
+              : `la fecha de la primera factura del mes que completa tu encarte #${meta}`}
+            ; la validación de dirección confirma cada encarte pero no altera el orden.
           </p>
         </div>
       </CardContent>
