@@ -411,6 +411,8 @@ begin
     ('PAPILOU',                 20, 'Premium', 5, 'Papilou Pet Nat'),
     ('(CREMANT DE LIMOUX|AN ?825)', 20, 'Premium', 5, 'Héritage Crémants (An 825 Crémant de Limoux)'),
     ('VDN',                     20, 'Premium', 5, 'Héritage VDN'),
+    ('BANYULS',                 20, 'Premium', 5, 'Héritage VDN (confirmado por dirección 2026-06-12)'),
+    ('MUSCAT DE RIVESALTES',    20, 'Premium', 5, 'Héritage VDN (confirmado por dirección 2026-06-12)'),
     ('ORANGE GOLD',             20, 'Premium', 5, null),
     ('AIGLE',                   20, 'Premium', 5, 'Domaine de l''Aigle: Noir Chardonnay, Viognier, Royal, Pinot Noir'),
     ('KOSMOS',                  20, 'Premium', 5, null),
@@ -420,6 +422,9 @@ begin
     ('COTE DES ROSES',  10, 'Volumen', 1, 'Côte des Roses (programa lista la 375ml/12-355)'),
     ('HERITAGE',        10, 'Volumen', 1, 'Héritage excepto Crémants (los Crémant/VDN ganan por prioridad 20)'),
     ('AN ?[0-9]{3,4}',  10, 'Volumen', 1, 'Línea Héritage "An XXX" como viene de CONTPAQ (ej. AN940); An 825 Crémant gana por prioridad'),
+    ('PINOT NOIR 940',  20, 'Volumen', 1, 'Héritage An 940 (confirmado por dirección 2026-06-12)'),
+    ('PICPOUL',         20, 'Volumen', 1, 'Héritage An 1618 Picpoul de Pinet (confirmado por dirección 2026-06-12)'),
+    ('ASPRES',          20, 'Volumen', 1, 'Línea Héritage (confirmado por dirección 2026-06-12)'),
     ('PRIMA NATURE',    10, 'Volumen', 1, 'Prima Nature Chardonnay y Cabernet Sauvignon'),
     ('6 ?EME SENS',     10, 'Volumen', 1, '6ème Sens Rosé, Blanco y Rouge')
   ) as p(pat, pri, cat, pts, note)
