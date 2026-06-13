@@ -12,7 +12,62 @@ export type IncentiveProgram = {
   active: boolean;
   require_paid: boolean;
   notes: string | null;
+  /** Mecánica: 'puntos' (GB, niveles) o 'encartes' (Bogle, carrera de cupos). */
+  tipo: "puntos" | "encartes";
+  meta_encartes: number | null;
+  max_ganadores: number | null;
+  requiere_validacion: boolean;
+  solo_clientes_nuevos: boolean;
+  estado: "activo" | "cerrado";
 };
+
+// Un encarte: cliente distinto del vendedor con la marca colocada.
+export type IncentivePlacement = {
+  id: string;
+  program_id: string;
+  rep_id: string;
+  account_id: string;
+  client_number: string | null;
+  client_name: string | null;
+  period: string;
+  fecha_deteccion: string;
+  estado: "pendiente" | "validado" | "rechazado" | "en_revision";
+  evidencia_url: string | null;
+  validado_en: string | null;
+  notas: string | null;
+};
+
+// Renglón de get_incentive_race (agregado por vendedor, sin clientes ajenos).
+export type IncentiveRaceRow = {
+  rep_id: string;
+  rep_name: string;
+  validados: number;
+  pendientes: number;
+  fecha_meta: string | null;
+  posicion: number | null;
+  es_ganador: boolean;
+  visa_status: string | null; // solo viene para admin/contador
+};
+
+export const VISA_LABEL: Record<string, string> = {
+  vigente: "Vigente",
+  en_tramite: "En trámite",
+  sin_visa: "Sin visa",
+  sin_informacion: "Sin información",
+};
+
+export const PLACEMENT_ESTADO_LABEL: Record<IncentivePlacement["estado"], string> = {
+  pendiente: "Pendiente de validación",
+  validado: "Validado",
+  rechazado: "Rechazado",
+  en_revision: "En revisión",
+};
+
+/** Días restantes del programa (0 si ya terminó). */
+export function daysRemaining(endDate: string, today: Date): number {
+  const end = new Date(endDate + "T23:59:59");
+  return Math.max(0, Math.ceil((end.getTime() - today.getTime()) / 86_400_000));
+}
 
 export type IncentiveLevel = {
   id: string;

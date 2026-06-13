@@ -1,0 +1,31 @@
+{
+  "fecha": "2026-06-13",
+  "nota": "Agregado por vendedor de get_incentive_detail (facturado/cobrado, periodo completo). Tomado en Fase 0 de Bogle.",
+  "porVendedor": {
+    "Emmanuel": {
+      "pts_facturado": 130,
+      "pts_cobrado": 35,
+      "bot_facturado": 28
+    },
+    "Felix": {
+      "pts_facturado": 171,
+      "pts_cobrado": 24,
+      "bot_facturado": 131
+    },
+    "Citlali Aguilar": {
+      "pts_facturado": 72,
+      "pts_cobrado": 32,
+      "bot_facturado": 16
+    },
+    "Yamile": {
+      "pts_facturado": 239,
+      "pts_cobrado": 6,
+      "bot_facturado": 173
+    },
+    "Andra Verea": {
+      "pts_facturado": 1150,
+      "pts_cobrado": 157,
+      "bot_facturado": 281
+    }
+  }
+}
