@@ -16,6 +16,7 @@ type Draft = { to: string[]; subject: string };
 export function EnviarRecordatorioButton({ accountId }: { accountId: string }) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
 
   const loadDraft = () => {
     startTransition(async () => {
@@ -27,16 +28,25 @@ export function EnviarRecordatorioButton({ accountId }: { accountId: string }) {
         });
         return;
       }
-      setDraft({
-        to: Array.isArray(data.to) ? data.to : [data.to].filter(Boolean),
-        subject: data.subject,
-      });
+      const to = Array.isArray(data.to) ? data.to : [data.to].filter(Boolean);
+      setDraft({ to, subject: data.subject });
+      setSelected(to);
     });
+  };
+
+  const toggle = (email: string) => {
+    setSelected((prev) =>
+      prev.includes(email) ? prev.filter((e) => e !== email) : [...prev, email],
+    );
   };
 
   const send = () => {
     startTransition(async () => {
-      const res = await fetch(`/api/cartera/${accountId}/recordatorio`, { method: "POST" });
+      const res = await fetch(`/api/cartera/${accountId}/recordatorio`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: selected }),
+      });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast.error("No se pudo enviar el recordatorio", { description: data.error ?? `HTTP ${res.status}` });
@@ -64,12 +74,21 @@ export function EnviarRecordatorioButton({ accountId }: { accountId: string }) {
             <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
                 Se enviará el estado de cuenta con los saldos pendientes a los
-                correos registrados de esta cuenta:
+                correos seleccionados de esta cuenta:
               </p>
               <ul className="space-y-1 rounded-md border bg-muted/30 p-3">
                 {draft.to.map((email) => (
-                  <li key={email} className="font-medium">
-                    {email}
+                  <li key={email}>
+                    <label className="flex cursor-pointer items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-primary"
+                        checked={selected.includes(email)}
+                        onChange={() => toggle(email)}
+                        disabled={pending}
+                      />
+                      {email}
+                    </label>
                   </li>
                 ))}
               </ul>
@@ -84,9 +103,11 @@ export function EnviarRecordatorioButton({ accountId }: { accountId: string }) {
                 >
                   Cancelar
                 </Button>
-                <Button onClick={send} disabled={pending}>
+                <Button onClick={send} disabled={pending || selected.length === 0}>
                   <Mail className="mr-1 h-4 w-4" />
-                  {pending ? "Enviando…" : `Enviar a ${draft.to.length} correo${draft.to.length === 1 ? "" : "s"}`}
+                  {pending
+                    ? "Enviando…"
+                    : `Enviar a ${selected.length} correo${selected.length === 1 ? "" : "s"}`}
                 </Button>
               </div>
             </div>

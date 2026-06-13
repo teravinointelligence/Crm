@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: { accountId: stri
   return NextResponse.json({ to: r.to, subject: r.subject, html: r.html, estado: r.estado });
 }
 
-export async function POST(_req: Request, { params }: { params: { accountId: string } }) {
+export async function POST(req: Request, { params }: { params: { accountId: string } }) {
   const rep = await getCurrentRep();
   if (!rep) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
@@ -35,14 +35,28 @@ export async function POST(_req: Request, { params }: { params: { accountId: str
   const r = await buildRecordatorio(supabase, params.accountId);
   if (!r.ok) return NextResponse.json({ error: r.error }, { status: r.status });
 
+  // El usuario puede elegir un subconjunto de los correos registrados; si no
+  // manda nada, se envía a todos. Sólo se aceptan correos de la lista registrada.
+  const body = await req.json().catch(() => ({}));
+  const requested = Array.isArray(body?.to)
+    ? body.to.filter((x: unknown): x is string => typeof x === "string")
+    : null;
+  const to = requested ? r.to.filter((email) => requested.includes(email)) : r.to;
+  if (to.length === 0) {
+    return NextResponse.json(
+      { error: "Selecciona al menos un correo para enviar el recordatorio." },
+      { status: 400 },
+    );
+  }
+
   try {
     const result = await sendEmail({
-      to: r.to,
+      to,
       subject: r.subject,
       html: r.html,
       replyTo: cobranzaFrom().replace(/^.*<|>$/g, "").trim() || "cobranza@teravino.com",
     });
-    return NextResponse.json({ ok: true, id: result.id, to: r.to, estado: r.estado });
+    return NextResponse.json({ ok: true, id: result.id, to, estado: r.estado });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Error al enviar el correo" },
