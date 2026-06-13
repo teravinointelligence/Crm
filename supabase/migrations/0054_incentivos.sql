@@ -280,7 +280,7 @@ as $$
   from monthly_sales ms
   join monthly_sales_items i on i.monthly_sale_id = ms.id
   join incentive_programs p on p.id = p_program_id
-  where public.is_admin()
+  where (public.is_admin() or coalesce(auth.role() = 'service_role', false))
     and ms.period >= p.start_date and ms.period <= p.end_date
     and p.unmapped_name_pattern is not null
     and public.incentive_norm(i.producto_nombre) ~ p.unmapped_name_pattern
