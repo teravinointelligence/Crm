@@ -140,13 +140,24 @@ begin
       group by 1,2,3,4,5
       having sum(i.cantidad) > 0
     ),
-    cobradas as (
-      -- el cuenta+mes está liquidado: hay facturas y ninguna sin pagar.
-      -- fecha/hora de liquidación = último pago aplicado a esas facturas.
-      select v.*, liq.fecha_liq, liq.ts_liq
+    elegibles as (
+      -- Según require_paid del programa:
+      --  · false (Bogle, decisión dirección 13-jun): basta la VENTA
+      --    facturada del mes; el orden de carrera lo da la fecha de la
+      --    primera factura del cliente en ese mes (respaldo: el mes).
+      --  · true: además el cuenta+mes debe estar 100% pagado; el orden
+      --    lo da el pago que lo liquidó.
+      select v.*,
+             case when prog.require_paid
+               then coalesce(liq.fecha_pago, current_date)
+               else coalesce(liq.fecha_fact, v.period) end as fecha_evento,
+             case when prog.require_paid then liq.ts_pago else liq.ts_fact end as ts_evento
       from ventas_marca v
       cross join lateral (
-        select max(p.payment_date) as fecha_liq, max(p.created_at) as ts_liq
+        select max(p.payment_date) as fecha_pago, max(p.created_at) as ts_pago,
+               min(inv.invoice_date) as fecha_fact, min(inv.created_at) as ts_fact,
+               count(distinct inv.id) as n_facturas,
+               count(distinct inv.id) filter (where inv.status <> 'pagada') as n_impagas
         from invoices inv
         left join payment_allocations pa2 on pa2.invoice_id = inv.id
         left join payments p on p.id = pa2.payment_id or p.invoice_id = inv.id
@@ -154,32 +165,33 @@ begin
           and inv.invoice_date >= v.period
           and inv.invoice_date < (v.period + interval '1 month')::date
       ) liq
-      where exists (
-              select 1 from invoices inv
-              where inv.account_id = v.account_id
-                and inv.invoice_date >= v.period
-                and inv.invoice_date < (v.period + interval '1 month')::date)
-        and not exists (
-              select 1 from invoices inv
-              where inv.account_id = v.account_id
-                and inv.invoice_date >= v.period
-                and inv.invoice_date < (v.period + interval '1 month')::date
-                and inv.status <> 'pagada')
+      where (not prog.require_paid)
+         or (liq.n_facturas > 0 and liq.n_impagas = 0)
     ),
     primera as (
-      -- un cliente cuenta UNA vez: nos quedamos con su primer mes cobrado
+      -- un cliente cuenta UNA vez: nos quedamos con su primer mes elegible
       select distinct on (sales_rep_id, account_id) *
-      from cobradas
+      from elegibles
       order by sales_rep_id, account_id, period
     )
     insert into incentive_placements
       (program_id, rep_id, account_id, client_number, client_name,
        period, fecha_deteccion, deteccion_ts, estado)
     select prog.id, p.sales_rep_id, p.account_id, p.client_number, p.client_name,
-           p.period, coalesce(p.fecha_liq, current_date), p.ts_liq,
+           p.period, p.fecha_evento, p.ts_evento,
            case when prog.requiere_validacion then 'pendiente' else 'validado' end
     from primera p
-    on conflict (program_id, rep_id, account_id) do nothing;
+    -- Mientras el encarte siga PENDIENTE, cada corrida recalcula su mes y
+    -- fecha (la venta puede importarse antes que su factura de cartera y
+    -- la fecha de respaldo debe corregirse al llegar el dato real). Al
+    -- validarse/rechazarse se congela: la validación nunca altera el orden.
+    on conflict (program_id, rep_id, account_id) do update
+      set period = excluded.period,
+          client_number = excluded.client_number,
+          client_name = excluded.client_name,
+          fecha_deteccion = excluded.fecha_deteccion,
+          deteccion_ts = excluded.deteccion_ts
+      where incentive_placements.estado = 'pendiente';
 
     get diagnostics v_batch = row_count;
     v_inserted := v_inserted + v_batch;
@@ -215,6 +227,14 @@ create trigger trg_incentive_placements_on_paid
 drop trigger if exists trg_incentive_placements_on_ventas on public.monthly_sales_items;
 create trigger trg_incentive_placements_on_ventas
   after insert on public.monthly_sales_items
+  for each statement
+  execute function public.trg_detect_incentive_placements();
+
+-- También al importar cartera: en modo "facturado" (require_paid=false)
+-- una factura nueva puede completar un encarte sin pasar por pagos.
+drop trigger if exists trg_incentive_placements_on_invoice on public.invoices;
+create trigger trg_incentive_placements_on_invoice
+  after insert on public.invoices
   for each statement
   execute function public.trg_detect_incentive_placements();
 
@@ -337,9 +357,11 @@ begin
        meta_encartes, max_ganadores, requiere_validacion, solo_clientes_nuevos, estado, notes)
     values (
       'Bogle 2026 · Viaje a California', 'Bogle Family Vineyards',
-      '2026-06-01', '2026-09-30', true, true, 'encartes',
+      -- require_paid=false: cuenta la VENTA facturada, sin esperar cobro
+      -- (decisión de dirección 13-jun-2026).
+      '2026-06-01', '2026-09-30', true, false, 'encartes',
       10, 2, true, false, 'activo',
-      'Carrera de encartes: los PRIMEROS 2 vendedores con 10 clientes distintos comprando Bogle (facturado y cobrado) ganan viaje todo pagado a Bogle Family Vineyards, Clarksburg, California. Periodo por meses completos jun–sep 2026 (decisión de dirección 13-jun: las ventas no tienen día, solo mes). Requisito para viajar: visa estadounidense vigente.'
+      'Carrera de encartes: los PRIMEROS 2 vendedores con 10 clientes distintos comprando Bogle (venta facturada, sin esperar cobro) ganan viaje todo pagado a Bogle Family Vineyards, Clarksburg, California. Periodo por meses completos jun–sep 2026 (decisión de dirección 13-jun: las ventas no tienen día, solo mes). El orden de llegada lo da la fecha de la primera factura del mes que completa el encarte 10. Requisito para viajar: visa estadounidense vigente.'
     )
     returning id into v_program;
   end if;
