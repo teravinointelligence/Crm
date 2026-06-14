@@ -24,10 +24,11 @@ import {
   Car,
   ShieldCheck,
   Trophy,
+  Briefcase,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; incentivos?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -37,6 +38,7 @@ export type GroupItem = {
   flota?: boolean;
   reparto?: boolean;
   incentivos?: boolean;
+  portafolios?: boolean;
   moduleKey?: string;
   basePath: string;
   children: { href: string; label: string; icon: typeof LayoutDashboard; manageOnly?: boolean; creditoOnly?: boolean }[];
@@ -51,6 +53,7 @@ export const navItems: Item[] = [
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
+  { href: "/portafolios", label: "Portafolios", icon: Briefcase, portafolios: true },
   // Cotizaciones y pedidos viven en una sola lista (orders.order_type); la
   // entrada vieja /cotizaciones redirige aquí. Compat: usuarios con el módulo
   // legacy "cotizaciones" habilitado también ven esta entrada (ver filtro abajo).
@@ -136,7 +139,9 @@ export function visibleNavItems({
           (canAccessFacturacion(role) &&
             (i.moduleKey === "consignaciones" || i.moduleKey === "documentos")) ||
           // …y consulta las fichas de clientes (Cuentas, solo lectura).
-          (i.moduleKey === "cuentas" && canViewCuentas(role)),
+          (i.moduleKey === "cuentas" && canViewCuentas(role)) ||
+          // …y el portafolio de vinos por zona.
+          (i.portafolios === true && canViewPortafolios(role)),
       )
       .map(prune);
   }
@@ -146,6 +151,7 @@ export function visibleNavItems({
       if (i.finance) return canSeeFinance(role);
       if (i.reparto) return canViewReparto(role);
       if (i.incentivos) return canViewIncentivos(role);
+      if (i.portafolios) return canViewPortafolios(role);
       if (i.adminOnly) return isAdmin;
       if (isAdmin) return true;
       if (!i.moduleKey) return true; // dashboard / siempre visible
