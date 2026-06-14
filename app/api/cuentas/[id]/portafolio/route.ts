@@ -53,7 +53,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     cliente: ctx.cliente,
     zonaNombre: zona.nombre,
     pdfUrl: zona.pdfUrl,
-    repNombre: rep.full_name,
+    vendedor: ctx.vendedor,
   });
 
   try {
