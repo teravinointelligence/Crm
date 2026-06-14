@@ -24,6 +24,7 @@ import {
   Car,
   ShieldCheck,
   Trophy,
+  Briefcase,
 } from "lucide-react";
 import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
@@ -51,6 +52,7 @@ export const navItems: Item[] = [
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
+  { href: "/portafolios", label: "Portafolios", icon: Briefcase, moduleKey: "portafolios" },
   // Cotizaciones y pedidos viven en una sola lista (orders.order_type); la
   // entrada vieja /cotizaciones redirige aquí. Compat: usuarios con el módulo
   // legacy "cotizaciones" habilitado también ven esta entrada (ver filtro abajo).

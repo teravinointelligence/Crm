@@ -140,6 +140,7 @@ export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "actividades", label: "Actividades", href: "/actividades" },
   { key: "catalogo", label: "Catálogo", href: "/catalogo" },
   { key: "documentos", label: "Documentos", href: "/documentos" },
+  { key: "portafolios", label: "Portafolios", href: "/portafolios" },
   { key: "pedidos", label: "Pedidos y cotizaciones", href: "/pedidos" },
   { key: "muestras", label: "Muestras", href: "/muestras" },
   { key: "ventas", label: "Ventas", href: "/ventas" },
