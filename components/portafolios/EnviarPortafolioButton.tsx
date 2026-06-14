@@ -1,7 +1,7 @@
 "use client";
 
 // Botón en la ficha del cliente para enviarle por correo el portafolio de
-// vinos (enlace al PDF) de la zona elegida, a todos sus correos registrados.
+// vinos (enlace al PDF) de la zona elegida, a los correos seleccionados.
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -21,6 +21,10 @@ export function EnviarPortafolioButton({ accountId }: { accountId: string }) {
   const [pending, startTransition] = useTransition();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [zona, setZona] = useState<string>("");
+  const [selected, setSelected] = useState<string[]>([]);
+
+  const toggle = (email: string) =>
+    setSelected((s) => (s.includes(email) ? s.filter((e) => e !== email) : [...s, email]));
 
   const loadDraft = () => {
     startTransition(async () => {
@@ -31,23 +35,25 @@ export function EnviarPortafolioButton({ accountId }: { accountId: string }) {
         return;
       }
       const zonas: Zona[] = Array.isArray(data.zonasDisponibles) ? data.zonasDisponibles : [];
+      const correos: string[] = Array.isArray(data.to) ? data.to : [];
       setDraft({
         cliente: data.cliente ?? "",
-        to: Array.isArray(data.to) ? data.to : [],
+        to: correos,
         detectedZona: data.detectedZona ?? null,
         zonasDisponibles: zonas,
       });
       setZona(data.detectedZona ?? zonas[0]?.slug ?? "");
+      setSelected(correos); // por defecto, todos seleccionados
     });
   };
 
   const send = () => {
-    if (!zona) return;
+    if (!zona || selected.length === 0) return;
     startTransition(async () => {
       const res = await fetch(`/api/cuentas/${accountId}/portafolio`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ zona }),
+        body: JSON.stringify({ zona, to: selected }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -90,20 +96,34 @@ export function EnviarPortafolioButton({ accountId }: { accountId: string }) {
                 </select>
               </div>
               <p className="text-muted-foreground">
-                Se enviará el enlace al portafolio a los correos registrados de esta cuenta:
+                Elige a qué correos registrados de esta cuenta enviar el enlace al portafolio:
               </p>
               <ul className="space-y-1 rounded-md border bg-muted/30 p-3">
                 {draft.to.map((email) => (
-                  <li key={email} className="font-medium">{email}</li>
+                  <li key={email}>
+                    <label className="flex cursor-pointer items-center gap-2 font-medium">
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-brand-carmesi"
+                        checked={selected.includes(email)}
+                        onChange={() => toggle(email)}
+                      />
+                      {email}
+                    </label>
+                  </li>
                 ))}
               </ul>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setDraft(null)} disabled={pending}>
                   Cancelar
                 </Button>
-                <Button onClick={send} disabled={pending || !zona}>
+                <Button onClick={send} disabled={pending || !zona || selected.length === 0}>
                   <Send className="mr-1 h-4 w-4" />
-                  {pending ? "Enviando…" : `Enviar a ${draft.to.length} correo${draft.to.length === 1 ? "" : "s"}`}
+                  {pending
+                    ? "Enviando…"
+                    : selected.length === 0
+                      ? "Elige un correo"
+                      : `Enviar a ${selected.length} correo${selected.length === 1 ? "" : "s"}`}
                 </Button>
               </div>
             </div>
