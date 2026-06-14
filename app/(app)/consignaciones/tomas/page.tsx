@@ -5,7 +5,7 @@
 // Scope: admin ve todas; vendedor ve solo las suyas (match por email).
 
 import Link from "next/link";
-import { AlertTriangle, ClipboardList, Filter, PackageSearch } from "lucide-react";
+import { AlertTriangle, BellRing, ClipboardList, Filter, PackageSearch } from "lucide-react";
 import { requireRep } from "@/lib/auth";
 import { canAccessFacturacion } from "@/lib/modules";
 import {
@@ -14,6 +14,7 @@ import {
   type Base44Consignacion,
   type Base44TomaInventario,
 } from "@/lib/base44";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -260,6 +261,13 @@ export default async function TomasPage({
               : `Tus consignaciones — ${totalConsig} en total · ${conInventario} con toma · ${pendientes} pendientes.`}
           </p>
         </div>
+        {rep.role === "admin" && (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/consignaciones/tomas/recordatorios">
+              <BellRing className="mr-1 h-4 w-4" /> Recordar tomas
+            </Link>
+          </Button>
+        )}
       </div>
 
       {vinculables.length > 0 && !estadoParam && (
