@@ -49,6 +49,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ error: "No hay un portafolio cargado para esa zona." }, { status: 400 });
   }
 
+  // Destinatarios: si el cliente manda una selección, solo se aceptan correos
+  // que de verdad pertenecen a la cuenta (no se puede inyectar otros). Si no
+  // manda nada, se envía a todos los registrados.
+  let to = ctx.to;
+  if (Array.isArray(body?.to)) {
+    const pedidos = new Set(
+      body.to.filter((e: unknown): e is string => typeof e === "string").map((e: string) => e.toLowerCase()),
+    );
+    to = ctx.to.filter((e) => pedidos.has(e.toLowerCase()));
+  }
+  if (!to.length) {
+    return NextResponse.json({ error: "Selecciona al menos un correo." }, { status: 400 });
+  }
+
   const { subject, html } = renderPortafolioEmail({
     cliente: ctx.cliente,
     zonaNombre: zona.nombre,
@@ -58,13 +72,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   try {
     const result = await sendEmail({
-      to: ctx.to,
+      to,
       subject,
       html,
       from: ventasFrom(),
       replyTo: rep.email || undefined,
     });
-    return NextResponse.json({ ok: true, id: result.id, to: ctx.to, zonaNombre: zona.nombre });
+    return NextResponse.json({ ok: true, id: result.id, to, zonaNombre: zona.nombre });
   } catch (e) {
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Error al enviar el correo" },
