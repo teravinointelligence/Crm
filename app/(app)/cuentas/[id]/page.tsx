@@ -14,6 +14,7 @@ import { AccountWines } from "@/components/accounts/AccountWines";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
+import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -268,6 +269,7 @@ export default async function CuentaDetailPage({
               {(balance?.saldo_pendiente ?? 0) > 0 && (
                 <EnviarRecordatorioButton accountId={account.id} />
               )}
+              <EnviarPortafolioButton accountId={account.id} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
