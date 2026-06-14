@@ -134,13 +134,23 @@ export function canViewIncentivos(role: string | null | undefined): boolean {
   return role === "admin" || role === "rep" || role === "contador";
 }
 
+/**
+ * Pueden VER los Portafolios (/portafolios): los vendedores (consultan el
+ * portafolio de su zona), el admin (gestiona) y el jefe de logística (Isaí).
+ * El acceso es por rol —no por módulo seleccionable— para que TODOS los
+ * vendedores lo vean sin configurarlo uno por uno. NO incluye choferes ni
+ * contador. La subida/edición sigue siendo solo del admin (ver la API).
+ */
+export function canViewPortafolios(role: string | null | undefined): boolean {
+  return role === "admin" || role === "rep" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },
   { key: "actividades", label: "Actividades", href: "/actividades" },
   { key: "catalogo", label: "Catálogo", href: "/catalogo" },
   { key: "documentos", label: "Documentos", href: "/documentos" },
-  { key: "portafolios", label: "Portafolios", href: "/portafolios" },
   { key: "pedidos", label: "Pedidos y cotizaciones", href: "/pedidos" },
   { key: "muestras", label: "Muestras", href: "/muestras" },
   { key: "ventas", label: "Ventas", href: "/ventas" },
