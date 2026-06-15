@@ -126,6 +126,15 @@ export function canViewCuentas(role: string | null | undefined): boolean {
 }
 
 /**
+ * Pueden VER el módulo de Muestras: admin y el jefe de logística (Isaí), que
+ * coordina la entrega de muestras. Para los vendedores estándar el acceso a
+ * Muestras es por módulo seleccionable (modules), no por esta función.
+ */
+export function canViewMuestras(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
+/**
  * Pueden VER el Programa de Incentivos (/incentivos): los vendedores (su
  * propio avance), el admin (dashboard del equipo + gestión) y el contador
  * (consulta los montos comprometidos). No aplica a roles de reparto.

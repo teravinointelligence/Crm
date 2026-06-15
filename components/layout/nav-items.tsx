@@ -27,7 +27,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
 export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
 export type GroupItem = {
@@ -142,6 +142,8 @@ export function visibleNavItems({
             (i.moduleKey === "consignaciones" || i.moduleKey === "documentos")) ||
           // …y consulta las fichas de clientes (Cuentas, solo lectura).
           (i.moduleKey === "cuentas" && canViewCuentas(role)) ||
+          // …y el módulo de Muestras (coordina la entrega de muestras).
+          (i.moduleKey === "muestras" && canViewMuestras(role)) ||
           // …y el portafolio de vinos por zona.
           (i.portafolios === true && canViewPortafolios(role)),
       )

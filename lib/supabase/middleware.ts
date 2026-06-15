@@ -1,6 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canViewCuentas, canViewPortafolios, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canViewCuentas, canViewMuestras, canViewPortafolios, isRepartoOnlyRole } from "@/lib/modules";
 
 type CookieToSet = { name: string; value: string; options: CookieOptions };
 
@@ -99,6 +99,10 @@ export async function updateSession(request: NextRequest) {
       const portafoliosOk =
         canViewPortafolios(rep.role) &&
         (path.startsWith("/portafolios") || path.startsWith("/api/portafolios"));
+      // El jefe de logística también ve el módulo de Muestras.
+      const muestrasOk =
+        canViewMuestras(rep.role) &&
+        (path.startsWith("/muestras") || path.startsWith("/api/samples"));
       const allowed =
         path.startsWith("/reparto") ||
         path.startsWith("/api/reparto") ||
@@ -107,7 +111,8 @@ export async function updateSession(request: NextRequest) {
         facturaOk ||
         academyOk ||
         cuentasOk ||
-        portafoliosOk;
+        portafoliosOk ||
+        muestrasOk;
       if (!allowed) {
         const url = request.nextUrl.clone();
         url.pathname = "/reparto/dashboard";
