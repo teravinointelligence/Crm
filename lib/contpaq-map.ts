@@ -1,5 +1,5 @@
 // Empareja el export de CONTPAQ (codigo + clave/nombre) contra el catálogo del
-// CRM para poblar products.contpaq_codigo. PURO y testeable.
+// CRM para poblar products.codigo_contpaqi. PURO y testeable.
 //
 // Estrategia (de más a menos confiable):
 //   1. exact por SKU   → row.clave == products.sku
@@ -9,7 +9,7 @@
 // Los match exactos se pueden aplicar directo; los fuzzy van a revisión humana.
 
 export type ContpaqRow = { codigo: string; clave: string | null; nombre: string | null };
-export type CatalogProduct = { id: string; sku: string | null; name: string; contpaq_codigo: string | null };
+export type CatalogProduct = { id: string; sku: string | null; name: string; codigo_contpaqi: string | null };
 
 export type MatchVia = "sku" | "nombre" | "fuzzy" | "none";
 
@@ -21,7 +21,7 @@ export type ContpaqMatch = {
   productSku: string | null;
   via: MatchVia;
   score: number; // 1 = exacto; 0..1 fuzzy; 0 sin match
-  alreadyMapped: boolean; // el producto ya tenía un contpaq_codigo distinto
+  alreadyMapped: boolean; // el producto ya tenía un codigo_contpaqi distinto
 };
 
 export const FUZZY_THRESHOLD = 0.6;
@@ -86,7 +86,7 @@ export function matchContpaqRows(input: {
       productSku: p?.sku ?? null,
       via,
       score,
-      alreadyMapped: !!(p?.contpaq_codigo && p.contpaq_codigo !== codigo),
+      alreadyMapped: !!(p?.codigo_contpaqi && p.codigo_contpaqi !== codigo),
     });
 
     // 1. SKU exacto
