@@ -407,6 +407,8 @@ export default async function CuentaDetailPage({
         <TabsContent value="consignaciones">
           <AccountConsignaciones
             clientNumber={account.client_number ?? null}
+            businessName={account.business_name as string}
+            fiscalName={(account.fiscal_name as string | null) ?? null}
             isAdmin={me.role === "admin"}
             repEmail={me.email}
           />
