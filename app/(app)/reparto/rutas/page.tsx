@@ -12,7 +12,7 @@ export const metadata = { title: "Rutas — Reparto" };
 export const dynamic = "force-dynamic";
 
 const PEDIDO_SELECT =
-  "id, numero_factura, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)";
+  "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)";
 
 export default async function RutasPage({
   searchParams,
@@ -38,9 +38,9 @@ export default async function RutasPage({
       .order("created_at", { ascending: true }),
     repartoAdmin
       .from("usuarios")
-      .select("id, nombre, email")
-      .eq("es_chofer", true)
+      .select("id, nombre, email, es_chofer")
       .eq("activo", true)
+      .order("es_chofer", { ascending: false })
       .order("nombre"),
     // Rezagados: pedidos de días ANTERIORES aún pendientes de entrega
     // (pendiente_asignar/asignado/en_ruta). Solo si el toggle está activo.
@@ -104,7 +104,7 @@ export default async function RutasPage({
         canManage={canManage}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pedidos={pedidosEnriquecidos as any}
-        choferes={(choferes ?? []) as { id: string; nombre: string; email: string }[]}
+        choferes={(choferes ?? []) as { id: string; nombre: string; email: string; es_chofer: boolean }[]}
       />
     </div>
   );

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
+import { dueDateFromCredit } from "@/lib/cartera";
 import {
   normalizeClientNumber,
   parseInvoicesExcel,
@@ -72,18 +73,21 @@ export function ImportCarteraClient() {
   ): Promise<{ inserted: number; skipped: number; unresolved: InvoiceRowParsed[]; errs: string[] }> => {
     const { data: accounts } = await supabase
       .from("accounts")
-      .select("id, client_number, rfc, fiscal_name, business_name")
+      .select("id, client_number, rfc, fiscal_name, business_name, credit_days")
       .range(0, 49999);
     const byClientNum = new Map<string, string>();
     const byRfc = new Map<string, string>();
     const byFiscal = new Map<string, string>();
     const byName = new Map<string, string>();
+    // account_id → días de crédito, para calcular el vencimiento (emisión + crédito).
+    const creditByAccount = new Map<string, number | null>();
     for (const a of accounts ?? []) {
       const cn = normalizeClientNumber(a.client_number);
       if (cn) byClientNum.set(cn, a.id);
       if (a.rfc) byRfc.set(String(a.rfc).toUpperCase().trim(), a.id);
       if (a.fiscal_name) byFiscal.set(String(a.fiscal_name).toUpperCase().trim(), a.id);
       if (a.business_name) byName.set(String(a.business_name).toUpperCase().trim(), a.id);
+      creditByAccount.set(a.id, a.credit_days ?? null);
     }
 
     const errs: string[] = [];
@@ -100,16 +104,20 @@ export function ImportCarteraClient() {
         errs.push(`Factura ${r.invoice_number}: cliente no encontrado (${r.client_number ? `# ${r.client_number}` : r.rfc ?? r.client ?? "?"})`);
         continue;
       }
+      // Vencimiento = emisión + días de crédito de la cuenta (no el due_date del Excel,
+      // que suele venir igual a la emisión). Cae a r.due_date si no hay emisión.
+      const dueDate =
+        dueDateFromCredit(r.invoice_date, creditByAccount.get(aid) ?? null) ?? r.due_date;
       payload.push({
         invoice_number: r.invoice_number,
         account_id: aid,
         invoice_date: r.invoice_date,
-        due_date: r.due_date,
+        due_date: dueDate,
         subtotal: r.subtotal,
         iva: r.iva,
         total: r.total,
         uuid_fiscal: r.uuid_fiscal,
-        status: r.due_date && new Date(r.due_date) < new Date() ? "vencida" : "pendiente",
+        status: dueDate && new Date(dueDate) < new Date() ? "vencida" : "pendiente",
       });
     }
 

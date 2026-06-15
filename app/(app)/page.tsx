@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { getAtRiskProductIds } from "@/lib/restock-data";
+import { loadChurnRanking } from "@/lib/account-intel";
+import { CHURN_LABEL, type ChurnStatus } from "@/lib/churn";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -320,6 +323,17 @@ export default async function DashboardPage() {
     accounts: { business_name: string | null } | null;
   }>;
   const samplePendingCount = samplePendingRes.count ?? samplePending.length;
+  const atRiskCount = isAdmin ? (await getAtRiskProductIds(supabase)).size : 0;
+  // Cuentas activas con caída de compra (churn relativo a su propio patrón).
+  const churnRows = isAdmin ? (await loadChurnRanking(supabase)).slice(0, 6) : [];
+
+  const churnVariant: Record<ChurnStatus, "danger" | "warning" | "muted"> = {
+    sin_facturacion: "danger",
+    cayo: "danger",
+    en_riesgo: "warning",
+    sano: "muted",
+    sin_historial: "muted",
+  };
 
   return (
     <div className="space-y-6">
@@ -373,6 +387,63 @@ export default async function DashboardPage() {
           </div>
           <Badge variant="warning">Revisar</Badge>
         </Link>
+      )}
+
+      {isAdmin && atRiskCount > 0 && (
+        <Link
+          href="/restock/sugerencias"
+          className="flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4 transition-colors hover:bg-amber-100"
+        >
+          <div className="flex items-center gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white">
+              <PackageCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="font-medium">
+                {atRiskCount === 1
+                  ? "1 producto en riesgo de quiebre de stock"
+                  : `${atRiskCount} productos en riesgo de quiebre de stock`}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Toca para ver las sugerencias de reabasto
+              </div>
+            </div>
+          </div>
+          <Badge variant="warning">Reabastecer</Badge>
+        </Link>
+      )}
+
+      {isAdmin && churnRows.length > 0 && (
+        <Card>
+          <CardContent className="space-y-3 py-5">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-lg">Cuentas con caída de compra</h2>
+              <Badge variant="warning">{churnRows.length}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Clientes activos cuya facturación cayó respecto a su propio patrón (no solo
+              inactividad). Ordenados por severidad.
+            </p>
+            <ul className="divide-y">
+              {churnRows.map((c) => (
+                <li key={c.account_id} className="py-2">
+                  <Link
+                    href={`/cuentas/${c.account_id}`}
+                    className="flex items-start justify-between gap-3 hover:text-brand-carmesi"
+                  >
+                    <div>
+                      <div className="font-medium">{c.business_name}</div>
+                      <div className="text-xs text-muted-foreground">{c.churn.reason}</div>
+                    </div>
+                    <Badge variant={churnVariant[c.churn.status]} className="shrink-0">
+                      {CHURN_LABEL[c.churn.status]}
+                    </Badge>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

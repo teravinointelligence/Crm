@@ -1,0 +1,79 @@
+// Tarjetas presentacionales de inteligencia por cuenta (churn + cross-sell).
+// Server-safe (sin hooks). Todo lo que muestran trae su "por qué" explícito.
+
+import { TrendingDown, ShoppingBasket } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CHURN_LABEL, type ChurnResult, type ChurnStatus } from "@/lib/churn";
+import type { Recommendation } from "@/lib/cross-sell";
+
+const CHURN_VARIANT: Record<ChurnStatus, "success" | "warning" | "danger" | "muted"> = {
+  sano: "success",
+  en_riesgo: "warning",
+  cayo: "danger",
+  sin_facturacion: "danger",
+  sin_historial: "muted",
+};
+
+export function ChurnCard({ churn, trend }: { churn: ChurnResult; trend?: { period: string; amount: number }[] }) {
+  const money = (n: number) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+  const monthShort = (p: string) => new Date(p).toLocaleDateString("es-MX", { month: "short" });
+
+  return (
+    <Card>
+      <CardContent className="space-y-2 p-5">
+        <div className="flex items-center gap-2">
+          <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-display text-lg">Tendencia de compra</h3>
+          <Badge variant={CHURN_VARIANT[churn.status]} className="ml-auto">
+            {CHURN_LABEL[churn.status]}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground">{churn.reason}</p>
+        {trend && trend.length > 0 && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-xs text-muted-foreground">
+            {trend.map((t) => (
+              <span key={t.period}>
+                <span className="uppercase">{monthShort(t.period)}</span>{" "}
+                <span className="font-medium text-foreground">{money(t.amount)}</span>
+              </span>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function CrossSellCard({ recommendations }: { recommendations: Recommendation[] }) {
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-5">
+        <div className="flex items-center gap-2">
+          <ShoppingBasket className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-display text-lg">Venta cruzada sugerida</h3>
+        </div>
+        {!recommendations.length ? (
+          <p className="text-sm text-muted-foreground">
+            Aún no hay suficientes patrones de compra de clientes parecidos para sugerir productos.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {recommendations.map((r) => (
+              <li key={r.codigo} className="flex items-start justify-between gap-3 border-b pb-2 last:border-0 last:pb-0">
+                <div>
+                  <div className="font-medium">{r.nombre}</div>
+                  <div className="text-xs text-muted-foreground">{r.reason}</div>
+                </div>
+                <Badge variant="accent" className="shrink-0">
+                  {r.supporters} clientes
+                </Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

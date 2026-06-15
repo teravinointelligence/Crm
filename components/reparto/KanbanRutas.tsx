@@ -24,14 +24,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { buildRutasUrl, esRezagado } from "@/lib/reparto-rutas";
-import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_BADGE, type PedidoEstatus, type PedidoTipo } from "@/types/reparto";
 
 const UNASSIGNED = "__sin_asignar__";
 
-type Chofer = { id: string; nombre: string; email: string };
+type Chofer = { id: string; nombre: string; email: string; es_chofer?: boolean };
 type Pedido = {
   id: string;
   numero_factura: string;
+  tipo: PedidoTipo | null;
   fecha: string;
   ventana_inicio: string | null;
   ventana_fin: string | null;
@@ -154,9 +155,19 @@ export function KanbanRutas({
     });
   };
 
+  // Columnas: "Sin asignar" + una por chofer (siempre) + una por usuario que NO
+  // es chofer pero tiene pedidos asignados ese día (entrega personal). Así el
+  // tablero no se llena de columnas vacías y, aun así, los pedidos que alguien
+  // se llevó a entregar en persona quedan visibles y reasignables.
   const columns: { id: string; titulo: string; subtitulo: string }[] = [
     { id: UNASSIGNED, titulo: "Sin asignar", subtitulo: "Arrastra hacia un chofer →" },
-    ...choferes.map((c) => ({ id: c.id, titulo: c.nombre, subtitulo: c.email })),
+    ...choferes
+      .filter((c) => c.es_chofer !== false || (grouped.get(c.id)?.length ?? 0) > 0)
+      .map((c) => ({
+        id: c.id,
+        titulo: c.nombre,
+        subtitulo: c.es_chofer === false ? "Entrega personal" : c.email,
+      })),
   ];
 
   return (
@@ -316,9 +327,16 @@ function PedidoCardView({
           <GripVertical className="h-3 w-3 text-muted-foreground" />
           {pedido.numero_factura}
         </Link>
-        <Badge variant={ESTATUS_VARIANT[pedido.estatus]} className="text-[10px]">
-          {ESTATUS_LABEL[pedido.estatus]}
-        </Badge>
+        <span className="flex shrink-0 items-center gap-1">
+          {pedido.tipo && pedido.tipo !== "factura" && (
+            <Badge variant="accent" className="text-[10px]">
+              {TIPO_BADGE[pedido.tipo]}
+            </Badge>
+          )}
+          <Badge variant={ESTATUS_VARIANT[pedido.estatus]} className="text-[10px]">
+            {ESTATUS_LABEL[pedido.estatus]}
+          </Badge>
+        </span>
       </div>
       <p className="truncate font-medium">{pedido.clientes?.nombre ?? "—"}</p>
       <p className="truncate text-[11px] text-muted-foreground">

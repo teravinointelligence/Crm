@@ -113,6 +113,29 @@ export function canAccessAcademy(role: string | null | undefined): boolean {
   return role === "admin" || role === "jefe_logistica";
 }
 
+/**
+ * Pueden VER el módulo de Cuentas (lista y ficha de clientes) aunque su rol
+ * esté confinado a Reparto: el jefe de logística (Isaí) consulta las fichas
+ * para facturar y coordinar entregas. Es solo lectura — la edición sigue
+ * siendo del admin o del vendedor asignado, y la RLS solo le abre SELECT
+ * (migración 0051). Para los roles estándar (rep/contador) el acceso a
+ * Cuentas se controla como siempre (módulos + RLS).
+ */
+export function canViewCuentas(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
+/**
+ * Pueden VER los Portafolios (/portafolios): los vendedores (consultan el
+ * portafolio de su zona), el admin (gestiona) y el jefe de logística (Isaí).
+ * El acceso es por rol —no por módulo seleccionable— para que TODOS los
+ * vendedores lo vean sin configurarlo uno por uno. NO incluye choferes ni
+ * contador. La subida/edición sigue siendo solo del admin (ver la API).
+ */
+export function canViewPortafolios(role: string | null | undefined): boolean {
+  return role === "admin" || role === "rep" || role === "jefe_logistica";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },

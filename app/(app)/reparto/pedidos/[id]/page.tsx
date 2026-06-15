@@ -12,9 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PedidoStepper } from "@/components/reparto/PedidoStepper";
 import { PedidoActions } from "@/components/reparto/PedidoActions";
+import { SubirPdfPedido } from "@/components/reparto/SubirPdfPedido";
 import { ClienteHorario } from "@/components/reparto/ClienteHorario";
 import { RegistrarEntrega } from "@/components/reparto/RegistrarEntrega";
-import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus, type Prioridad } from "@/types/reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_LABEL, type PedidoEstatus, type PedidoTipo, type Prioridad } from "@/types/reparto";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +24,7 @@ type Detail = {
   id: string;
   numero_factura: string;
   uuid_fiscal: string | null;
+  tipo: PedidoTipo | null;
   fecha: string;
   ventana_inicio: string | null;
   ventana_fin: string | null;
@@ -116,6 +118,9 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
             <h1 className="font-display text-3xl">{pedido.numero_factura}</h1>
             <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
               <Badge variant={ESTATUS_VARIANT[pedido.estatus]}>{ESTATUS_LABEL[pedido.estatus]}</Badge>
+              {pedido.tipo && pedido.tipo !== "factura" && (
+                <Badge variant="accent">{TIPO_LABEL[pedido.tipo]}</Badge>
+              )}
               {pedido.prioridad && pedido.prioridad !== "normal" && <Badge variant="warning">{pedido.prioridad}</Badge>}
               <span>{formatDate(pedido.fecha)}</span>
               {pedido.ventana_inicio && (
@@ -234,10 +239,11 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
         </CardContent></Card>
       )}
 
-      {(pedido.xml_url || pedido.pdf_url) && (
-        <div className="flex gap-2">
+      {(pedido.xml_url || pedido.pdf_url || canManage) && (
+        <div className="flex flex-wrap gap-2">
           {pedido.xml_url && <Button asChild variant="outline" size="sm"><a href={pedido.xml_url} target="_blank" rel="noreferrer"><FileText className="mr-1 h-4 w-4" /> XML</a></Button>}
           {pedido.pdf_url && <Button asChild variant="outline" size="sm"><a href={pedido.pdf_url} target="_blank" rel="noreferrer"><FileText className="mr-1 h-4 w-4" /> PDF</a></Button>}
+          {canManage && <SubirPdfPedido pedidoId={pedido.id} tienePdf={!!pedido.pdf_url} />}
         </div>
       )}
 

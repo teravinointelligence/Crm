@@ -48,6 +48,7 @@ export type Pedido = {
   id: string;
   numero_factura: string;
   uuid_fiscal: string | null;
+  tipo: PedidoTipo;
   cliente_id: string | null;
   chofer_id: string | null;
   fecha: string; // yyyy-mm-dd
@@ -109,6 +110,30 @@ export type PedidoFiltros = {
   q?: string;
   page?: number;
   limit?: number;
+};
+
+// Qué lleva el pedido: una factura (CFDI), un traspaso de almacén que
+// resurte el almacén de consignación del cliente, una consignación nueva,
+// un patrocinio u otro documento sin factura. El PDF del documento se
+// adjunta al pedido (pdf_url).
+export const PEDIDO_TIPOS = ["factura", "traspaso", "consignacion", "patrocinio", "otro"] as const;
+export type PedidoTipo = (typeof PEDIDO_TIPOS)[number];
+
+export const TIPO_LABEL: Record<PedidoTipo, string> = {
+  factura: "Factura",
+  traspaso: "Traspaso de almacén",
+  consignacion: "Consignación nueva",
+  patrocinio: "Patrocinio",
+  otro: "Otro (sin factura)",
+};
+
+// Etiqueta corta para badges en listas/kanban (factura no lleva badge: es el caso normal).
+export const TIPO_BADGE: Record<PedidoTipo, string> = {
+  factura: "Factura",
+  traspaso: "Traspaso",
+  consignacion: "Consignación",
+  patrocinio: "Patrocinio",
+  otro: "Otro",
 };
 
 export const ESTATUS_LABEL: Record<PedidoEstatus, string> = {

@@ -69,6 +69,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await res.json()) as T;
 }
 
+// Igual que request() pero tolera respuestas sin cuerpo (DELETE suele devolver
+// 204 o un body vacío que no es JSON válido).
+async function requestVoid(path: string, init?: RequestInit): Promise<void> {
+  const url = `${baseUrl()}${path}`;
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...authHeaders(), ...(init?.headers ?? {}) },
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Base44 Docs ${res.status} ${res.statusText} en ${path}: ${body.slice(0, 300)}`);
+  }
+}
+
 function buildListQuery(params: ListParams = {}): string {
   const search = new URLSearchParams();
   if (params.q) search.set("q", JSON.stringify(params.q));
@@ -88,6 +103,8 @@ export const base44Docs = {
         request<T>(`/entities/${name}`, { method: "POST", body: JSON.stringify(data) }),
       update: (id: string, data: Partial<T>) =>
         request<T>(`/entities/${name}/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+      delete: (id: string) =>
+        requestVoid(`/entities/${name}/${id}`, { method: "DELETE" }),
     };
   },
 };

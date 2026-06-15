@@ -84,6 +84,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     .from("pedidos")
     .insert({
       numero_factura: numeroFactura,
+      // Los resurtidos de consignación se tramitan como traspaso de almacén.
+      tipo: "traspaso",
       cliente_id: cliente.id,
       fecha: hoy,
       subtotal: Math.round(subtotal * 100) / 100,

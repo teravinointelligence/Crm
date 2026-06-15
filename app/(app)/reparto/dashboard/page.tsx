@@ -34,6 +34,8 @@ export default async function DashboardRepartoPage() {
   if (!rep) redirect("/login");
   if (!canViewReparto(rep.role)) redirect("/");
   const canManage = canManageReparto(rep.role);
+  // Los choferes ven la operación (pedidos, entregas), no montos de facturación.
+  const esChofer = rep.role === "chofer";
 
   const today = new Date().toISOString().slice(0, 10);
   const startOfWeek = new Date();
@@ -89,6 +91,23 @@ export default async function DashboardRepartoPage() {
 
   const totalSemana = semana.reduce((s, p) => s + (Number(p.total) || 0), 0);
 
+  // Entregas completadas día a día (últimos 7 días): entregados vs pedidos
+  // del día, para los anillos de progreso.
+  const dias: { fecha: string; etiqueta: string; entregados: number; total: number; esHoy: boolean }[] = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const f = d.toISOString().slice(0, 10);
+    const delDia = semana.filter((p) => p.fecha === f);
+    dias.push({
+      fecha: f,
+      etiqueta: d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric" }),
+      entregados: delDia.filter((p) => p.estatus === "entregado").length,
+      total: delDia.length,
+      esHoy: f === today,
+    });
+  }
+
   const cargaPorChofer = new Map<string, { en_ruta: number; asignado: number; entregadosHoy: number }>();
   for (const c of choferes) cargaPorChofer.set(c.id, { en_ruta: 0, asignado: 0, entregadosHoy: 0 });
   for (const p of hoy) {
@@ -132,12 +151,30 @@ export default async function DashboardRepartoPage() {
         <Kpi label="No entregados" value={kpis.noEntregados} tone={kpis.noEntregados > 0 ? "danger" : "muted"} />
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <Card><CardContent className="space-y-1 p-5 lg:col-span-1">
-          <p className="text-xs uppercase tracking-wide text-muted-foreground">Facturado últimos 7 días</p>
-          <p className="font-display text-3xl text-brand-carmesi">{formatCurrency(totalSemana)}</p>
-          <p className="text-xs text-muted-foreground">{semana.length} pedido(s) en la semana</p>
+      <section>
+        <Card><CardContent className="p-5">
+          <div className="mb-4">
+            <h3 className="font-display text-lg">Entregas completadas día a día</h3>
+            <p className="text-xs text-muted-foreground">Pedidos entregados vs pedidos del día — últimos 7 días.</p>
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-3 sm:justify-start sm:gap-6">
+            {dias.map((d) => (
+              <DeliveryRing key={d.fecha} {...d} />
+            ))}
+          </div>
         </CardContent></Card>
+      </section>
+
+      <section className={`grid gap-4 ${esChofer ? "" : "lg:grid-cols-3"}`}>
+        {/* Montos $ solo para roles de gestión/consulta — los choferes ven
+            la operación (pedidos y entregas), no la facturación. */}
+        {!esChofer && (
+          <Card><CardContent className="space-y-1 p-5 lg:col-span-1">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Facturado últimos 7 días</p>
+            <p className="font-display text-3xl text-brand-carmesi">{formatCurrency(totalSemana)}</p>
+            <p className="text-xs text-muted-foreground">{semana.length} pedido(s) en la semana</p>
+          </CardContent></Card>
+        )}
 
         <Card className="lg:col-span-2"><CardContent className="p-0">
           <div className="border-b px-4 py-3">
@@ -189,7 +226,7 @@ export default async function DashboardRepartoPage() {
           ) : (
             <table className="min-w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                <tr><th className="px-4 py-2">Folio</th><th className="px-4 py-2">Cliente</th><th className="px-4 py-2">Chofer</th><th className="px-4 py-2">Fecha / ventana</th><th className="px-4 py-2">Estatus</th><th className="px-4 py-2 text-right">Total</th></tr>
+                <tr><th className="px-4 py-2">Folio</th><th className="px-4 py-2">Cliente</th><th className="px-4 py-2">Chofer</th><th className="px-4 py-2">Fecha / ventana</th><th className="px-4 py-2">Estatus</th>{!esChofer && <th className="px-4 py-2 text-right">Total</th>}</tr>
               </thead>
               <tbody>
                 {proximas.map((p) => (
@@ -208,7 +245,7 @@ export default async function DashboardRepartoPage() {
                       {p.ventana_inicio && ` · ${p.ventana_inicio.slice(0, 5)}${p.ventana_fin ? `–${p.ventana_fin.slice(0, 5)}` : ""}`}
                     </td>
                     <td className="px-4 py-2"><Badge variant={ESTATUS_VARIANT[p.estatus]}>{ESTATUS_LABEL[p.estatus]}</Badge></td>
-                    <td className="px-4 py-2 text-right">{formatCurrency(p.total)}</td>
+                    {!esChofer && <td className="px-4 py-2 text-right">{formatCurrency(p.total)}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -216,6 +253,54 @@ export default async function DashboardRepartoPage() {
           )}
         </CardContent></Card>
       </section>
+    </div>
+  );
+}
+
+// Anillo de progreso de un día: arco esmeralda = % de pedidos entregados.
+// Server component puro (SVG estático, sin JS en el cliente).
+function DeliveryRing({
+  etiqueta,
+  entregados,
+  total,
+  esHoy,
+}: {
+  etiqueta: string;
+  entregados: number;
+  total: number;
+  esHoy: boolean;
+}) {
+  const R = 26;
+  const C = 2 * Math.PI * R;
+  const pct = total > 0 ? Math.min(1, entregados / total) : 0;
+  const completo = total > 0 && entregados >= total;
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className="relative">
+        <svg viewBox="0 0 64 64" className={esHoy ? "h-20 w-20" : "h-16 w-16"} role="img"
+          aria-label={`${etiqueta}: ${entregados} de ${total} entregados`}>
+          <circle cx="32" cy="32" r={R} fill="none" stroke="#e5e7eb" strokeWidth="6" />
+          {total > 0 && (
+            <circle
+              cx="32" cy="32" r={R} fill="none"
+              stroke={completo ? "#059669" : "#10b981"}
+              strokeWidth="6" strokeLinecap="round"
+              strokeDasharray={`${C * pct} ${C}`}
+              transform="rotate(-90 32 32)"
+            />
+          )}
+          <text x="32" y="36" textAnchor="middle" fontSize="13" fontWeight="600"
+            fill={total === 0 ? "#9ca3af" : completo ? "#059669" : "#374151"}>
+            {total === 0 ? "—" : `${entregados}/${total}`}
+          </text>
+        </svg>
+        {completo && (
+          <span className="absolute -right-1 -top-1 rounded-full bg-emerald-600 px-1 text-[10px] font-bold text-white">✓</span>
+        )}
+      </div>
+      <span className={`text-xs capitalize ${esHoy ? "font-semibold text-foreground" : "text-muted-foreground"}`}>
+        {esHoy ? "Hoy" : etiqueta}
+      </span>
     </div>
   );
 }

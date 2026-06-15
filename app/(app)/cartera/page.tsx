@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Upload, Download, Landmark } from "lucide-react";
+import { Upload, Download, Landmark, ListChecks } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
@@ -79,6 +79,13 @@ export default async function CarteraPage({
               <a href="/api/cartera/export">
                 <Download className="mr-1 h-4 w-4" /> Descargar Excel
               </a>
+            </Button>
+          )}
+          {finance && (
+            <Button asChild>
+              <Link href="/cartera/cobranza">
+                <ListChecks className="mr-1 h-4 w-4" /> Cobranza de hoy
+              </Link>
             </Button>
           )}
           {finance && (
