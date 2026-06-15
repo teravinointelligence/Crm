@@ -21,7 +21,7 @@ export default async function SugerenciasRestockPage() {
   const { count: mappedCount } = await supabase
     .from("products")
     .select("id", { count: "exact", head: true })
-    .not("contpaq_codigo", "is", null);
+    .not("codigo_contpaqi", "is", null);
 
   const rows: Suggestion[] = suggestions.map((s) => ({
     product_id: s.product_id,

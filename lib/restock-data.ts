@@ -13,7 +13,7 @@ export async function loadReorderInputs(supabase: DbClient): Promise<ReorderInpu
   const [{ data: products }, { data: velocity }] = await Promise.all([
     supabase
       .from("products")
-      .select("id, sku, name, supplier, stock_quantity, lead_time_days, contpaq_codigo")
+      .select("id, sku, name, supplier, stock_quantity, lead_time_days, codigo_contpaqi")
       .eq("active", true),
     // La vista expone `sku` que en realidad es el codigo de CONTPAQ (alias).
     supabase.from("v_product_sales_velocity").select("sku, units_per_month"),
@@ -25,7 +25,7 @@ export async function loadReorderInputs(supabase: DbClient): Promise<ReorderInpu
     if (v.sku) velByCodigo.set(String(v.sku).trim(), Number(v.units_per_month ?? 0));
   }
 
-  // Se cruza por contpaq_codigo (el puente catálogo ↔ ventas). Sin ese mapeo
+  // Se cruza por codigo_contpaqi (el puente catálogo ↔ ventas). Sin ese mapeo
   // (Catálogo → Mapear códigos CONTPAQ) el producto no tiene velocidad y no
   // genera sugerencia, por diseño.
   return (products ?? []).map((p) => ({
@@ -34,7 +34,7 @@ export async function loadReorderInputs(supabase: DbClient): Promise<ReorderInpu
     name: p.name,
     supplier: p.supplier,
     stock: p.stock_quantity,
-    velocityPerMonth: p.contpaq_codigo ? velByCodigo.get(String(p.contpaq_codigo).trim()) ?? 0 : 0,
+    velocityPerMonth: p.codigo_contpaqi ? velByCodigo.get(String(p.codigo_contpaqi).trim()) ?? 0 : 0,
     leadDays: p.lead_time_days,
   }));
 }

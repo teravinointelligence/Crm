@@ -205,20 +205,34 @@ export function ImportExcelClient({ repId }: { repId: string }) {
       const source = `Excel ${fileName ?? ""} → ${warehouse}`.trim();
       const whErrors: typeof errors = [];
 
-      // Resuelve SKU → product_id en lotes (evita un query por fila).
+      // Resuelve clave → product_id en lotes (evita un query por fila). La clave
+      // del Excel puede ser el SKU del CRM o el código de CONTPAQ; intentamos
+      // ambos para aceptar reportes de existencias exportados de CONTPAQ.
       const skuToId = new Map<string, string>();
-      const skus = rows.map((r) => r.sku);
-      for (let i = 0; i < skus.length; i += 200) {
-        const { data, error } = await supabase
-          .from("products")
-          .select("id, sku")
-          .in("sku", skus.slice(i, i + 200));
-        if (error) {
-          toast.error("Error al buscar productos", { description: error.message });
+      const contpaqToId = new Map<string, string>();
+      const keys = rows.map((r) => r.sku);
+      const resolveErr = (error: { message: string }): void => {
+        toast.error("Error al buscar productos", { description: error.message });
+      };
+      for (let i = 0; i < keys.length; i += 200) {
+        const slice = keys.slice(i, i + 200);
+        const [bySku, byContpaq] = await Promise.all([
+          supabase.from("products").select("id, sku").in("sku", slice),
+          supabase.from("products").select("id, codigo_contpaqi").in("codigo_contpaqi", slice),
+        ]);
+        if (bySku.error) {
+          resolveErr(bySku.error);
           return;
         }
-        for (const p of data ?? []) {
+        if (byContpaq.error) {
+          resolveErr(byContpaq.error);
+          return;
+        }
+        for (const p of bySku.data ?? []) {
           if (p.sku) skuToId.set(p.sku, p.id);
+        }
+        for (const p of byContpaq.data ?? []) {
+          if (p.codigo_contpaqi) contpaqToId.set(p.codigo_contpaqi, p.id);
         }
       }
 
@@ -230,9 +244,9 @@ export function ImportExcelClient({ repId }: { repId: string }) {
         last_source: string;
       }[] = [];
       for (const r of rows) {
-        const productId = skuToId.get(r.sku);
+        const productId = skuToId.get(r.sku) ?? contpaqToId.get(r.sku);
         if (!productId) {
-          whErrors.push({ row: 0, message: `SKU ${r.sku} no encontrado`, raw: r });
+          whErrors.push({ row: 0, message: `SKU/código ${r.sku} no encontrado`, raw: r });
           continue;
         }
         payload.push({
@@ -317,10 +331,16 @@ export function ImportExcelClient({ repId }: { repId: string }) {
             <CardContent className="space-y-3 p-6">
               <h3 className="font-display text-lg">Inventario por almacén</h3>
               <p className="text-sm text-muted-foreground">
-                Elige el almacén y sube un Excel con dos columnas:{" "}
-                <code className="rounded bg-muted px-1">SKU</code> y{" "}
-                <code className="rounded bg-muted px-1">Existencia</code>. Las
-                existencias se guardan por almacén sin tocar el stock global.
+                Elige el almacén y sube un Excel con columnas{" "}
+                <code className="rounded bg-muted px-1">SKU</code> (o código
+                CONTPAQ) y <code className="rounded bg-muted px-1">Existencia</code>.
+                Acepta el reporte de existencias exportado de CONTPAQi tal cual.
+                Las existencias se guardan por almacén sin tocar el stock global.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Si tu archivo usa el código de CONTPAQ, primero corre{" "}
+                <strong>Catálogo → Mapear códigos CONTPAQ</strong> para enlazar
+                cada código con su producto del CRM.
               </p>
               <div className="max-w-xs space-y-1.5">
                 <span className="text-xs font-medium uppercase text-muted-foreground">

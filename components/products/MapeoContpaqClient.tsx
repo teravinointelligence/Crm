@@ -48,7 +48,7 @@ export function MapeoContpaqClient() {
 
       const { data: products, error: pErr } = await supabase
         .from("products")
-        .select("id, sku, name, contpaq_codigo");
+        .select("id, sku, name, codigo_contpaqi");
       if (pErr) throw new Error(pErr.message);
 
       const result = matchContpaqRows({ products: products ?? [], rows: parsed.rows });
@@ -85,7 +85,7 @@ export function MapeoContpaqClient() {
         const chunk = chosen.slice(i, i + 20);
         const results = await Promise.all(
           chunk.map((m) =>
-            supabase.from("products").update({ contpaq_codigo: m.codigo }).eq("id", m.product_id!),
+            supabase.from("products").update({ codigo_contpaqi: m.codigo }).eq("id", m.product_id!),
           ),
         );
         ok += results.filter((r) => !r.error).length;

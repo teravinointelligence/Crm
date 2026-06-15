@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import { matchContpaqRows, normalizeName } from "../lib/contpaq-map.ts";
 
 const products = [
-  { id: "p1", sku: "TAPIZ-BLACK-TEARS-MALBEC-750", name: "Tapiz Black Tears Malbec", contpaq_codigo: null },
-  { id: "p2", sku: "CLOUDY-BAY-SB-2022-750", name: "Cloudy Bay Sauvignon Blanc 2022", contpaq_codigo: null },
-  { id: "p3", sku: "IVON-LESCOMPTE-BRUT-750", name: "Ivon Lescompte Brut", contpaq_codigo: "OLD-1" },
+  { id: "p1", sku: "TAPIZ-BLACK-TEARS-MALBEC-750", name: "Tapiz Black Tears Malbec", codigo_contpaqi: null },
+  { id: "p2", sku: "CLOUDY-BAY-SB-2022-750", name: "Cloudy Bay Sauvignon Blanc 2022", codigo_contpaqi: null },
+  { id: "p3", sku: "IVON-LESCOMPTE-BRUT-750", name: "Ivon Lescompte Brut", codigo_contpaqi: "OLD-1" },
 ];
 
 test("match exacto por SKU (clave del export == products.sku)", () => {
