@@ -23,8 +23,9 @@ import {
   Radio,
   Car,
   ShieldCheck,
-  Trophy,
   Briefcase,
+  Sparkles,
+  Trophy,
 } from "lucide-react";
 import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
@@ -47,6 +48,7 @@ export type Item = LeafItem | GroupItem;
 
 export const navItems: Item[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard }, // siempre visible
+  { href: "/asistente", label: "Asistente", icon: Sparkles }, // siempre visible (RLS por rol)
   { href: "/equipo", label: "Equipo en línea", icon: Radio }, // siempre visible
   { href: "/cuentas", label: "Cuentas", icon: Building2, moduleKey: "cuentas" },
   { href: "/contactos", label: "Contactos", icon: Users, moduleKey: "contactos" },

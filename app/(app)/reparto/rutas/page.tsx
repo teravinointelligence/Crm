@@ -6,11 +6,19 @@ import { canViewReparto, canManageReparto } from "@/lib/modules";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { KanbanRutas } from "@/components/reparto/KanbanRutas";
+import { ESTATUS_PENDIENTES, combinarConRezagados } from "@/lib/reparto-rutas";
 
 export const metadata = { title: "Rutas — Reparto" };
 export const dynamic = "force-dynamic";
 
-export default async function RutasPage({ searchParams }: { searchParams: { fecha?: string } }) {
+const PEDIDO_SELECT =
+  "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)";
+
+export default async function RutasPage({
+  searchParams,
+}: {
+  searchParams: { fecha?: string; rezagados?: string };
+}) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
   if (!canViewReparto(rep.role)) redirect("/");
@@ -18,30 +26,40 @@ export default async function RutasPage({ searchParams }: { searchParams: { fech
 
   const today = new Date().toISOString().slice(0, 10);
   const fecha = searchParams.fecha ?? today;
+  const incluirRezagados = searchParams.rezagados === "1";
 
-  const [{ data: pedidos }, { data: choferes }] = await Promise.all([
+  const [{ data: pedidos }, { data: choferes }, rezagadosRes] = await Promise.all([
     repartoAdmin
       .from("pedidos")
-      .select(
-        "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)",
-      )
+      .select(PEDIDO_SELECT)
       .eq("fecha", fecha)
       .in("estatus", ["pendiente_asignar", "asignado", "en_ruta", "entregado", "no_entregado"])
       .order("ventana_inicio", { ascending: true })
       .order("created_at", { ascending: true }),
     repartoAdmin
       .from("usuarios")
-      .select("id, nombre, email")
-      .eq("es_chofer", true)
+      .select("id, nombre, email, es_chofer")
       .eq("activo", true)
+      .order("es_chofer", { ascending: false })
       .order("nombre"),
+    // Rezagados: pedidos de días ANTERIORES aún pendientes de entrega
+    // (pendiente_asignar/asignado/en_ruta). Solo si el toggle está activo.
+    incluirRezagados
+      ? repartoAdmin
+          .from("pedidos")
+          .select(PEDIDO_SELECT)
+          .lt("fecha", fecha)
+          .in("estatus", [...ESTATUS_PENDIENTES])
+          .order("fecha", { ascending: true })
+          .order("ventana_inicio", { ascending: true })
+      : Promise.resolve({ data: [] as unknown[] }),
   ]);
 
   // Horario de recepción para la tarjeta del Kanban: manda el capturado por el
   // vendedor en la cuenta del CRM (enlazada por RFC); si no hay match, se usa el
   // respaldo de reparto.clientes. Una sola consulta por lote de RFCs.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const pedidosRaw = (pedidos ?? []) as any[];
+  const pedidosRaw = combinarConRezagados((pedidos ?? []) as any[], (rezagadosRes.data ?? []) as any[]);
   const rfcs = Array.from(
     new Set(
       pedidosRaw
@@ -82,10 +100,11 @@ export default async function RutasPage({ searchParams }: { searchParams: { fech
       </div>
       <KanbanRutas
         fecha={fecha}
+        incluirRezagados={incluirRezagados}
         canManage={canManage}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         pedidos={pedidosEnriquecidos as any}
-        choferes={(choferes ?? []) as { id: string; nombre: string; email: string }[]}
+        choferes={(choferes ?? []) as { id: string; nombre: string; email: string; es_chofer: boolean }[]}
       />
     </div>
   );

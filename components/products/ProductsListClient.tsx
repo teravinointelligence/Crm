@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Search, Upload, Pencil, Tags } from "lucide-react";
+import { Plus, Search, Upload, Pencil, Tags, Wand2, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,14 +39,18 @@ const ALL = "_all";
 export function ProductsListClient({
   products,
   warehouseStock = {},
+  riskIds = [],
   isAdmin,
 }: {
   products: Product[];
   // product_id → { almacén: existencia } (carga vía Importar Excel → Inventario por almacén)
   warehouseStock?: Record<string, Record<string, number>>;
+  // product_ids en riesgo de quiebre (modelo de reabasto, ver /restock/sugerencias)
+  riskIds?: string[];
   isAdmin: boolean;
 }) {
   const router = useRouter();
+  const riskSet = useMemo(() => new Set(riskIds), [riskIds]);
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [query, setQuery] = useState("");
@@ -205,6 +209,16 @@ export function ProductsListClient({
                 <Upload className="mr-1 h-4 w-4" /> Importar Excel
               </Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href="/catalogo/normalizar">
+                <Wand2 className="mr-1 h-4 w-4" /> Normalizar
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/catalogo/mapeo-contpaq">
+                <Link2 className="mr-1 h-4 w-4" /> Códigos CONTPAQ
+              </Link>
+            </Button>
             <Button asChild>
               <Link href="/catalogo/nuevo">
                 <Plus className="mr-1 h-4 w-4" /> Nuevo producto
@@ -298,6 +312,11 @@ export function ProductsListClient({
                       <span className="text-xs text-muted-foreground">
                         Sin dato
                       </span>
+                    )}
+                    {riskSet.has(p.id) && (
+                      <Badge variant="danger" className="ml-1">
+                        Riesgo de quiebre
+                      </Badge>
                     )}
                     {!p.active && (
                       <Badge variant="muted" className="ml-1">

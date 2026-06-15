@@ -73,7 +73,9 @@ export default async function PedidosPage({
 
   const [{ data, count }, { data: choferes }] = await Promise.all([
     query,
-    repartoAdmin.from("usuarios").select("id, nombre").eq("es_chofer", true).eq("activo", true).order("nombre"),
+    // Incluye choferes y demás usuarios activos: un pedido puede asignarse a
+    // alguien que lo entrega personalmente, y aquí se debe poder filtrar por él.
+    repartoAdmin.from("usuarios").select("id, nombre").eq("activo", true).order("es_chofer", { ascending: false }).order("nombre"),
   ]);
 
   const rows = ((data ?? []) as unknown) as Row[];

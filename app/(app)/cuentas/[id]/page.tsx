@@ -11,6 +11,9 @@ import { AccountHeader } from "@/components/accounts/AccountHeader";
 import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
+import { ChurnCard, CrossSellCard } from "@/components/accounts/AccountIntelCards";
+import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
+import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
@@ -90,7 +93,7 @@ export default async function CuentaDetailPage({
     supabase
       .from("account_products")
       .select(
-        "id, product_id, status, notes, since, created_at, products:product_id(id, name, supplier, varietal, vintage, base_price)",
+        "id, product_id, status, notes, since, created_at, products:product_id(id, name, supplier, varietal, vintage, base_price, active)",
       )
       .eq("account_id", params.id),
     supabase
@@ -190,6 +193,10 @@ export default async function CuentaDetailPage({
   const pendientes = activityList.filter((a) => a.next_step && (!a.next_step_date || a.next_step_date >= today));
   const lastActivity = activityList[0];
 
+  // Inteligencia por cuenta: churn (vs su propio patrón) + venta cruzada, desde
+  // monthly_sales(_items). Un solo load de hechos; el resumen LLM es on-demand.
+  const facts = await loadAccountFacts(supabase, params.id);
+
   return (
     <div className="space-y-6">
       <AccountHeader account={account as Account} rep={rep as SalesRep | null} />
@@ -208,6 +215,15 @@ export default async function CuentaDetailPage({
 
         <TabsContent value="resumen">
           <div className="space-y-6">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <NextBestActionCard
+                accountId={account.id}
+                basis="cartera, qué compra, tendencia mensual, churn y venta cruzada"
+              />
+              <ChurnCard churn={facts.churn} trend={facts.trend} />
+              <CrossSellCard recommendations={facts.recommendations} />
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Kpi icon={Wallet} label="Saldo pendiente" value={formatCurrency(balance?.saldo_pendiente)} accent />
               <Kpi

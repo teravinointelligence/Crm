@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Plus, PackageCheck, PackagePlus } from "lucide-react";
+import { Plus, PackageCheck, PackagePlus, Sparkles, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { getAtRiskProductIds } from "@/lib/restock-data";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Restock — TERAVINO CRM" };
@@ -32,6 +34,7 @@ export default async function RestockPage() {
     sales_reps: { full_name: string | null } | null;
   }>;
   const pendingCount = rows.filter((r) => r.status === "enviada").length;
+  const atRiskCount = isAdmin ? (await getAtRiskProductIds(supabase)).size : 0;
 
   return (
     <div className="space-y-6">
@@ -47,6 +50,11 @@ export default async function RestockPage() {
         <div className="flex gap-2">
           {isAdmin && (
             <Button asChild variant="outline">
+              <Link href="/restock/sugerencias"><Sparkles className="mr-1 h-4 w-4" /> Sugerencias de reabasto</Link>
+            </Button>
+          )}
+          {isAdmin && (
+            <Button asChild variant="outline">
               <Link href="/restock/consolidables"><PackagePlus className="mr-1 h-4 w-4" /> Consolidables por proveedor</Link>
             </Button>
           )}
@@ -55,6 +63,20 @@ export default async function RestockPage() {
           </Button>
         </div>
       </div>
+
+      {isAdmin && atRiskCount > 0 && (
+        <Link href="/restock/sugerencias" className="block">
+          <Card className="border-amber-300 bg-amber-50 transition-colors hover:bg-amber-100">
+            <CardContent className="flex items-center gap-3 py-4">
+              <AlertTriangle className="h-5 w-5 shrink-0 text-amber-600" />
+              <p className="text-sm text-amber-900">
+                <span className="font-semibold">{atRiskCount}</span> producto(s) en riesgo de quiebre.{" "}
+                <span className="underline">Ver sugerencias de reabasto →</span>
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
 
       {rows.length === 0 ? (
         <EmptyState icon={PackageCheck} title="Sin pedidos de restock" description="Crea tu primera solicitud de producto." />

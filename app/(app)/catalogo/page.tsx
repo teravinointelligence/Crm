@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { getAtRiskProductIds } from "@/lib/restock-data";
 import { ProductsListClient } from "@/components/products/ProductsListClient";
 
 export const metadata = { title: "Catálogo — TERAVINO CRM" };
@@ -22,6 +23,10 @@ export default async function CatalogoPage() {
     (warehouseStock[r.product_id] ??= {})[r.warehouse] = r.stock_quantity;
   }
 
+  // Productos en riesgo de quiebre (modelo de reabasto). Solo admin: la vista de
+  // velocidad respeta RLS (lectura de ventas admin/contador).
+  const riskIds = isAdmin ? [...(await getAtRiskProductIds(supabase))] : [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,6 +38,7 @@ export default async function CatalogoPage() {
       <ProductsListClient
         products={data ?? []}
         warehouseStock={warehouseStock}
+        riskIds={riskIds}
         isAdmin={!!isAdmin}
       />
     </div>

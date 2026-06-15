@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -26,7 +26,7 @@ import { PEDIDO_TIPOS, PRIORIDADES, TIPO_LABEL, type PedidoTipo, type Prioridad 
 const SIN_ASIGNAR = "sin_asignar";
 
 type ClienteLite = { id: string; nombre: string; rfc: string | null; ciudad: string | null };
-type ChoferLite = { id: string; nombre: string };
+type ChoferLite = { id: string; nombre: string; es_chofer?: boolean };
 type Partida = {
   key: string;
   descripcion: string;
@@ -278,7 +278,7 @@ export function PedidoForm() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{PRIORIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
           </Select></div>
-        <div className="space-y-2"><Label>Asignar a chofer</Label>
+        <div className="space-y-2"><Label>Asignar a</Label>
           <Select
             value={choferId || SIN_ASIGNAR}
             onValueChange={(v) => setChoferId(v === SIN_ASIGNAR ? "" : v)}
@@ -286,7 +286,22 @@ export function PedidoForm() {
             <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
             <SelectContent>
               <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
-              {choferes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>)}
+              {choferes.some((c) => c.es_chofer) && (
+                <SelectGroup>
+                  <SelectLabel>Choferes</SelectLabel>
+                  {choferes.filter((c) => c.es_chofer).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {choferes.some((c) => !c.es_chofer) && (
+                <SelectGroup>
+                  <SelectLabel>Otros usuarios (entrega personal)</SelectLabel>
+                  {choferes.filter((c) => !c.es_chofer).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nombre}</SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
             </SelectContent>
           </Select></div>
 

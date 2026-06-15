@@ -49,6 +49,19 @@ export function diasVencidos(
   return Math.floor((corte.getTime() - venc.getTime()) / 86400000);
 }
 
+/** Fecha de vencimiento = emisión + días de crédito (YYYY-MM-DD).
+ *  null si no hay emisión. credit_days nulo se trata como 0 (contado). */
+export function dueDateFromCredit(
+  invoiceDate: string | null,
+  creditDays: number | null,
+): string | null {
+  if (!invoiceDate) return null;
+  const d = new Date(invoiceDate);
+  if (Number.isNaN(d.getTime())) return null;
+  d.setUTCDate(d.getUTCDate() + (creditDays ?? 0));
+  return d.toISOString().slice(0, 10);
+}
+
 /** Resumen de vencimiento credit-aware sobre las facturas abiertas:
  *  saldo vencido total y el máximo de días vencidos (alimenta semáforo + riesgo). */
 export function resumenVencido(

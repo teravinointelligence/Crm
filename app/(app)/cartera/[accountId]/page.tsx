@@ -9,6 +9,7 @@ import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
 import { RiesgoBadge } from "@/components/cartera/RiesgoBadge";
 import { TakeSnapshotButton } from "@/components/cartera/TakeSnapshotButton";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
+import { RedactarCobranzaButton } from "@/components/cartera/RedactarCobranzaButton";
 import { ImportCarteraCuenta } from "@/components/cartera/ImportCarteraCuenta";
 import { InvoicesTable } from "@/components/cartera/InvoicesTable";
 import { getCurrentRep, isAdmin } from "@/lib/auth";
@@ -166,6 +167,9 @@ export default async function EstadoCuentaPage({
             </a>
           </Button>
           {saldoPendiente > 0 && <EnviarRecordatorioButton accountId={account.id} />}
+          {canReconcile && saldoPendiente > 0 && (
+            <RedactarCobranzaButton accountId={account.id} clientName={account.business_name} />
+          )}
           {canReconcile && <TakeSnapshotButton />}
           {admin && (
             <ImportCarteraCuenta accountId={account.id} businessName={account.business_name} />

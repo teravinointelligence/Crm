@@ -12,6 +12,7 @@ import { canAccessFacturacion } from "@/lib/modules";
 import { formatDateTime } from "@/lib/utils";
 import { base44Docs, type Base44GeneratedDoc } from "@/lib/base44-docs";
 import { DocumentoStatusControl } from "@/components/documentos/DocumentoStatusControl";
+import { DeleteDocumentoButton } from "@/components/documentos/DeleteDocumentoButton";
 
 export const metadata = { title: "Documento — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -56,6 +57,15 @@ export default async function DocumentoDetallePage({ params }: { params: { id: s
           <Button asChild variant="outline">
             <Link href="/documentos">Volver</Link>
           </Button>
+          {(doc.status ?? "borrador") === "borrador" && (
+            <DeleteDocumentoButton
+              id={doc.id}
+              title={doc.title}
+              redirectTo="/documentos"
+              variant="outline"
+              withLabel
+            />
+          )}
           <Button asChild>
             <a href={`/api/documentos/${doc.id}/pdf`} target="_blank" rel="noopener noreferrer">
               <Download className="mr-1 h-4 w-4" />
