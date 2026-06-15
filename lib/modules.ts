@@ -126,6 +126,15 @@ export function canViewCuentas(role: string | null | undefined): boolean {
 }
 
 /**
+ * Pueden VER el Programa de Incentivos (/incentivos): los vendedores (su
+ * propio avance), el admin (dashboard del equipo + gestión) y el contador
+ * (consulta los montos comprometidos). No aplica a roles de reparto.
+ */
+export function canViewIncentivos(role: string | null | undefined): boolean {
+  return role === "admin" || role === "rep" || role === "contador";
+}
+
+/**
  * Pueden VER los Portafolios (/portafolios): los vendedores (consultan el
  * portafolio de su zona), el admin (gestiona) y el jefe de logística (Isaí).
  * El acceso es por rol —no por módulo seleccionable— para que TODOS los

@@ -22,6 +22,7 @@ import { Calendar, GripVertical, AlertCircle, Clock, History } from "lucide-reac
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { buildRutasUrl, esRezagado } from "@/lib/reparto-rutas";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_BADGE, type PedidoEstatus, type PedidoTipo } from "@/types/reparto";

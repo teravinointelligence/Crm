@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2, Download, MailWarning, Upload, AlarmClock } from "lucide-react";
+import { Link2, Download, MailWarning, Upload, AlarmClock, PackageX } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { AccountsListClient } from "@/components/accounts/AccountsListClient";
@@ -58,6 +58,11 @@ export default async function CuentasPage() {
             <Button asChild variant="outline" size="sm">
               <Link href="/cuentas/clientes-inactivos">
                 <AlarmClock className="mr-1 h-4 w-4" /> Clientes inactivos
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/cuentas/sin-pedidos">
+                <PackageX className="mr-1 h-4 w-4" /> Dejaron de pedir
               </Link>
             </Button>
           </div>
