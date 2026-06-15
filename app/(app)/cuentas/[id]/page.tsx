@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { FileText, Wallet, Wine, FlaskConical, CalendarCheck2 } from "lucide-react";
+import { FileText, Wallet, Wine, FlaskConical, CalendarCheck2, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -19,6 +19,8 @@ import { ImportPedidosCuenta } from "@/components/accounts/ImportPedidosCuenta";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
+import { repartoAdmin } from "@/lib/supabase-reparto";
+import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Button } from "@/components/ui/button";
 import type {
@@ -49,7 +51,7 @@ export default async function CuentaDetailPage({
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
-  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "consignaciones", "acuerdos", "info"];
+  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "reparto", "consignaciones", "acuerdos", "info"];
   const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
@@ -138,6 +140,50 @@ export default async function CuentaDetailPage({
   };
   const facturasRecientes = (recentInvoices ?? []) as FacturaReciente[];
 
+  // Pedidos del módulo Reparto (entregas), para la pestaña "Reparto". Se cruzan
+  // por RFC contra reparto.clientes; si la cuenta no tiene RFC cruzable, por
+  // nombre exacto. Es una vista operativa de entregas, independiente de la
+  // facturación (cartera) que alimenta el resto del dashboard.
+  type PedidoReparto = {
+    id: string;
+    numero_factura: string;
+    fecha: string;
+    estatus: PedidoEstatus;
+    total: number | null;
+  };
+  let pedidosReparto: PedidoReparto[] = [];
+  const accountRfc = (account.rfc as string | null)?.trim().toUpperCase();
+  const RFC_GENERICOS = ["XAXX010101000", "XEXX010101000"];
+  const rfcCruzable = accountRfc && !RFC_GENERICOS.includes(accountRfc);
+  try {
+    let clienteIds: string[] = [];
+    if (rfcCruzable) {
+      const { data: clientesReparto } = await repartoAdmin
+        .from("clientes")
+        .select("id")
+        .ilike("rfc", accountRfc);
+      clienteIds = ((clientesReparto ?? []) as { id: string }[]).map((c) => c.id);
+    }
+    if (!clienteIds.length) {
+      const { data: porNombre } = await repartoAdmin
+        .from("clientes")
+        .select("id")
+        .ilike("nombre", (account.business_name as string).trim());
+      clienteIds = ((porNombre ?? []) as { id: string }[]).map((c) => c.id);
+    }
+    if (clienteIds.length) {
+      const { data: pedidos } = await repartoAdmin
+        .from("pedidos")
+        .select("id, numero_factura, fecha, estatus, total")
+        .in("cliente_id", clienteIds)
+        .order("fecha", { ascending: false })
+        .limit(30);
+      pedidosReparto = (pedidos ?? []) as PedidoReparto[];
+    }
+  } catch {
+    // Sin SUPABASE_SERVICE_ROLE_KEY la ficha sigue funcionando sin esta pestaña.
+  }
+
   const orderList = (orders ?? []) as Order[];
   const activityList = (activities ?? []) as Activity[];
   const wineList = (wines ?? []) as never[];
@@ -183,6 +229,7 @@ export default async function CuentaDetailPage({
           <TabsTrigger value="contactos">Contactos ({contacts?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="actividades">Actividades ({activityList.length})</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos ({orderList.length})</TabsTrigger>
+          <TabsTrigger value="reparto">Reparto ({pedidosReparto.length})</TabsTrigger>
           <TabsTrigger value="consignaciones">Consignaciones</TabsTrigger>
           <TabsTrigger value="acuerdos">Acuerdos ({agreementList.length})</TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
@@ -353,6 +400,10 @@ export default async function CuentaDetailPage({
           </div>
         </TabsContent>
 
+        <TabsContent value="reparto">
+          <RepartoSection pedidos={pedidosReparto} />
+        </TabsContent>
+
         <TabsContent value="consignaciones">
           <AccountConsignaciones
             clientNumber={account.client_number ?? null}
@@ -497,6 +548,66 @@ function OrdersSection({ orders }: { orders: Order[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function RepartoSection({
+  pedidos,
+}: {
+  pedidos: { id: string; numero_factura: string; fecha: string; estatus: PedidoEstatus; total: number | null }[];
+}) {
+  if (!pedidos.length) {
+    return (
+      <EmptyState
+        icon={Truck}
+        title="Sin entregas en Reparto"
+        description="Este cliente no tiene pedidos en el módulo de Reparto (se cruza por RFC o nombre)."
+      />
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Entregas del módulo Reparto (cruzadas por RFC/nombre). Es una vista
+        operativa, independiente de la facturación de cartera.
+      </p>
+      <div className="overflow-x-auto rounded-lg border bg-card">
+        <table className="min-w-full text-sm">
+          <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Factura</th>
+              <th className="px-4 py-3">Fecha</th>
+              <th className="px-4 py-3">Estatus</th>
+              <th className="px-4 py-3 text-right">Total</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {pedidos.map((p) => (
+              <tr key={p.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/reparto/pedidos/${p.id}`} className="hover:text-brand-carmesi">
+                    {p.numero_factura}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">{formatDate(p.fecha)}</td>
+                <td className="px-4 py-3">
+                  <Badge variant={ESTATUS_VARIANT[p.estatus] ?? "muted"}>
+                    {ESTATUS_LABEL[p.estatus] ?? p.estatus}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-right font-medium">{formatCurrency(p.total ?? 0)}</td>
+                <td className="px-4 py-3 text-right">
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/reparto/pedidos/${p.id}`}>Ver</Link>
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
