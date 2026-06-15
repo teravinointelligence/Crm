@@ -12,6 +12,8 @@ import { loadChurnRanking, loadCrossSell } from "@/lib/account-intel";
 import { getRestockSuggestions } from "@/lib/restock-data";
 import { CHURN_LABEL } from "@/lib/churn";
 import { URGENCY_LABEL } from "@/lib/restock";
+import { WAREHOUSES } from "@/lib/warehouses";
+import { CATEGORIES, CATEGORY_LABEL } from "@/lib/catalogo/normalize.mjs";
 
 const REGIONS = ["Los Cabos", "La Paz", "Todos Santos", "Tijuana", "Puerto Vallarta", "Nayarit"];
 const TYPES = ["hotel", "restaurante", "bar", "cafe", "club", "tienda", "distribuidor", "otro"];
@@ -442,6 +444,167 @@ export const TOOLS: ToolDef[] = [
         rows: recos.map((r) => ({ nombre: r.nombre, supporters: r.supporters, reason: r.reason })),
         link: { href: `/cuentas/${acct.id}`, label: "Ver cuenta" },
         note: recos.length ? undefined : "Aún no hay suficientes patrones de clientes parecidos.",
+      };
+    },
+  },
+
+  // 13 ─ Buscar en el catálogo
+  {
+    name: "catalogo_buscar",
+    description:
+      "Busca productos del catálogo (vinos y destilados) por texto, proveedor o categoría. " +
+      "Devuelve precio (antes de IVA) y stock global. Categorías: " + CATEGORIES.join(", ") + ".",
+    input_schema: {
+      type: "object",
+      properties: {
+        texto: { type: "string", description: "Nombre del producto" },
+        proveedor: { type: "string" },
+        categoria: { type: "string", enum: CATEGORIES as string[] },
+        solo_con_stock: { type: "boolean" },
+        limit: { type: "integer" },
+      },
+    },
+    async run(ctx, p): Promise<ToolResult> {
+      let q = ctx.supabase
+        .from("products")
+        .select("name, supplier, category, varietal, country, vintage, base_price, stock_quantity")
+        .eq("active", true)
+        .order("supplier")
+        .order("name");
+      if (str(p.texto)) q = q.ilike("name", `%${str(p.texto)}%`);
+      if (str(p.proveedor)) q = q.ilike("supplier", `%${str(p.proveedor)}%`);
+      if (str(p.categoria)) q = q.eq("category", str(p.categoria));
+      if (p.solo_con_stock === true) q = q.gt("stock_quantity", 0);
+      const { data } = await q.limit(clampLimit(p.limit, 20));
+      const rows = (data ?? []).map((r) => ({
+        name: r.name,
+        supplier: r.supplier,
+        categoria: r.category ? CATEGORY_LABEL[r.category as keyof typeof CATEGORY_LABEL] ?? r.category : "—",
+        varietal: r.varietal,
+        base_price: r.base_price,
+        stock_quantity: r.stock_quantity,
+      }));
+      return {
+        tool: "catalogo_buscar",
+        title: "Catálogo",
+        columns: [
+          { key: "name", label: "Producto" },
+          { key: "supplier", label: "Proveedor" },
+          { key: "categoria", label: "Categoría" },
+          { key: "varietal", label: "Varietal" },
+          { key: "base_price", label: "Precio (s/IVA)", kind: "money" },
+          { key: "stock_quantity", label: "Stock", kind: "number" },
+        ],
+        rows,
+        total: `${rows.length} producto(s)`,
+        link: { href: "/catalogo", label: "Ver catálogo" },
+      };
+    },
+  },
+
+  // 14 ─ Stock por almacén
+  {
+    name: "catalogo_stock_almacen",
+    description:
+      "Existencias por almacén. Con `producto` devuelve el stock de ese producto en cada almacén; " +
+      "con `almacen` devuelve los productos con existencia en ese almacén. Almacenes: " + WAREHOUSES.join(", ") + ".",
+    input_schema: {
+      type: "object",
+      properties: {
+        producto: { type: "string", description: "Nombre del producto" },
+        almacen: { type: "string", enum: WAREHOUSES as unknown as string[] },
+        limit: { type: "integer" },
+      },
+    },
+    async run(ctx, p): Promise<ToolResult> {
+      const almacen = str(p.almacen);
+      const producto = str(p.producto);
+      if (producto) {
+        const { data: prods } = await ctx.supabase
+          .from("products")
+          .select("id, name")
+          .eq("active", true)
+          .ilike("name", `%${producto}%`)
+          .limit(10);
+        const ids = (prods ?? []).map((x) => x.id);
+        const nameById = new Map((prods ?? []).map((x) => [x.id, x.name]));
+        const { data: stock } = await ctx.supabase
+          .from("product_warehouse_stock")
+          .select("product_id, warehouse, stock_quantity")
+          .in("product_id", ids.length ? ids : ["-"]);
+        let rows = (stock ?? []).map((s) => ({ name: nameById.get(s.product_id) ?? "", warehouse: s.warehouse, stock_quantity: s.stock_quantity }));
+        if (almacen) rows = rows.filter((r) => r.warehouse === almacen);
+        return {
+          tool: "catalogo_stock_almacen",
+          title: `Existencias por almacén — ${producto}`,
+          columns: [
+            { key: "name", label: "Producto" },
+            { key: "warehouse", label: "Almacén" },
+            { key: "stock_quantity", label: "Existencia", kind: "number" },
+          ],
+          rows,
+          link: { href: "/catalogo", label: "Ver catálogo" },
+          note: rows.length ? undefined : "Sin existencias por almacén registradas para ese producto.",
+        };
+      }
+      // Solo almacén → productos con stock en ese almacén.
+      if (!almacen) return emptyNote("catalogo_stock_almacen", "Existencias por almacén", "Indica un producto o un almacén.");
+      const { data: stock } = await ctx.supabase
+        .from("product_warehouse_stock")
+        .select("product_id, stock_quantity, products:product_id(name)")
+        .eq("warehouse", almacen)
+        .gt("stock_quantity", 0)
+        .order("stock_quantity", { ascending: false })
+        .limit(clampLimit(p.limit, 30));
+      const rows = (stock ?? []).map((s) => {
+        const prod = s.products as unknown as { name?: string } | { name?: string }[] | null;
+        const name = (Array.isArray(prod) ? prod[0]?.name : prod?.name) ?? "";
+        return { name, stock_quantity: s.stock_quantity };
+      });
+      return {
+        tool: "catalogo_stock_almacen",
+        title: `Existencias en ${almacen}`,
+        columns: [
+          { key: "name", label: "Producto" },
+          { key: "stock_quantity", label: "Existencia", kind: "number" },
+        ],
+        rows,
+        total: `${rows.length} producto(s) con stock en ${almacen}`,
+        link: { href: "/catalogo", label: "Ver catálogo" },
+      };
+    },
+  },
+
+  // 15 ─ Portafolios por zona
+  {
+    name: "portafolios_listar",
+    description: "Lista los portafolios de vinos en PDF por zona (Tijuana, Vallarta, La Paz, Los Cabos), con su enlace.",
+    input_schema: {
+      type: "object",
+      properties: { zona: { type: "string", enum: ["tijuana", "vallarta", "la-paz", "los-cabos"] } },
+    },
+    async run(ctx, p): Promise<ToolResult> {
+      const ZONA_LABEL: Record<string, string> = { tijuana: "Tijuana", vallarta: "Vallarta", "la-paz": "La Paz", "los-cabos": "Los Cabos" };
+      let q = ctx.supabase.from("portafolios").select("zona, nombre_archivo, pdf_url");
+      if (str(p.zona)) q = q.eq("zona", str(p.zona));
+      const { data } = await q;
+      const rows = (data ?? []).map((r) => ({
+        zona: ZONA_LABEL[r.zona] ?? r.zona,
+        archivo: r.nombre_archivo ?? "—",
+        pdf: r.pdf_url ?? "—",
+      }));
+      return {
+        tool: "portafolios_listar",
+        title: "Portafolios por zona",
+        columns: [
+          { key: "zona", label: "Zona" },
+          { key: "archivo", label: "Archivo" },
+          { key: "pdf", label: "PDF" },
+        ],
+        rows,
+        total: `${rows.length} portafolio(s)`,
+        link: { href: "/portafolios", label: "Ver portafolios" },
+        note: rows.length ? undefined : "Aún no hay portafolios cargados.",
       };
     },
   },
