@@ -14,13 +14,18 @@ export default async function CatalogoPage() {
     supabase.from("products").select("*").order("supplier").order("name"),
     supabase
       .from("product_warehouse_stock")
-      .select("product_id, warehouse, stock_quantity"),
+      .select("product_id, warehouse, stock_quantity, last_update"),
   ]);
 
   // product_id → { almacén: existencia } para el desglose en la tabla
   const warehouseStock: Record<string, Record<string, number>> = {};
+  // almacén → última fecha de actualización del inventario (la más reciente)
+  const warehouseUpdated: Record<string, string> = {};
   for (const r of warehouseRows ?? []) {
     (warehouseStock[r.product_id] ??= {})[r.warehouse] = r.stock_quantity;
+    if (r.last_update && (!warehouseUpdated[r.warehouse] || r.last_update > warehouseUpdated[r.warehouse])) {
+      warehouseUpdated[r.warehouse] = r.last_update;
+    }
   }
 
   // Productos en riesgo de quiebre (modelo de reabasto). Solo admin: la vista de
@@ -38,6 +43,7 @@ export default async function CatalogoPage() {
       <ProductsListClient
         products={data ?? []}
         warehouseStock={warehouseStock}
+        warehouseUpdated={warehouseUpdated}
         riskIds={riskIds}
         isAdmin={!!isAdmin}
       />

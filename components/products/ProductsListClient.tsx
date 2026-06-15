@@ -31,7 +31,7 @@ import { StockBadge } from "./StockBadge";
 import { WAREHOUSES, WAREHOUSE_SHORT } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import { PRODUCT_CATEGORIES, type Product } from "@/types/database";
 
 const ALL = "_all";
@@ -39,12 +39,15 @@ const ALL = "_all";
 export function ProductsListClient({
   products,
   warehouseStock = {},
+  warehouseUpdated = {},
   riskIds = [],
   isAdmin,
 }: {
   products: Product[];
   // product_id → { almacén: existencia } (carga vía Importar Excel → Inventario por almacén)
   warehouseStock?: Record<string, Record<string, number>>;
+  // almacén → última fecha de actualización del inventario de ese almacén
+  warehouseUpdated?: Record<string, string>;
   // product_ids en riesgo de quiebre (modelo de reabasto, ver /restock/sugerencias)
   riskIds?: string[];
   isAdmin: boolean;
@@ -188,6 +191,13 @@ export function ProductsListClient({
             ))}
           </SelectContent>
         </Select>
+        {warehouse !== ALL && (
+          <span className="self-center text-xs text-muted-foreground">
+            {warehouseUpdated[warehouse]
+              ? `Inventario actualizado: ${formatDate(warehouseUpdated[warehouse])}`
+              : "Sin fecha de actualización"}
+          </span>
+        )}
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input
             type="checkbox"
