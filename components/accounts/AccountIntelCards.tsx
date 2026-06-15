@@ -18,7 +18,12 @@ const CHURN_VARIANT: Record<ChurnStatus, "success" | "warning" | "danger" | "mut
 export function ChurnCard({ churn, trend }: { churn: ChurnResult; trend?: { period: string; amount: number }[] }) {
   const money = (n: number) =>
     new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
-  const monthShort = (p: string) => new Date(p).toLocaleDateString("es-MX", { month: "short" });
+  // Parsea "YYYY-MM-DD" como fecha local (no UTC) para que el mes no se corra
+  // uno hacia atrás en zonas con offset negativo (p.ej. Mazatlán UTC-7).
+  const monthShort = (p: string) => {
+    const [y, m] = p.split("-").map(Number);
+    return new Date(y, (m || 1) - 1, 1).toLocaleDateString("es-MX", { month: "short" });
+  };
 
   return (
     <Card>
