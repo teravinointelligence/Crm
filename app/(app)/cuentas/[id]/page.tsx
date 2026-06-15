@@ -15,6 +15,7 @@ import { ChurnCard, CrossSellCard } from "@/components/accounts/AccountIntelCard
 import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
 import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
+import { ImportPedidosCuenta } from "@/components/accounts/ImportPedidosCuenta";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
@@ -275,6 +276,9 @@ export default async function CuentaDetailPage({
               <Button asChild variant="outline">
                 <Link href={`/cartera/${account.id}`}>Ver estado de cuenta</Link>
               </Button>
+              {canEditAccount && (
+                <ImportPedidosCuenta accountId={account.id} repId={account.assigned_rep_id} />
+              )}
               {(balance?.total_facturado ?? 0) > 0 && (
                 <Button asChild variant="outline">
                   <a href={`/api/cartera/${account.id}/pdf`} target="_blank" rel="noreferrer">
@@ -386,7 +390,20 @@ export default async function CuentaDetailPage({
         </TabsContent>
 
         <TabsContent value="pedidos">
-          <OrdersSection orders={orderList} />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg">Pedidos y cotizaciones</h3>
+              <div className="flex flex-wrap gap-2">
+                {canEditAccount && (
+                  <ImportPedidosCuenta accountId={account.id} repId={account.assigned_rep_id} />
+                )}
+                <Button asChild variant="accent">
+                  <Link href={`/pedidos/nuevo?account=${account.id}`}>Nueva cotización</Link>
+                </Button>
+              </div>
+            </div>
+            <OrdersSection orders={orderList} />
+          </div>
         </TabsContent>
 
         <TabsContent value="consignaciones">
