@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConsignacionActions } from "@/components/consignaciones/ConsignacionActions";
+import { AplicarRetiroButton } from "@/components/consignaciones/AplicarRetiroButton";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -320,16 +321,35 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
                     <th className="px-4 py-2 text-left">Fecha</th>
                     <th className="px-4 py-2 text-right">Unidades</th>
                     <th className="px-4 py-2 text-left">Estado</th>
+                    <th className="px-4 py-2 text-left">Inventario</th>
                     <th className="px-4 py-2 text-right">PDF</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {retiros.map((r) => (
+                  {retiros.map((r) => {
+                    const aplicado =
+                      r.estado === "recogido" ||
+                      !!consignacion.notas?.includes(`Retiro ${r.numero_retiro ?? r.id.slice(0, 8)} aplicado`);
+                    const aplicable = !aplicado && r.estado !== "cancelado";
+                    return (
                     <tr key={r.id} className="border-t hover:bg-muted/20">
                       <td className="px-4 py-2 whitespace-nowrap font-medium">{r.numero_retiro ?? r.id.slice(0, 8)}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{formatDate(r.fecha)}</td>
                       <td className="px-4 py-2 text-right">{r.total_unidades ?? 0}</td>
                       <td className="px-4 py-2 text-xs">{r.estado}</td>
+                      <td className="px-4 py-2">
+                        {aplicado ? (
+                          <span className="inline-flex items-center text-xs text-emerald-700">Aplicado ✓</span>
+                        ) : aplicable ? (
+                          <AplicarRetiroButton
+                            retiroId={r.id}
+                            folio={r.numero_retiro ?? r.id.slice(0, 8)}
+                            unidades={Number(r.total_unidades ?? 0)}
+                          />
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-right">
                         <a
                           href={`/api/consignaciones/retiros/${r.id}/pdf`}
@@ -341,7 +361,8 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
                         </a>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
