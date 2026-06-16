@@ -1,13 +1,23 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { toast } from "sonner";
+import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { TableScroll } from "@/components/ui/table-scroll";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { createClient } from "@/lib/supabase/client";
 import { formatCurrency } from "@/lib/utils";
 import type { MonthlySale } from "@/types/database";
 
@@ -18,8 +28,29 @@ type Props = {
 };
 
 export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
+  const router = useRouter();
+  const supabase = createClient();
   const [query, setQuery] = useState("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
   const repName = useMemo(() => new Map(reps.map((r) => [r.id, r.full_name])), [reps]);
+
+  // Asigna vendedor a una cuenta sin uno: persiste en la cuenta (lo heredan
+  // futuras importaciones) y en la fila de ventas actual (refleja al instante).
+  const handleAssign = async (sale: MonthlySale, repId: string) => {
+    setPendingId(sale.id);
+    const [accRes, salesRes] = await Promise.all([
+      supabase.from("accounts").update({ assigned_rep_id: repId }).eq("id", sale.account_id),
+      supabase.from("monthly_sales").update({ sales_rep_id: repId }).eq("id", sale.id),
+    ]);
+    setPendingId(null);
+    const error = accRes.error ?? salesRes.error;
+    if (error) {
+      toast.error("No se pudo asignar el vendedor", { description: error.message });
+      return;
+    }
+    toast.success(`Asignado a ${repName.get(repId) ?? "vendedor"}`);
+    router.refresh();
+  };
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -75,7 +106,34 @@ export function MonthlySalesDetail({ sales, reps, isAdmin }: Props) {
                       {v.client_name ?? "—"}
                     </Link>
                   </td>
-                  {isAdmin && <td className="px-4 py-2 text-muted-foreground">{v.sales_rep_id ? repName.get(v.sales_rep_id) ?? "—" : "—"}</td>}
+                  {isAdmin && (
+                    <td className="px-4 py-2 text-muted-foreground">
+                      {v.sales_rep_id ? (
+                        repName.get(v.sales_rep_id) ?? "—"
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <Select
+                            disabled={pendingId === v.id}
+                            onValueChange={(repId) => handleAssign(v, repId)}
+                          >
+                            <SelectTrigger className="h-8 w-44">
+                              <SelectValue placeholder="Asignar vendedor…" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {reps.map((r) => (
+                                <SelectItem key={r.id} value={r.id}>
+                                  {r.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {pendingId === v.id && (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-right">{formatCurrency(v.venta_bruta)}</td>
                   <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(v.descuento)}</td>
                   <td className="px-4 py-2 text-right">{formatCurrency(v.neto_desc)}</td>

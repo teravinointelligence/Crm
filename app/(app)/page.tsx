@@ -26,6 +26,9 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
+import { TeamActivityBoard } from "@/components/dashboard/TeamActivityBoard";
+import { SugerenciasIA } from "@/components/dashboard/SugerenciasIA";
+import { ComisionCard } from "@/components/dashboard/ComisionCard";
 import { formatCurrency, formatDate, formatBirthday } from "@/lib/utils";
 import { OnlinePill } from "@/components/equipo/OnlinePill";
 import { staleUrgency } from "@/lib/colors";
@@ -266,6 +269,11 @@ export default async function DashboardPage() {
         return `${meses[m - 1]} ${y}`;
       })()
     : null;
+  // Ventas del último periodo cargado, ya acotadas al vendedor por RLS. Se
+  // muestra como KPI solo en el panel del vendedor (el admin tiene /ventas).
+  const ventasMesTotal = ventasRows
+    .filter((v) => v.period === ventasPeriod)
+    .reduce((s, v) => s + Number(v.venta_bruta ?? 0), 0);
 
   // Top vinos: preferimos ventas reales (monthly_sales_items del último periodo).
   // Si no hay detalle de producto cargado, caemos a pedidos cerrados del CRM.
@@ -326,6 +334,16 @@ export default async function DashboardPage() {
   const atRiskCount = isAdmin ? (await getAtRiskProductIds(supabase)).size : 0;
   // Cuentas activas con caída de compra (churn relativo a su propio patrón).
   const churnRows = isAdmin ? (await loadChurnRanking(supabase)).slice(0, 6) : [];
+
+  // Mis cuentas activas sin actividad reciente (30+ días) — KPI del vendedor.
+  // RLS (v_account_last_activity es security_invoker) lo acota a sus cuentas.
+  const inactiveCount = isAdmin
+    ? 0
+    : ((await supabase
+        .from("v_account_last_activity")
+        .select("account_id", { count: "exact", head: true })
+        .eq("status", "activo")
+        .or(`last_activity_date.is.null,last_activity_date.lt.${staleISO}`)).count ?? 0);
 
   const churnVariant: Record<ChurnStatus, "danger" | "warning" | "muted"> = {
     sin_facturacion: "danger",
@@ -457,17 +475,37 @@ export default async function DashboardPage() {
           label="Actividades del mes"
           value={activitiesMonthRes.count?.toLocaleString("es-MX") ?? "0"}
         />
-        <KpiCard
-          icon={FileText}
-          label="Pipeline en cotizaciones"
-          value={formatCurrency(pipelineTotal)}
-        />
-        <KpiCard
-          icon={TrendingUp}
-          label="Cerrado este mes"
-          value={formatCurrency(closedTotal)}
-          accent
-        />
+        {isAdmin ? (
+          <>
+            <KpiCard
+              icon={FileText}
+              label="Pipeline en cotizaciones"
+              value={formatCurrency(pipelineTotal)}
+            />
+            <KpiCard
+              icon={TrendingUp}
+              label="Cerrado este mes"
+              value={formatCurrency(closedTotal)}
+              accent
+            />
+          </>
+        ) : (
+          <>
+            <KpiCard
+              icon={TrendingUp}
+              label={ventasPeriodLabel ? `Ventas ${ventasPeriodLabel}` : "Ventas del mes"}
+              value={formatCurrency(ventasMesTotal)}
+              accent
+              href="/ventas"
+            />
+            <KpiCard
+              icon={AlarmClock}
+              label="Cuentas inactivas (30+ días)"
+              value={inactiveCount.toLocaleString("es-MX")}
+              danger={inactiveCount > 0}
+            />
+          </>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -484,12 +522,14 @@ export default async function DashboardPage() {
           danger={carteraVencida > 0}
           href="/cartera"
         />
-        <KpiCard
-          icon={PackageCheck}
-          label={isAdmin ? "Restocks por revisar" : "Mis restocks enviados"}
-          value={(restockPendingRes.count ?? restockPending.length).toLocaleString("es-MX")}
-          href="/restock"
-        />
+        {isAdmin && (
+          <KpiCard
+            icon={PackageCheck}
+            label="Restocks por revisar"
+            value={(restockPendingRes.count ?? restockPending.length).toLocaleString("es-MX")}
+            href="/restock"
+          />
+        )}
         {isAdmin && (
           <KpiCard
             icon={Banknote}
@@ -500,6 +540,10 @@ export default async function DashboardPage() {
           />
         )}
       </div>
+
+      <ComisionCard />
+
+      <SugerenciasIA />
 
       {(isAdmin && (samplePending.length > 0 || restockPending.length > 0 || supplierDue.length > 0)) && (
         <div className="grid gap-6 lg:grid-cols-2">
@@ -544,6 +588,8 @@ export default async function DashboardPage() {
           )}
         </div>
       )}
+
+      {isAdmin && <TeamActivityBoard />}
 
       <div className="space-y-3">
         <h2 className="font-display text-xl">Calendario de actividades</h2>

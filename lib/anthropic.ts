@@ -491,3 +491,73 @@ export async function generateNextBestAction(
     accion: raw?.accion?.trim() || "Contactar al cliente para revisar su situación.",
   };
 }
+
+// ---------------------------------------------------------------------------
+// Actividades sugeridas — la lista de "qué hacer hoy" para UN vendedor. El
+// CÓDIGO detecta los pendientes reales de su cartera (cuentas sin contactos,
+// sin actividad, prospectos por visitar, clientes que cayeron); el LLM solo
+// ELIGE las más valiosas, las ordena y las redacta como acciones claras. Elige
+// únicamente de la lista dada (se validan los ids): no inventa cuentas.
+// ---------------------------------------------------------------------------
+
+const SUGERENCIAS_SYSTEM =
+  "Eres un coach de ventas de TERAVINO (distribuidora de vinos y licores en México). " +
+  "Recibes la lista de PENDIENTES detectados en la cartera de un vendedor. " +
+  "Eliges y priorizas las acciones MÁS VALIOSAS para hoy y las redactas en español, " +
+  "claras, breves y accionables, en segunda persona (tutéalo). No inventes cuentas ni " +
+  "datos: usa solo las que se te dan, referenciadas por su id. Devuelve SOLO JSON.";
+
+export type ActivityCandidateForLLM = {
+  id: string; // account_id
+  cuenta: string; // business_name
+  region: string | null;
+  tipo: string; // kind: churn | prospecto | sin_actividad | sin_contactos
+  detalle: string; // hechos: "Sin actividad hace 45 d", "cayó 60% vs su promedio"…
+};
+
+export async function generateSuggestedActivities(input: {
+  vendedor: string;
+  candidatos: ActivityCandidateForLLM[];
+  max?: number;
+}): Promise<{ id: string; titulo: string; motivo: string }[]> {
+  if (!input.candidatos.length) return [];
+  const max = input.max ?? 6;
+
+  const { text } = await callClaude({
+    system: SUGERENCIAS_SYSTEM,
+    maxTokens: 1200,
+    content: [
+      {
+        type: "text",
+        text:
+          `VENDEDOR: ${input.vendedor}\n` +
+          `PENDIENTES DETECTADOS EN SU CARTERA (elige y prioriza hasta ${max}):\n` +
+          JSON.stringify(input.candidatos, null, 1) +
+          "\n\nDevuelve un objeto JSON:\n" +
+          '{ "sugerencias": [ { "id": string (uno de los ids dados),\n' +
+          '  "titulo": string (acción concreta, ej. "Agenda una visita a X" o "Agrega contactos de X"),\n' +
+          '  "motivo": string (una frase: por qué conviene hacerlo ahora) } ] }\n' +
+          `Ordena de más a menos importante. Máximo ${max}. No repitas la misma cuenta. ` +
+          "Prioriza reactivar clientes que cayeron y atender prospectos olvidados; luego completar datos faltantes.",
+      },
+    ],
+  });
+
+  type Raw = { sugerencias?: { id?: string; titulo?: string; motivo?: string }[] };
+  const raw = safeJson<Raw>(text);
+  const known = new Set(input.candidatos.map((c) => c.id));
+  const seen = new Set<string>();
+  const out: { id: string; titulo: string; motivo: string }[] = [];
+  for (const s of raw?.sugerencias ?? []) {
+    const id = String(s.id ?? "");
+    if (!known.has(id) || seen.has(id)) continue; // nunca ids inventados ni repetidos
+    seen.add(id);
+    out.push({
+      id,
+      titulo: s.titulo?.trim() || "Contactar al cliente",
+      motivo: s.motivo?.trim() || "",
+    });
+    if (out.length >= max) break;
+  }
+  return out;
+}

@@ -73,6 +73,7 @@ export type Database = {
           account_id: string;
           birthday: string | null;
           created_at: string | null;
+          created_by: string | null;
           email: string | null;
           full_name: string;
           id: string;

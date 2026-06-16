@@ -20,9 +20,9 @@ import {
   Users,
   Calendar as CalendarIcon,
   Flag,
+  Check,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 type ApiActivity = {
   id: string;
@@ -184,22 +185,37 @@ export function ActivityCalendar({
   const totalRealizadas = activities.filter((a) => a.activity_date.slice(0, 7) === monthParam).length;
   const totalProximos = activities.filter((a) => a.next_step_date && a.next_step_date.slice(0, 7) === monthParam).length;
 
+  const selectedLabel = selectedDay
+    ? (() => {
+        const [yy, mm, dd] = selectedDay.split("-").map(Number);
+        return `${dd} de ${MESES[mm - 1]} ${yy}`;
+      })()
+    : "";
+
   return (
-    <Card>
-      <CardContent className="space-y-4 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-xl">{MESES[month]} {year}</h2>
-            {!loading && (
-              <span className="text-xs text-muted-foreground">
-                {totalRealizadas} realizadas · {totalProximos} próximas
-              </span>
+    <Card className="overflow-hidden">
+      <CardContent className="space-y-4 p-4 sm:p-5">
+        {/* Encabezado */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="font-display text-2xl leading-none">
+              {MESES[month]} <span className="text-muted-foreground">{year}</span>
+            </h2>
+            {!loading && !error && (
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                <span className="inline-flex items-center gap-1 rounded-full bg-brand-carmesi/10 px-2 py-0.5 font-medium text-brand-carmesi">
+                  <Check className="h-3 w-3" /> {totalRealizadas} realizadas
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 font-medium text-amber-800">
+                  <Flag className="h-3 w-3" /> {totalProximos} próximas
+                </span>
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             {isAdmin && reps.length > 0 && (
               <Select value={repFilter} onValueChange={setRepFilter}>
-                <SelectTrigger className="h-8 w-44 text-xs">
+                <SelectTrigger className="h-9 w-44 text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -210,36 +226,59 @@ export function ActivityCalendar({
                 </SelectContent>
               </Select>
             )}
-            <Button variant="outline" size="sm" onClick={goToday}>Hoy</Button>
-            <Button variant="ghost" size="icon" onClick={goPrev} aria-label="Mes anterior">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" onClick={goNext} aria-label="Mes siguiente">
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center rounded-lg border bg-card p-0.5 shadow-sm">
+              <button
+                type="button"
+                onClick={goPrev}
+                aria-label="Mes anterior"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={goToday}
+                className="rounded-md px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Hoy
+              </button>
+              <button
+                type="button"
+                onClick={goNext}
+                aria-label="Mes siguiente"
+                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
-        </div>
-
-        {/* Leyenda */}
-        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <span className="inline-block h-2 w-2 rounded-full bg-brand-carmesi" /> Realizada
-          </span>
-          <span className="flex items-center gap-1">
-            <Flag className="h-3 w-3 text-amber-600" /> Próximo paso
-          </span>
         </div>
 
         {error ? (
           <p className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
         ) : (
-          <>
-            <div className="grid grid-cols-7 gap-1 text-center text-xs text-muted-foreground">
-              {DIAS.map((d) => <div key={d} className="py-1 font-medium">{d}</div>)}
+          <div className="overflow-hidden rounded-xl border shadow-sm">
+            {/* Cabecera de días */}
+            <div className="grid grid-cols-7 border-b bg-muted/40 text-center text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {DIAS.map((d, i) => (
+                <div key={d} className={cn("py-2.5", i >= 5 && "text-brand-carmesi/60")}>
+                  {d}
+                </div>
+              ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
+            {/* Cuadrícula */}
+            <div className={cn("grid grid-cols-7 transition-opacity", loading && "opacity-40")}>
               {cells.map((day, i) => {
-                if (day === null) return <div key={`pad-${i}`} />;
+                const col = i % 7;
+                const weekend = col >= 5;
+                if (day === null) {
+                  return (
+                    <div
+                      key={`pad-${i}`}
+                      className="min-h-[4.75rem] border-b border-r bg-muted/10 [&:nth-child(7n)]:border-r-0"
+                    />
+                  );
+                }
                 const dayStr = `${monthParam}-${String(day).padStart(2, "0")}`;
                 const events = eventsByDay.get(dayStr) ?? [];
                 const realizadas = events.filter((e) => e.kind === "realizada").length;
@@ -252,41 +291,54 @@ export function ActivityCalendar({
                     type="button"
                     onClick={() => setSelectedDay(isSelected ? null : dayStr)}
                     disabled={loading}
-                    className={[
-                      "flex min-h-[3.5rem] flex-col items-start gap-1 rounded-md border p-1.5 text-left transition",
-                      isSelected ? "border-brand-carmesi ring-1 ring-brand-carmesi" : "hover:border-brand-carmesi/50",
-                      isToday ? "bg-brand-carmesi/5" : "",
-                      events.length ? "" : "opacity-60",
-                    ].join(" ")}
+                    className={cn(
+                      "group relative flex min-h-[4.75rem] flex-col gap-1 border-b border-r p-1.5 text-left transition-colors [&:nth-child(7n)]:border-r-0",
+                      weekend && "bg-muted/15",
+                      isToday && !isSelected && "bg-brand-carmesi/5",
+                      isSelected && "bg-brand-carmesi/10 ring-1 ring-inset ring-brand-carmesi",
+                      !loading && !isSelected && "hover:bg-brand-carmesi/5",
+                    )}
                   >
-                    <span className={`text-xs ${isToday ? "font-bold text-brand-carmesi" : ""}`}>{day}</span>
-                    <div className="flex flex-wrap gap-0.5">
-                      {realizadas > 0 && (
-                        <span className="flex h-4 items-center gap-0.5 rounded-full bg-brand-carmesi px-1 text-[10px] font-medium text-white">
-                          {realizadas}
-                        </span>
+                    <span
+                      className={cn(
+                        "flex h-6 w-6 items-center justify-center rounded-full text-xs",
+                        isToday ? "bg-brand-carmesi font-semibold text-white" : "text-foreground/70",
                       )}
-                      {proximos > 0 && (
-                        <span className="flex h-4 items-center gap-0.5 rounded-full bg-amber-100 px-1 text-[10px] font-medium text-amber-800">
-                          <Flag className="h-2.5 w-2.5" />{proximos}
-                        </span>
-                      )}
-                    </div>
+                    >
+                      {day}
+                    </span>
+                    {(realizadas > 0 || proximos > 0) && (
+                      <div className="mt-auto flex flex-wrap gap-1">
+                        {realizadas > 0 && (
+                          <span className="inline-flex h-5 items-center gap-0.5 rounded-md bg-brand-carmesi px-1.5 text-[10px] font-semibold text-white">
+                            <Check className="h-2.5 w-2.5" />
+                            {realizadas}
+                          </span>
+                        )}
+                        {proximos > 0 && (
+                          <span className="inline-flex h-5 items-center gap-0.5 rounded-md bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-800">
+                            <Flag className="h-2.5 w-2.5" />
+                            {proximos}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
-          </>
+          </div>
         )}
 
         {/* Panel del día seleccionado */}
         {selectedDay && (
-          <div className="space-y-2 rounded-md border bg-muted/20 p-3">
-            <h3 className="text-sm font-medium">
-              {(() => {
-                const [yy, mm, dd] = selectedDay.split("-").map(Number);
-                return `${dd} de ${MESES[mm - 1]} ${yy}`;
-              })()}
+          <div className="space-y-2 rounded-xl border bg-muted/20 p-3">
+            <h3 className="flex items-center gap-2 text-sm font-medium">
+              <CalendarIcon className="h-4 w-4 text-brand-carmesi" />
+              {selectedLabel}
+              <span className="ml-auto text-xs font-normal text-muted-foreground">
+                {selectedEvents.length} {selectedEvents.length === 1 ? "actividad" : "actividades"}
+              </span>
             </h3>
             {selectedEvents.length === 0 ? (
               <p className="text-xs text-muted-foreground">Sin actividades este día.</p>
@@ -295,17 +347,29 @@ export function ActivityCalendar({
                 {selectedEvents.map((e, idx) => {
                   const a = e.activity;
                   const Icon = TYPE_ICON[a.activity_type ?? "visita"] ?? CalendarCheck2;
+                  const proximo = e.kind === "proximo";
                   return (
                     <li key={`${a.id}-${e.kind}-${idx}`}>
                       <Link
                         href={`/cuentas/${a.account_id}?tab=actividades`}
-                        className="flex items-start gap-2 rounded-md border bg-card p-2 text-sm hover:border-brand-carmesi"
+                        className="flex items-stretch gap-2.5 overflow-hidden rounded-lg border bg-card text-sm transition-colors hover:border-brand-carmesi"
                       >
-                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-brand-carmesi" />
-                        <div className="min-w-0">
+                        <span
+                          className={cn("w-1 shrink-0", proximo ? "bg-amber-400" : "bg-brand-carmesi")}
+                          aria-hidden
+                        />
+                        <span
+                          className={cn(
+                            "mt-2 flex h-7 w-7 shrink-0 items-center justify-center rounded-full",
+                            proximo ? "bg-amber-100 text-amber-700" : "bg-brand-carmesi/10 text-brand-carmesi",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <div className="min-w-0 flex-1 py-2 pr-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{a.accounts?.business_name ?? "—"}</span>
-                            {e.kind === "proximo" ? (
+                            {proximo ? (
                               <Badge variant="warning">Próximo paso</Badge>
                             ) : (
                               <Badge variant="muted">{TYPE_LABEL[a.activity_type ?? "visita"] ?? "Actividad"}</Badge>
@@ -315,7 +379,7 @@ export function ActivityCalendar({
                             )}
                           </div>
                           <p className="truncate text-xs text-muted-foreground">
-                            {e.kind === "proximo"
+                            {proximo
                               ? (a.next_step ?? "Seguimiento pendiente")
                               : (a.outcome ?? a.notes ?? TYPE_LABEL[a.activity_type ?? "visita"])}
                           </p>
