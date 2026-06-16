@@ -229,6 +229,11 @@ export function ProductsListClient({
                 <Link2 className="mr-1 h-4 w-4" /> Códigos CONTPAQ
               </Link>
             </Button>
+            <Button asChild variant="outline">
+              <Link href="/catalogo/proveedores">
+                <Tags className="mr-1 h-4 w-4" /> Cargar proveedores
+              </Link>
+            </Button>
             <Button asChild>
               <Link href="/catalogo/nuevo">
                 <Plus className="mr-1 h-4 w-4" /> Nuevo producto

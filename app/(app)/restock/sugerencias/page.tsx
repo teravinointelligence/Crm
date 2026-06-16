@@ -50,8 +50,16 @@ export default async function SugerenciasRestockPage() {
         <h1 className="font-display text-3xl">Sugerencias de reabasto</h1>
         <p className="text-sm text-muted-foreground">
           Productos que van a quebrar stock antes de poder reabastecer, según su velocidad
-          de venta, stock actual y lead time. Revisa, ajusta y conviértelos en un pedido de
-          restock (entra a la bandeja de revisión). El modelo es transparente: cada fila explica su porqué.
+          de venta, stock actual y lead time. Se agrupan por <b>proveedor</b> para que cada pedido
+          de restock se consolide en una sola orden. Revisa, ajusta y conviértelos en un pedido
+          (entra a la bandeja de revisión). El modelo es transparente: cada fila explica su porqué.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          ¿Ves proveedores sueltos o incompletos?{" "}
+          <Link href="/catalogo/proveedores" className="text-brand-carmesi underline-offset-2 hover:underline">
+            Carga el proveedor real de cada producto
+          </Link>{" "}
+          para que se agrupen bien.
         </p>
       </div>
 

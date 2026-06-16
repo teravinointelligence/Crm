@@ -110,7 +110,7 @@ export function ReposicionDialog({ consignacion }: { consignacion: Base44Consign
       }
       const d = (await res.json()) as { numero_factura: string };
       toast.success(`Reposición creada en Reparto (${d.numero_factura})`, {
-        description: "Queda pendiente de asignar chofer en el módulo de Reparto.",
+        description: "El pedido quedó registrado en el módulo de Reparto.",
       });
       setOpen(false);
       router.refresh();
@@ -129,8 +129,7 @@ export function ReposicionDialog({ consignacion }: { consignacion: Base44Consign
         <DialogHeader>
           <DialogTitle>Solicitar reposición</DialogTitle>
           <DialogDescription>
-            Crea un pedido en el módulo de Reparto para resurtir producto. Queda pendiente
-            de asignar chofer.
+            Crea un pedido en el módulo de Reparto para resurtir producto.
           </DialogDescription>
         </DialogHeader>
 
