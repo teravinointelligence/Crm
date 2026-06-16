@@ -39,9 +39,8 @@ const KIND_META: Record<string, { icon: React.ComponentType<{ className?: string
   sin_contactos: { icon: UserPlus, label: "Falta contacto", variant: "muted" },
 };
 
-const CACHE_KEY = "sugerencias-ia";
-
-export function SugerenciasIA() {
+export function SugerenciasIA({ repId }: { repId: string }) {
+  const cacheKey = `sugerencias-ia-${repId}`;
   const [items, setItems] = useState<Sugerencia[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +51,7 @@ export function SugerenciasIA() {
     const today = new Date().toISOString().slice(0, 10);
     if (!force) {
       try {
-        const cached = JSON.parse(sessionStorage.getItem(CACHE_KEY) || "null");
+        const cached = JSON.parse(sessionStorage.getItem(cacheKey) || "null");
         if (cached && cached.date === today) {
           setItems(cached.items as Sugerencia[]);
           setLoading(false);
@@ -69,7 +68,7 @@ export function SugerenciasIA() {
       const sugerencias = (data.sugerencias ?? []) as Sugerencia[];
       setItems(sugerencias);
       try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify({ date: today, items: sugerencias }));
+        sessionStorage.setItem(cacheKey, JSON.stringify({ date: today, items: sugerencias }));
       } catch {
         /* sessionStorage lleno/no disponible: no es crítico */
       }
