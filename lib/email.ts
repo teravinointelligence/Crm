@@ -21,6 +21,8 @@ export type SendEmailInput = {
   replyTo?: string;
   cc?: string | string[];
   attachments?: EmailAttachment[];
+  /** Cabeceras extra (p. ej. In-Reply-To / References para enhebrar la respuesta). */
+  headers?: Record<string, string>;
 };
 
 /** Remitente de cobranza. Configurable por env; default cobranza@teravino.com. */
@@ -64,6 +66,7 @@ export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> 
       ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       ...(input.cc ? { cc: Array.isArray(input.cc) ? input.cc : [input.cc] } : {}),
       ...(input.attachments?.length ? { attachments: input.attachments } : {}),
+      ...(input.headers && Object.keys(input.headers).length ? { headers: input.headers } : {}),
     }),
     cache: "no-store",
   });
