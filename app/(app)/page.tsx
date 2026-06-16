@@ -543,7 +543,7 @@ export default async function DashboardPage() {
 
       <ComisionCard />
 
-      <SugerenciasIA />
+      <SugerenciasIA repId={rep.id} />
 
       {(isAdmin && (samplePending.length > 0 || restockPending.length > 0 || supplierDue.length > 0)) && (
         <div className="grid gap-6 lg:grid-cols-2">
