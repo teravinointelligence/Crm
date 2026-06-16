@@ -37,7 +37,19 @@ export async function updateSession(request: NextRequest) {
   // Los crons de Vercel llegan SIN sesión (sin cookie): no deben redirigirse a
   // /login. Se auto-protegen con CRON_SECRET en su propio handler.
   const isCron = path.startsWith("/api/cron");
-  const isPublic = isAuthRoute || isCron || path.startsWith("/_next") || path === "/favicon.ico";
+  // El webhook de correo entrante (Resend Inbound) llega SIN sesión; se
+  // auto-protege verificando la firma del webhook en su propio handler.
+  const isInbound = path.startsWith("/api/inbound");
+  // Estado de cuenta público por token (link a clientes que no son usuarios del
+  // CRM): se auto-protege validando el token en su propio handler.
+  const isEstadoPublico = path.startsWith("/estado") || path.startsWith("/api/estado");
+  const isPublic =
+    isAuthRoute ||
+    isCron ||
+    isInbound ||
+    isEstadoPublico ||
+    path.startsWith("/_next") ||
+    path === "/favicon.ico";
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

@@ -6,21 +6,14 @@ import { canSeeFinance } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { TableScroll } from "@/components/ui/table-scroll";
-import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
-import { Pager, PAGE_SIZE } from "@/components/ui/pagination";
-import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
+import { CarteraTable, type CarteraRow } from "@/components/cartera/CarteraTable";
 import { CobranzaEmails } from "@/components/cartera/CobranzaEmails";
 import { formatCurrency } from "@/lib/utils";
 import type { AccountBalance } from "@/types/database";
 
 export const metadata = { title: "Cartera — TERAVINO CRM" };
 
-export default async function CarteraPage({
-  searchParams,
-}: {
-  searchParams: { page?: string };
-}) {
+export default async function CarteraPage() {
   const supabase = createClient();
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
@@ -58,10 +51,21 @@ export default async function CarteraPage({
     { facturado: 0, pagado: 0, pendiente: 0, vencido: 0 },
   );
 
-  // Paginación por searchParams (los KPIs de arriba siguen sumando todo).
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const page = Math.min(Math.max(1, Number(searchParams.page) || 1), pageCount);
-  const pagedRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  // Filas enriquecidas para la tabla (buscador + paginación viven en el cliente).
+  const carteraRows: CarteraRow[] = rows.map((b) => ({
+    accountId: b.account_id,
+    businessName: b.business_name,
+    clientNumber: clientNum.get(b.account_id) ?? null,
+    region: b.region,
+    vendedor: b.assigned_rep_id ? repName.get(b.assigned_rep_id) ?? null : null,
+    esSocio: b.es_socio,
+    totalFacturado: b.total_facturado,
+    totalPagado: b.total_pagado,
+    saldoPendiente: b.saldo_pendiente,
+    saldoVencido: b.saldo_vencido,
+    diasVencido: b.dias_vencido,
+    facturasAbiertas: b.facturas_abiertas,
+  }));
 
   return (
     <div className="space-y-6">
@@ -134,95 +138,8 @@ export default async function CarteraPage({
           }
         />
       ) : (
-        <TableScroll stickyRight>
-          <table className="min-w-full text-sm">
-            <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">Región</th>
-                <th className="px-4 py-3">Vendedor</th>
-                <th className="px-4 py-3 text-right">Facturado</th>
-                <th className="px-4 py-3 text-right">Pagado</th>
-                <th className="px-4 py-3 text-right">Pendiente</th>
-                <th className="px-4 py-3 text-right">Vencido</th>
-                <th className="px-4 py-3 text-center">Facturas</th>
-                <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pagedRows.map((b) => (
-                <tr
-                  key={b.account_id}
-                  className="border-b last:border-b-0 hover:bg-muted/30"
-                >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/cartera/${b.account_id}`}
-                      className="font-medium hover:text-brand-carmesi"
-                    >
-                      {b.business_name}
-                    </Link>
-                    {b.es_socio && (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
-                        Socio · sin vencido
-                      </span>
-                    )}
-                    {clientNum.get(b.account_id) && (
-                      <div className="text-xs text-muted-foreground">
-                        # {clientNum.get(b.account_id)}
-                      </div>
-                    )}
-                    <div className="mt-1">
-                      <SemaforoBadge
-                        saldoPendiente={b.saldo_pendiente ?? 0}
-                        saldoVencido={b.saldo_vencido ?? 0}
-                        diasVencido={b.dias_vencido}
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {b.region ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {b.assigned_rep_id ? repName.get(b.assigned_rep_id) ?? "—" : "—"}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {formatCurrency(b.total_facturado)}
-                  </td>
-                  <td className="px-4 py-3 text-right text-muted-foreground">
-                    {formatCurrency(b.total_pagado)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-medium">
-                    {formatCurrency(b.saldo_pendiente)}
-                  </td>
-                  <td
-                    className={`px-4 py-3 text-right ${
-                      (b.saldo_vencido ?? 0) > 0 ? "font-medium text-red-600" : "text-muted-foreground"
-                    }`}
-                  >
-                    {formatCurrency(b.saldo_vencido)}
-                  </td>
-                  <td className="px-4 py-3 text-center text-muted-foreground">
-                    {b.facturas_abiertas ?? 0}
-                  </td>
-                  <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
-                    <Button asChild size="sm" variant="ghost">
-                      <Link href={`/cartera/${b.account_id}`}>Estado de cuenta</Link>
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </TableScroll>
+        <CarteraTable rows={carteraRows} />
       )}
-
-      <Pager
-        page={page}
-        pageCount={pageCount}
-        total={rows.length}
-        hrefFor={(p) => `/cartera?page=${p}`}
-      />
     </div>
   );
 }

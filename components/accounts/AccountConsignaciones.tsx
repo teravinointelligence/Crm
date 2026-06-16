@@ -21,12 +21,68 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/utils";
+import { normalizeClientNumber } from "@/lib/excel/parseCartera";
 
 type Props = {
   clientNumber: string | null;
+  businessName: string;
+  fiscalName: string | null;
   isAdmin: boolean;
   repEmail: string;
 };
+
+/** Normaliza un nombre para comparar (minúsculas, sin acentos, espacios colapsados). */
+function normName(s?: string | null): string {
+  return (s ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Encuentra el Cliente de Base44 de una cuenta del CRM. Cruza primero por
+ * numero_cliente exacto (caso común y barato); si no, lista los clientes y
+ * empata por numero_cliente normalizado (ignora ceros/".0") o por nombre /
+ * razón social normalizados. Así una consignación conecta con su ficha aunque
+ * el Cliente en Base44 no tenga el # de cliente bien capturado.
+ */
+async function findBase44Cliente(
+  clientNumber: string | null,
+  businessName: string,
+  fiscalName: string | null,
+): Promise<Base44Cliente | null> {
+  if (clientNumber) {
+    const direct = await base44
+      .entity<Base44Cliente>("Cliente")
+      .list({ q: { numero_cliente: clientNumber }, limit: 1 });
+    if (direct[0]) return direct[0];
+  }
+
+  const cnNorm = normalizeClientNumber(clientNumber);
+  const bn = normName(businessName);
+  const fn = normName(fiscalName);
+  if (!cnNorm && !bn && !fn) return null;
+
+  const all = await base44.entity<Base44Cliente>("Cliente").list({ limit: 2000 });
+  // Empate de nombre: igualdad normalizada o contención (tolera sufijos fiscales
+  // tipo "SA DE CV"). El guard de longitud (≥10) evita falsos positivos por
+  // nombres cortos.
+  const nameHit = (candidate: string, target: string) => {
+    if (!candidate || !target) return false;
+    if (candidate === target) return true;
+    return target.length >= 10 && (candidate.includes(target) || target.includes(candidate));
+  };
+  return (
+    all.find((c) => {
+      if (cnNorm && normalizeClientNumber(c.numero_cliente) === cnNorm) return true;
+      const cn = normName(c.nombre);
+      const cr = normName(c.razon_social);
+      return nameHit(cn, bn) || nameHit(cr, bn) || nameHit(cn, fn) || nameHit(cr, fn);
+    }) ?? null
+  );
+}
 
 const CONS_ESTADO_LABEL: Record<Base44Consignacion["estado"], string> = {
   pendiente: "Pendiente",
@@ -60,25 +116,18 @@ const TOMA_ESTADO_VARIANT: Record<
   anulado: "danger",
 };
 
-export async function AccountConsignaciones({ clientNumber, isAdmin, repEmail }: Props) {
-  if (!clientNumber) {
-    return (
-      <EmptyState
-        icon={HandCoins}
-        title="Cuenta sin # cliente CONTPAQ i"
-        description="Esta cuenta no tiene número de cliente CONTPAQ i asignado, así que no se puede cruzar con TERAVINO Flow. Asígnale uno desde Cuentas → Sincronizar # cliente."
-      />
-    );
-  }
-
-  // Buscar el Cliente de Base44 por numero_cliente.
+export async function AccountConsignaciones({
+  clientNumber,
+  businessName,
+  fiscalName,
+  isAdmin,
+  repEmail,
+}: Props) {
+  // Buscar el Cliente de Base44 por numero_cliente, con respaldo por nombre.
   let cliente: Base44Cliente | null = null;
   let loadError: string | null = null;
   try {
-    const matches = await base44
-      .entity<Base44Cliente>("Cliente")
-      .list({ q: { numero_cliente: clientNumber }, limit: 1 });
-    cliente = matches[0] ?? null;
+    cliente = await findBase44Cliente(clientNumber, businessName, fiscalName);
   } catch (e) {
     loadError = e instanceof Error ? e.message : String(e);
   }
@@ -102,7 +151,7 @@ export async function AccountConsignaciones({ clientNumber, isAdmin, repEmail }:
       <EmptyState
         icon={HandCoins}
         title="Esta cuenta no está en TERAVINO Flow"
-        description={`No encontré un Cliente con numero_cliente="${clientNumber}" en Base44. Si el cliente debería tener consignaciones, agrégalo en TERAVINO Flow.`}
+        description={`No encontré un Cliente que cruce por # cliente (${clientNumber ?? "sin #"}) ni por nombre ("${businessName}") en Base44. Si debería tener consignaciones, revisa que el Cliente en TERAVINO Flow tenga el mismo nombre o número.`}
       />
     );
   }

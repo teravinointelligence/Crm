@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { FileText, Wallet, Wine, FlaskConical, CalendarCheck2 } from "lucide-react";
+import { FileText, Wallet, Wine, FlaskConical, CalendarCheck2, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -15,6 +15,7 @@ import { ChurnCard, CrossSellCard } from "@/components/accounts/AccountIntelCard
 import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
 import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
+import { ImportPedidosCuenta } from "@/components/accounts/ImportPedidosCuenta";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
@@ -32,6 +33,14 @@ import type {
 
 const CLOSED_STATUSES = ["aceptada", "facturada", "entregada"];
 
+const INVOICE_STATUS_VARIANT: Record<string, "success" | "warning" | "danger" | "muted"> = {
+  pagada: "success",
+  pagada_parcial: "warning",
+  pendiente: "warning",
+  vencida: "danger",
+  cancelada: "muted",
+};
+
 export default async function CuentaDetailPage({
   params,
   searchParams,
@@ -42,7 +51,7 @@ export default async function CuentaDetailPage({
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
-  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "consignaciones", "acuerdos", "info"];
+  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "reparto", "consignaciones", "acuerdos", "info"];
   const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
@@ -56,6 +65,7 @@ export default async function CuentaDetailPage({
     { data: contacts },
     { data: activities },
     { data: orders },
+    { data: recentInvoices },
     { data: rep },
     { data: balance },
     { data: wines },
@@ -78,6 +88,12 @@ export default async function CuentaDetailPage({
       .select("*")
       .eq("account_id", params.id)
       .order("order_date", { ascending: false }),
+    supabase
+      .from("invoices")
+      .select("invoice_number, invoice_date, total, status")
+      .eq("account_id", params.id)
+      .order("invoice_date", { ascending: false })
+      .limit(6),
     account.assigned_rep_id
       ? supabase
           .from("sales_reps")
@@ -114,10 +130,20 @@ export default async function CuentaDetailPage({
     .order("supplier")
     .order("name");
 
-  // Pedidos reales del módulo Reparto (facturas), cruzados por RFC contra
-  // reparto.clientes (96 de 99 clientes de Reparto cruzan por RFC). Si la
-  // cuenta no tiene RFC o no está en Reparto, la sección cae a las
-  // cotizaciones del CRM como antes.
+  // "Últimas facturas": de la cartera (tabla invoices), misma fuente que la
+  // Tendencia de compra y el saldo, para que el dashboard sea consistente.
+  type FacturaReciente = {
+    invoice_number: string;
+    invoice_date: string;
+    total: number | null;
+    status: string | null;
+  };
+  const facturasRecientes = (recentInvoices ?? []) as FacturaReciente[];
+
+  // Pedidos del módulo Reparto (entregas), para la pestaña "Reparto". Se cruzan
+  // por RFC contra reparto.clientes; si la cuenta no tiene RFC cruzable, por
+  // nombre exacto. Es una vista operativa de entregas, independiente de la
+  // facturación (cartera) que alimenta el resto del dashboard.
   type PedidoReparto = {
     id: string;
     numero_factura: string;
@@ -127,8 +153,6 @@ export default async function CuentaDetailPage({
   };
   let pedidosReparto: PedidoReparto[] = [];
   const accountRfc = (account.rfc as string | null)?.trim().toUpperCase();
-  // Los RFC genéricos del SAT (público en general / extranjero) los comparten
-  // muchas cuentas: cruzarlos mezclaría pedidos de otros clientes.
   const RFC_GENERICOS = ["XAXX010101000", "XEXX010101000"];
   const rfcCruzable = accountRfc && !RFC_GENERICOS.includes(accountRfc);
   try {
@@ -141,8 +165,6 @@ export default async function CuentaDetailPage({
       clienteIds = ((clientesReparto ?? []) as { id: string }[]).map((c) => c.id);
     }
     if (!clienteIds.length) {
-      // Respaldo: nombre exacto (case-insensitive) — cubre cuentas con RFC
-      // genérico o sin RFC, p.ej. VENTAS TIJUANA MOSTRADOR.
       const { data: porNombre } = await repartoAdmin
         .from("clientes")
         .select("id")
@@ -155,12 +177,11 @@ export default async function CuentaDetailPage({
         .select("id, numero_factura, fecha, estatus, total")
         .in("cliente_id", clienteIds)
         .order("fecha", { ascending: false })
-        .limit(6);
+        .limit(30);
       pedidosReparto = (pedidos ?? []) as PedidoReparto[];
     }
   } catch {
-    // Sin SUPABASE_SERVICE_ROLE_KEY (p.ej. entorno local incompleto) la
-    // ficha sigue funcionando con las cotizaciones del CRM.
+    // Sin SUPABASE_SERVICE_ROLE_KEY la ficha sigue funcionando sin esta pestaña.
   }
 
   const orderList = (orders ?? []) as Order[];
@@ -208,6 +229,7 @@ export default async function CuentaDetailPage({
           <TabsTrigger value="contactos">Contactos ({contacts?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="actividades">Actividades ({activityList.length})</TabsTrigger>
           <TabsTrigger value="pedidos">Pedidos ({orderList.length})</TabsTrigger>
+          <TabsTrigger value="reparto">Reparto ({pedidosReparto.length})</TabsTrigger>
           <TabsTrigger value="consignaciones">Consignaciones</TabsTrigger>
           <TabsTrigger value="acuerdos">Acuerdos ({agreementList.length})</TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
@@ -275,6 +297,9 @@ export default async function CuentaDetailPage({
               <Button asChild variant="outline">
                 <Link href={`/cartera/${account.id}`}>Ver estado de cuenta</Link>
               </Button>
+              {canEditAccount && (
+                <ImportPedidosCuenta accountId={account.id} repId={account.assigned_rep_id} />
+              )}
               {(balance?.total_facturado ?? 0) > 0 && (
                 <Button asChild variant="outline">
                   <a href={`/api/cartera/${account.id}/pdf`} target="_blank" rel="noreferrer">
@@ -304,62 +329,35 @@ export default async function CuentaDetailPage({
                 )}
               </div>
               <div className="space-y-3">
-                <h3 className="font-display text-lg">
-                  Últimos pedidos
-                  {pedidosReparto.length > 0 && (
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      · Reparto
-                    </span>
-                  )}
-                </h3>
-                {pedidosReparto.length ? (
+                <h3 className="font-display text-lg">Últimas facturas</h3>
+                {facturasRecientes.length ? (
                   <Card>
                     <CardContent className="space-y-2 p-4">
-                      {pedidosReparto.map((p) => (
+                      {facturasRecientes.map((f) => (
                         <Link
-                          key={p.id}
-                          href={`/reparto/pedidos/${p.id}`}
+                          key={f.invoice_number}
+                          href={`/cartera/${account.id}`}
                           className="flex items-center justify-between gap-2 rounded-md border bg-card p-3 hover:border-brand-carmesi"
                         >
                           <div className="min-w-0">
-                            <div className="truncate font-medium">{p.numero_factura}</div>
+                            <div className="truncate font-medium">{f.invoice_number}</div>
                             <div className="text-xs text-muted-foreground">
-                              {formatDate(p.fecha)}
+                              {formatDate(f.invoice_date)}
                             </div>
                           </div>
                           <div className="flex shrink-0 items-center gap-2">
-                            <Badge variant={ESTATUS_VARIANT[p.estatus] ?? "muted"}>
-                              {ESTATUS_LABEL[p.estatus] ?? p.estatus}
+                            <Badge variant={INVOICE_STATUS_VARIANT[f.status ?? ""] ?? "muted"}>
+                              {f.status ?? "—"}
                             </Badge>
-                            <span className="font-medium">{formatCurrency(p.total ?? 0)}</span>
+                            <span className="font-medium">{formatCurrency(f.total ?? 0)}</span>
                           </div>
-                        </Link>
-                      ))}
-                    </CardContent>
-                  </Card>
-                ) : orderList.length ? (
-                  <Card>
-                    <CardContent className="space-y-2 p-4">
-                      {orderList.slice(0, 6).map((o) => (
-                        <Link
-                          key={o.id}
-                          href={`/pedidos/${o.id}`}
-                          className="flex items-center justify-between gap-2 rounded-md border bg-card p-3 hover:border-brand-carmesi"
-                        >
-                          <div>
-                            <div className="font-medium">{o.order_number}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {o.order_type} · {formatDate(o.order_date)} · {o.status}
-                            </div>
-                          </div>
-                          <span className="font-medium">{formatCurrency(o.total)}</span>
                         </Link>
                       ))}
                     </CardContent>
                   </Card>
                 ) : (
                   <Card>
-                    <CardContent className="p-4 text-sm text-muted-foreground">Sin pedidos aún.</CardContent>
+                    <CardContent className="p-4 text-sm text-muted-foreground">Sin facturas aún.</CardContent>
                   </Card>
                 )}
               </div>
@@ -386,12 +384,31 @@ export default async function CuentaDetailPage({
         </TabsContent>
 
         <TabsContent value="pedidos">
-          <OrdersSection orders={orderList} />
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="font-display text-lg">Pedidos y cotizaciones</h3>
+              <div className="flex flex-wrap gap-2">
+                {canEditAccount && (
+                  <ImportPedidosCuenta accountId={account.id} repId={account.assigned_rep_id} />
+                )}
+                <Button asChild variant="accent">
+                  <Link href={`/pedidos/nuevo?account=${account.id}`}>Nueva cotización</Link>
+                </Button>
+              </div>
+            </div>
+            <OrdersSection orders={orderList} />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="reparto">
+          <RepartoSection pedidos={pedidosReparto} />
         </TabsContent>
 
         <TabsContent value="consignaciones">
           <AccountConsignaciones
             clientNumber={account.client_number ?? null}
+            businessName={account.business_name as string}
+            fiscalName={(account.fiscal_name as string | null) ?? null}
             isAdmin={me.role === "admin"}
             repEmail={me.email}
           />
@@ -533,6 +550,66 @@ function OrdersSection({ orders }: { orders: Order[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function RepartoSection({
+  pedidos,
+}: {
+  pedidos: { id: string; numero_factura: string; fecha: string; estatus: PedidoEstatus; total: number | null }[];
+}) {
+  if (!pedidos.length) {
+    return (
+      <EmptyState
+        icon={Truck}
+        title="Sin entregas en Reparto"
+        description="Este cliente no tiene pedidos en el módulo de Reparto (se cruza por RFC o nombre)."
+      />
+    );
+  }
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">
+        Entregas del módulo Reparto (cruzadas por RFC/nombre). Es una vista
+        operativa, independiente de la facturación de cartera.
+      </p>
+      <div className="overflow-x-auto rounded-lg border bg-card">
+        <table className="min-w-full text-sm">
+          <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Factura</th>
+              <th className="px-4 py-3">Fecha</th>
+              <th className="px-4 py-3">Estatus</th>
+              <th className="px-4 py-3 text-right">Total</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {pedidos.map((p) => (
+              <tr key={p.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                <td className="px-4 py-3 font-medium">
+                  <Link href={`/reparto/pedidos/${p.id}`} className="hover:text-brand-carmesi">
+                    {p.numero_factura}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">{formatDate(p.fecha)}</td>
+                <td className="px-4 py-3">
+                  <Badge variant={ESTATUS_VARIANT[p.estatus] ?? "muted"}>
+                    {ESTATUS_LABEL[p.estatus] ?? p.estatus}
+                  </Badge>
+                </td>
+                <td className="px-4 py-3 text-right font-medium">{formatCurrency(p.total ?? 0)}</td>
+                <td className="px-4 py-3 text-right">
+                  <Button asChild size="sm" variant="ghost">
+                    <Link href={`/reparto/pedidos/${p.id}`}>Ver</Link>
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
