@@ -17,8 +17,6 @@ export const REQUISITOS_CONSIGNATARIO: RequisitoSeccion[] = [
       "Constancia de Situación Fiscal (RFC) vigente, emitida por el SAT.",
       "Identificación oficial vigente del representante legal (INE o pasaporte).",
       "Comprobante de domicilio del establecimiento, con antigüedad no mayor a 3 meses.",
-      "Acta constitutiva de la empresa (en caso de persona moral).",
-      "Poder notarial del representante legal (en caso de persona moral).",
       "Opinión de cumplimiento de obligaciones fiscales (32-D) en sentido positivo.",
       "Datos bancarios o carátula del estado de cuenta para domiciliación de pagos.",
       "Contrato de consignación TERAVINO firmado por el representante legal.",
