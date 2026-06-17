@@ -14,7 +14,18 @@ import { IVA_RATE } from "@/lib/pricing";
 import { parsePurchaseOrderExcel } from "@/lib/excel/parsePurchaseOrder";
 import type { Product } from "@/types/database";
 
-type Line = { key: string; product_id: string | null; product_name: string; qty: number; unit_cost: number; destination_region: string };
+type Line = { key: string; product_id: string | null; product_name: string; qty: number; unit_cost: number; destination_region: string; category: string | null; country: string | null };
+
+function multipleFor(category: string | null, country: string | null): number {
+  if (category === "cerveza") return 24;
+  if (country && country.toLowerCase() !== "méxico" && country.toLowerCase() !== "mexico") return 6;
+  return 12;
+}
+
+function roundUp(n: number, mult: number): number {
+  if (n <= 0) return mult;
+  return Math.ceil(n / mult) * mult;
+}
 
 const KNOWN_SUPPLIERS = ["Vernazza","Bruma","Vinaltura","Brewwines","Lechuza","Wendlandt","Discográfica Vinícola","Finca La Carrodilla","Philipponnat","Habla","La Crema"];
 
@@ -41,14 +52,19 @@ export function PurchaseOrderForm({
   const [supplier, setSupplier] = useState(initialSupplier ?? "");
   const [eta, setEta] = useState("");
   const [lines, setLines] = useState<Line[]>(
-    (initialLines ?? []).map((l) => ({
-      key: crypto.randomUUID(),
-      product_id: l.product_id,
-      product_name: l.product_name,
-      qty: l.qty,
-      unit_cost: 0,
-      destination_region: "",
-    })),
+    (initialLines ?? []).map((l) => {
+      const p = l.product_id ? products.find((x) => x.id === l.product_id) ?? null : null;
+      return {
+        key: crypto.randomUUID(),
+        product_id: l.product_id,
+        product_name: l.product_name,
+        qty: l.qty,
+        unit_cost: 0,
+        destination_region: "",
+        category: p?.category ?? null,
+        country: p?.country ?? null,
+      };
+    }),
   );
   const [query, setQuery] = useState("");
   const [ocFile, setOcFile] = useState<File | null>(null);
@@ -77,8 +93,12 @@ export function PurchaseOrderForm({
   const iva = Math.round(subtotal * IVA_RATE * 100) / 100;
   const total = Math.round((subtotal + iva) * 100) / 100;
 
-  const add = (p: Product) => { setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, qty: 1, unit_cost: 0, destination_region: "" }]); setQuery(""); };
-  const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", qty: 1, unit_cost: 0, destination_region: "" }]);
+  const add = (p: Product) => {
+    const mult = multipleFor(p.category ?? null, p.country ?? null);
+    setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, qty: mult, unit_cost: 0, destination_region: "", category: p.category ?? null, country: p.country ?? null }]);
+    setQuery("");
+  };
+  const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", qty: 1, unit_cost: 0, destination_region: "", category: null, country: null }]);
   const upd = (k: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === k ? { ...l, ...patch } : l)));
   const rm = (k: string) => setLines((prev) => prev.filter((l) => l.key !== k));
 
@@ -105,6 +125,8 @@ export function PurchaseOrderForm({
           qty: l.qty,
           unit_cost: l.unit_cost,
           destination_region: l.destination_region ?? "",
+          category: p?.category ?? null,
+          country: p?.country ?? null,
         };
       });
       setLines((prev) => [...prev, ...newLines]);
@@ -126,6 +148,16 @@ export function PurchaseOrderForm({
     if (!supplier.trim()) { toast.error("Indica el proveedor"); return; }
     if (!lines.length) { toast.error("Agrega al menos una línea"); return; }
     if (lines.some((l) => !l.product_name.trim() || l.qty <= 0)) { toast.error("Revisa nombre y cantidad"); return; }
+    const badMultiple = lines.find((l) => {
+      if (!l.product_id) return false;
+      const mult = multipleFor(l.category, l.country);
+      return l.qty % mult !== 0;
+    });
+    if (badMultiple) {
+      const mult = multipleFor(badMultiple.category, badMultiple.country);
+      toast.error(`Cantidad inválida: ${badMultiple.product_name}`, { description: `Debe ser múltiplo de ${mult}` });
+      return;
+    }
     startTransition(async () => {
       const { data: num, error: numErr } = await supabase.rpc("next_po_number");
       if (numErr || !num) { toast.error("No pudimos generar el número", { description: numErr?.message }); return; }
@@ -201,7 +233,28 @@ export function PurchaseOrderForm({
               {lines.map((l) => (
                 <tr key={l.key} className="border-b align-top">
                   <td className="py-2 pr-2"><Input value={l.product_name} onChange={(e) => upd(l.key, { product_name: e.target.value })} placeholder="Producto" /></td>
-                  <td className="py-2 pr-2"><Input type="number" min={1} value={l.qty} onChange={(e) => upd(l.key, { qty: Number(e.target.value) || 0 })} /></td>
+                  <td className="py-2 pr-2">
+                    {(() => {
+                      const mult = l.product_id ? multipleFor(l.category, l.country) : null;
+                      const invalid = mult !== null && l.qty > 0 && l.qty % mult !== 0;
+                      return (
+                        <div className="space-y-0.5">
+                          <Input
+                            type="number"
+                            min={mult ?? 1}
+                            step={mult ?? 1}
+                            value={l.qty}
+                            onChange={(e) => upd(l.key, { qty: Number(e.target.value) || 0 })}
+                            onBlur={(e) => {
+                              if (mult) upd(l.key, { qty: roundUp(Number(e.target.value) || 0, mult) });
+                            }}
+                            className={invalid ? "border-amber-500" : ""}
+                          />
+                          {mult && <p className="text-[10px] text-muted-foreground">×{mult}</p>}
+                        </div>
+                      );
+                    })()}
+                  </td>
                   <td className="py-2 pr-2"><Input type="number" min={0} step="0.01" value={l.unit_cost} onChange={(e) => upd(l.key, { unit_cost: Number(e.target.value) || 0 })} /></td>
                   <td className="py-2 pr-2"><Input value={l.destination_region} onChange={(e) => upd(l.key, { destination_region: e.target.value })} placeholder="región" /></td>
                   <td className="py-2 pr-2 text-right font-medium">{formatCurrency(l.qty * l.unit_cost)}</td>
