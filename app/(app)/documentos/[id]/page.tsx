@@ -13,6 +13,7 @@ import { formatDateTime } from "@/lib/utils";
 import { base44Docs, type Base44GeneratedDoc } from "@/lib/base44-docs";
 import { DocumentoStatusControl } from "@/components/documentos/DocumentoStatusControl";
 import { DeleteDocumentoButton } from "@/components/documentos/DeleteDocumentoButton";
+import { CompletarDocumentoForm } from "@/components/documentos/CompletarDocumentoForm";
 
 export const metadata = { title: "Documento — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -76,6 +77,10 @@ export default async function DocumentoDetallePage({ params }: { params: { id: s
       </div>
 
       <DocumentoStatusControl id={doc.id} status={doc.status ?? "borrador"} />
+
+      {(doc.status ?? "borrador") === "borrador" && (
+        <CompletarDocumentoForm docId={doc.id} content={doc.content} />
+      )}
 
       <Card>
         <CardContent className="p-6">

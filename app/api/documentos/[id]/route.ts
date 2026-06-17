@@ -14,19 +14,49 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   const rep = await getCurrentRep();
   if (!rep) return NextResponse.json({ error: "No autenticado" }, { status: 401 });
 
-  let body: { status?: string };
+  let body: { status?: string; content?: string };
   try {
-    body = (await req.json()) as { status?: string };
+    body = (await req.json()) as { status?: string; content?: string };
   } catch {
     return NextResponse.json({ error: "Body inválido (JSON)" }, { status: 400 });
   }
-  const status = body.status as DocStatus | undefined;
-  if (!status || !VALID.includes(status)) {
-    return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
+
+  const update: Partial<Base44GeneratedDoc> = {};
+
+  if (body.status !== undefined) {
+    const status = body.status as DocStatus;
+    if (!VALID.includes(status)) {
+      return NextResponse.json({ error: "Estado inválido" }, { status: 400 });
+    }
+    update.status = status;
+  }
+
+  if (body.content !== undefined) {
+    if (typeof body.content !== "string" || !body.content.trim()) {
+      return NextResponse.json({ error: "Contenido inválido" }, { status: 400 });
+    }
+    update.content = body.content;
+  }
+
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
+  }
+
+  // Verificar autoría (salvo admin).
+  const isAdmin = canAccessFacturacion(rep.role);
+  if (!isAdmin) {
+    try {
+      const doc = await base44Docs.entity<Base44GeneratedDoc>("GeneratedDocument").get(params.id);
+      if (doc.crm_rep_email !== rep.email) {
+        return NextResponse.json({ error: "No tienes permiso para editar este documento" }, { status: 403 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Documento no encontrado" }, { status: 404 });
+    }
   }
 
   try {
-    await base44Docs.entity<Base44GeneratedDoc>("GeneratedDocument").update(params.id, { status });
+    await base44Docs.entity<Base44GeneratedDoc>("GeneratedDocument").update(params.id, update);
     return NextResponse.json({ ok: true });
   } catch (e) {
     return NextResponse.json(
