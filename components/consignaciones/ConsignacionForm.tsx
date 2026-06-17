@@ -130,6 +130,11 @@ export function ConsignacionForm({
     [items],
   );
 
+  const totalEtiquetas = items.reduce((s, i) => s + (Number(i.cantidad) || 0), 0);
+  // Política de consignación: mínimo 10 etiquetas (sin bonificación de copeo en consignación).
+  const MINIMO_ETIQUETAS = 10;
+  const bajominimo = items.length > 0 && totalEtiquetas < MINIMO_ETIQUETAS;
+
   // Precio ≤ 0 bloquea el submit: no se crean consignaciones con total $0.00.
   const hasPrecioCero = items.some((i) => !(Number(i.precio_unitario) > 0));
   const canSubmit =
@@ -137,7 +142,8 @@ export function ConsignacionForm({
     !!fecha &&
     items.length > 0 &&
     items.every((i) => i.cantidad > 0 && i.precio_unitario > 0) &&
-    total > 0;
+    total > 0 &&
+    !bajominimo;
 
   const submit = () => {
     if (!canSubmit) {
@@ -149,6 +155,10 @@ export function ConsignacionForm({
       return;
     }
     startTransition(async () => {
+      if (bajominimo) {
+        toast.error(`Mínimo de consignación: 10 etiquetas (tienes ${totalEtiquetas})`);
+        return;
+      }
       const res = await fetch("/api/consignaciones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -353,6 +363,15 @@ export function ConsignacionForm({
                   </tr>
                 </tfoot>
               </table>
+            </div>
+          )}
+
+          {/* Política de consignación: mínimo 10 etiquetas */}
+          {items.length > 0 && (
+            <div className={`rounded-md border px-4 py-2.5 text-sm ${bajominimo ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-emerald-200 bg-emerald-50 text-emerald-800"}`}>
+              {bajominimo
+                ? `Mínimo de consignación: 10 etiquetas (faltan ${MINIMO_ETIQUETAS - totalEtiquetas})`
+                : `✓ ${totalEtiquetas} etiquetas`}
             </div>
           )}
 

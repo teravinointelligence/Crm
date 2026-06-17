@@ -26,6 +26,7 @@ import {
   Briefcase,
   Sparkles,
   Trophy,
+  Megaphone,
 } from "lucide-react";
 import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
@@ -56,6 +57,7 @@ export const navItems: Item[] = [
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
   { href: "/portafolios", label: "Portafolios", icon: Briefcase, portafolios: true },
+  { href: "/promociones", label: "Promociones", icon: Megaphone }, // siempre visible (todos los vendedores)
   // Cotizaciones y pedidos viven en una sola lista (orders.order_type); la
   // entrada vieja /cotizaciones redirige aquí. Compat: usuarios con el módulo
   // legacy "cotizaciones" habilitado también ven esta entrada (ver filtro abajo).
@@ -145,7 +147,9 @@ export function visibleNavItems({
           // …y el módulo de Muestras (coordina la entrega de muestras).
           (i.moduleKey === "muestras" && canViewMuestras(role)) ||
           // …y el portafolio de vinos por zona.
-          (i.portafolios === true && canViewPortafolios(role)),
+          (i.portafolios === true && canViewPortafolios(role)) ||
+          // …y Pedidos/Cotizaciones (crea cotizaciones para facturar consignaciones).
+          (i.moduleKey === "pedidos" && role === "jefe_logistica"),
       )
       .map(prune);
   }

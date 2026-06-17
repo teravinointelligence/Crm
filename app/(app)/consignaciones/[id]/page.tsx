@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertTriangle, ArrowLeft, Wine, Truck, User as UserIcon, Calendar, FileText, ClipboardList, Package, PackageX, FileDown, Plus } from "lucide-react";
+import { AgregarProductoDialog } from "@/components/consignaciones/AgregarProductoDialog";
 import { requireRep } from "@/lib/auth";
 import { canAccessFacturacion } from "@/lib/modules";
 import { createClient } from "@/lib/supabase/server";
@@ -15,6 +16,7 @@ import {
   type Base44Consignacion,
   type Base44TomaInventario,
   type Base44RetiroConsignacion,
+  type Base44Producto,
 } from "@/lib/base44";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -109,6 +111,14 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
     });
   } catch {
     // sin retiros
+  }
+
+  // Catálogo de productos Base44 para el dialog "Agregar producto".
+  let catalogoProductos: Base44Producto[] = [];
+  try {
+    catalogoProductos = await base44.entity<Base44Producto>("Producto").list({ limit: 500 });
+  } catch {
+    // Si falla, el botón igual aparece pero sin sugerencias de autocompletado.
   }
 
   return (
@@ -212,8 +222,13 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
 
       <Card>
         <CardContent className="p-0">
-          <div className="border-b p-4">
+          <div className="flex items-center justify-between border-b p-4">
             <h2 className="font-display text-lg">Productos consignados</h2>
+            <AgregarProductoDialog
+              consignacionId={consignacion.id}
+              productos={catalogoProductos}
+              etiquetasActuales={totalCantidad}
+            />
           </div>
           {items.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted-foreground">

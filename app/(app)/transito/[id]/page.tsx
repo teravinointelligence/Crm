@@ -45,10 +45,11 @@ export default async function PODetailPage({ params }: { params: { id: string } 
         {(po.shipping_carrier || po.tracking_number) && (
           <p className="text-sm text-muted-foreground">Embarque: {[po.shipping_carrier, po.tracking_number].filter(Boolean).join(" · ")}</p>
         )}
-        {admin && (po.oc_file_url || po.supplier_invoice_pdf_url) && (
+        {admin && (po.oc_file_url || po.supplier_invoice_pdf_url || po.supplier_invoice_xml_url) && (
           <div className="flex flex-wrap items-center gap-4 pt-2">
             {po.oc_file_url && <DocumentLink path={po.oc_file_url} label="OC (Excel)" />}
             {po.supplier_invoice_pdf_url && <DocumentLink path={po.supplier_invoice_pdf_url} label="Factura del proveedor (PDF)" />}
+            {po.supplier_invoice_xml_url && <DocumentLink path={po.supplier_invoice_xml_url} label="CFDI (XML)" />}
           </div>
         )}
       </div>

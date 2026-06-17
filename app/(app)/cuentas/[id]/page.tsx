@@ -17,6 +17,7 @@ import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
 import { ImportPedidosCuenta } from "@/components/accounts/ImportPedidosCuenta";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
+import { AccountProposals, type ProposalRow } from "@/components/accounts/AccountProposals";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
 import { repartoAdmin } from "@/lib/supabase-reparto";
@@ -51,7 +52,7 @@ export default async function CuentaDetailPage({
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
-  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "reparto", "consignaciones", "acuerdos", "info"];
+  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "reparto", "consignaciones", "acuerdos", "propuestas", "info"];
   const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
@@ -70,6 +71,7 @@ export default async function CuentaDetailPage({
     { data: balance },
     { data: wines },
     { data: agreementsRaw },
+    { data: proposalsRaw },
   ] = await Promise.all([
     supabase
       .from("contacts")
@@ -119,6 +121,11 @@ export default async function CuentaDetailPage({
       )
       .eq("account_id", params.id)
       .order("agreement_date", { ascending: false })
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("account_proposals")
+      .select("id, account_id, title, file_url, uploaded_by, created_at, rep:uploaded_by(full_name)")
+      .eq("account_id", params.id)
       .order("created_at", { ascending: false }),
   ]);
 
@@ -218,6 +225,16 @@ export default async function CuentaDetailPage({
   // monthly_sales(_items). Un solo load de hechos; el resumen LLM es on-demand.
   const facts = await loadAccountFacts(supabase, params.id);
 
+  const proposalList: ProposalRow[] = (proposalsRaw ?? []).map((p: any) => ({
+    id: p.id,
+    account_id: p.account_id,
+    title: p.title,
+    file_url: p.file_url,
+    uploaded_by: p.uploaded_by,
+    created_at: p.created_at,
+    rep_name: p.rep?.full_name ?? null,
+  }));
+
   return (
     <div className="space-y-6">
       <AccountHeader account={account as Account} rep={rep as SalesRep | null} />
@@ -232,6 +249,7 @@ export default async function CuentaDetailPage({
           <TabsTrigger value="reparto">Reparto ({pedidosReparto.length})</TabsTrigger>
           <TabsTrigger value="consignaciones">Consignaciones</TabsTrigger>
           <TabsTrigger value="acuerdos">Acuerdos ({agreementList.length})</TabsTrigger>
+          <TabsTrigger value="propuestas">Propuestas ({proposalList.length})</TabsTrigger>
           <TabsTrigger value="info">Info</TabsTrigger>
         </TabsList>
 
@@ -418,6 +436,15 @@ export default async function CuentaDetailPage({
           <AccountAgreements
             accountId={account.id}
             agreements={agreementList}
+            canEdit={canEditAccount}
+          />
+        </TabsContent>
+
+        <TabsContent value="propuestas">
+          <AccountProposals
+            accountId={account.id}
+            repId={me.id}
+            proposals={proposalList}
             canEdit={canEditAccount}
           />
         </TabsContent>

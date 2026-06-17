@@ -115,6 +115,10 @@ export async function updateSession(request: NextRequest) {
       const muestrasOk =
         canViewMuestras(rep.role) &&
         (path.startsWith("/muestras") || path.startsWith("/api/samples"));
+      // El jefe de logística también accede a Pedidos/Cotizaciones.
+      const pedidosOk =
+        rep.role === "jefe_logistica" &&
+        (path.startsWith("/pedidos") || path.startsWith("/api/orders"));
       const allowed =
         path.startsWith("/reparto") ||
         path.startsWith("/api/reparto") ||
@@ -124,7 +128,8 @@ export async function updateSession(request: NextRequest) {
         academyOk ||
         cuentasOk ||
         portafoliosOk ||
-        muestrasOk;
+        muestrasOk ||
+        pedidosOk;
       if (!allowed) {
         const url = request.nextUrl.clone();
         url.pathname = "/reparto/dashboard";
