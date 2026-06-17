@@ -20,6 +20,7 @@ import { AccountAgreements, type AgreementRow } from "@/components/accounts/Acco
 import { AccountProposals, type ProposalRow } from "@/components/accounts/AccountProposals";
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
+import { PedirRequisitosButton } from "@/components/consignaciones/PedirRequisitosButton";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -329,6 +330,7 @@ export default async function CuentaDetailPage({
                 <EnviarRecordatorioButton accountId={account.id} />
               )}
               <EnviarPortafolioButton accountId={account.id} />
+              <PedirRequisitosButton accountId={account.id} />
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">

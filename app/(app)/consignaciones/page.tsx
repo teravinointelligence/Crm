@@ -2,7 +2,7 @@
 // Scope: admin ve todo, vendedor ve solo las suyas (match por email).
 
 import Link from "next/link";
-import { Wine, Filter, Plus } from "lucide-react";
+import { Wine, Filter, Plus, FileDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { requireRep } from "@/lib/auth";
 import { canAccessFacturacion } from "@/lib/modules";
@@ -132,12 +132,20 @@ export default async function ConsignacionesPage({
               : `Tus consignaciones activas (${consignaciones.length}).`}
           </p>
         </div>
-        <Button asChild>
-          <Link href="/consignaciones/nueva">
-            <Plus className="mr-1 h-4 w-4" />
-            Nueva consignación
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline">
+            <a href="/api/consignaciones/requisitos/pdf" target="_blank" rel="noopener noreferrer">
+              <FileDown className="mr-1 h-4 w-4" />
+              Requisitos (PDF)
+            </a>
+          </Button>
+          <Button asChild>
+            <Link href="/consignaciones/nueva">
+              <Plus className="mr-1 h-4 w-4" />
+              Nueva consignación
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card>
