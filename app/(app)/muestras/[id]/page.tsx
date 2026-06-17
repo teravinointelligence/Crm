@@ -10,6 +10,7 @@ import { SampleReviewActions } from "@/components/samples/SampleReviewActions";
 import { SendSampleEmail } from "@/components/samples/SendSampleEmail";
 import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { CitaEvidence } from "@/components/samples/CitaEvidence";
+import { CancelSampleButton } from "@/components/samples/CancelSampleButton";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
@@ -78,6 +79,12 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   }
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
   const canExport = r.status === "aprobada" || r.status === "entregada";
+  const canEditRequest =
+    (r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id)) ||
+    (["enviada", "aprobada"].includes(r.status ?? "") && isAdmin);
+  const canCancel =
+    (["borrador", "enviada"].includes(r.status ?? "") && (isAdmin || rep.id === r.sales_rep_id)) ||
+    (r.status === "aprobada" && isAdmin);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -96,6 +103,12 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                 <Truck className="mr-1 h-3.5 w-3.5" /> Enviar al cliente{r.ship_date ? ` · ${formatDate(r.ship_date)}` : ""}
               </Badge>
             ) : null}
+            {canEditRequest && (
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/muestras/${r.id}/editar`}>Editar</Link>
+              </Button>
+            )}
+            {canCancel && <CancelSampleButton requestId={r.id} status={r.status ?? ""} />}
             {canExport && (
               <>
                 <Button asChild size="sm" variant="outline">

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { PackageCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -44,16 +45,25 @@ export function PurchaseOrderActions({
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const pdf = fd.get("inv_pdf");
+    const xml = fd.get("inv_xml");
     const hasPdf = pdf instanceof File && pdf.size > 0;
+    const hasXml = xml instanceof File && xml.size > 0;
     startTransition(async () => {
       let pdfPath: string | null = null;
+      let xmlPath: string | null = null;
       if (hasPdf) {
         if ((pdf as File).size > 15 * 1024 * 1024) { toast.error("El PDF supera 15 MB"); return; }
         pdfPath = `factura/${poId}/${Date.now()}-${sanitizeFilename((pdf as File).name)}`;
         const { error: upErr } = await supabase.storage.from("documentos").upload(pdfPath, pdf as File, { upsert: true });
         if (upErr) { toast.error("No pude subir el PDF", { description: upErr.message }); return; }
       }
-      const nextStatus = hasPdf
+      if (hasXml) {
+        if ((xml as File).size > 5 * 1024 * 1024) { toast.error("El XML supera 5 MB"); return; }
+        xmlPath = `factura/${poId}/${Date.now()}-${sanitizeFilename((xml as File).name)}`;
+        const { error: upErr } = await supabase.storage.from("documentos").upload(xmlPath, xml as File, { contentType: "text/xml", upsert: true });
+        if (upErr) { toast.error("No pude subir el XML", { description: upErr.message }); return; }
+      }
+      const nextStatus = (hasPdf || hasXml)
         ? (RECEIVED_STATES.includes(status) ? status : "en_transito")
         : (status === "borrador" || status === "enviada_proveedor" || status === "confirmada" ? "facturada" : status);
       const { error } = await supabase.from("purchase_orders").update({
@@ -61,11 +71,12 @@ export function PurchaseOrderActions({
         supplier_invoice_date: (fd.get("inv_date") as string) || null,
         supplier_invoice_due_date: (fd.get("inv_due") as string) || null,
         ...(pdfPath ? { supplier_invoice_pdf_url: pdfPath } : {}),
+        ...(xmlPath ? { supplier_invoice_xml_url: xmlPath } : {}),
         status: nextStatus,
       }).eq("id", poId);
       if (error) { toast.error("Error", { description: error.message }); return; }
       await supabase.rpc("refresh_po_payment_status", { p_po_id: poId });
-      toast.success(hasPdf ? "Factura cargada — OC en tránsito" : "Factura del proveedor registrada");
+      toast.success((hasPdf || hasXml) ? "Factura cargada — OC en tránsito" : "Factura del proveedor registrada");
       setInvOpen(false);
       router.refresh();
     });
@@ -113,7 +124,11 @@ export function PurchaseOrderActions({
               <div className="space-y-1.5">
                 <Label htmlFor="inv_pdf">PDF de la factura</Label>
                 <Input id="inv_pdf" name="inv_pdf" type="file" accept="application/pdf,.pdf" />
-                <p className="text-xs text-muted-foreground">Al adjuntar el PDF de la factura, la OC pasa a <strong>en tránsito</strong>.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="inv_xml">XML del CFDI</Label>
+                <Input id="inv_xml" name="inv_xml" type="file" accept=".xml,text/xml,application/xml" />
+                <p className="text-xs text-muted-foreground">Al adjuntar PDF o XML, la OC pasa a <strong>en tránsito</strong>.</p>
               </div>
               <div className="flex justify-end"><Button type="submit" disabled={pending}>{pending ? "Guardando…" : "Guardar"}</Button></div>
             </form>
@@ -153,6 +168,18 @@ export function PurchaseOrderActions({
               <div className="flex justify-end"><Button onClick={receive} disabled={pending}>Confirmar recepción</Button></div>
             </DialogContent>
           </Dialog>
+        )}
+
+        {status === "en_transito" && (
+          <Button
+            size="sm"
+            variant="default"
+            disabled={pending}
+            onClick={() => { if (confirm("¿Marcar esta OC como llegada? Esto la pondrá en recepción parcial.")) setStatus("recibida_parcial"); }}
+          >
+            <PackageCheck className="mr-1.5 h-4 w-4" />
+            Llegó
+          </Button>
         )}
 
         {status !== "cancelada" && status !== "recibida" && <Button size="sm" variant="destructive" disabled={pending} onClick={() => { if (confirm("¿Cancelar esta OC?")) setStatus("cancelada"); }}>Cancelar OC</Button>}

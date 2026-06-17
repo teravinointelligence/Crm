@@ -92,7 +92,7 @@ export function SampleReviewActions({
           <Button disabled={pending} onClick={() => setState("entregada")}>Marcar como entregada</Button>
         </div>
       )}
-      {(status === "entregada" || status === "rechazada") && (
+      {(status === "entregada" || status === "rechazada" || status === "cancelada") && (
         <p className="text-sm text-muted-foreground">Solicitud {status}. Sin acciones pendientes.</p>
       )}
     </CardContent></Card>
