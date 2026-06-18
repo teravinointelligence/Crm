@@ -43,7 +43,6 @@ export function ProductsListClient({
   warehouseUpdated = {},
   riskIds = [],
   isAdmin,
-  repId = "",
   canRequestTransfer = false,
 }: {
   products: Product[];
@@ -54,7 +53,6 @@ export function ProductsListClient({
   // product_ids en riesgo de quiebre (modelo de reabasto, ver /restock/sugerencias)
   riskIds?: string[];
   isAdmin: boolean;
-  repId?: string;
   // Vendedores (y admin) pueden solicitar transferencias entre almacenes.
   canRequestTransfer?: boolean;
 }) {
@@ -386,7 +384,6 @@ export function ProductsListClient({
                           <TransferRequestButton
                             productId={p.id}
                             productName={p.name}
-                            repId={repId}
                             stockByWarehouse={warehouseStock[p.id] ?? {}}
                           />
                         )}
