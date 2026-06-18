@@ -72,8 +72,9 @@ export function ProductsListClient({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
-      // Los descontinuados viven en su propia sección (/catalogo/descontinuados).
-      if (p.discontinued_at) return false;
+      // Descontinuados: visibles en liquidación mientras tengan stock; al
+      // agotarse desaparecen del catálogo (siguen en /catalogo/descontinuados).
+      if (p.discontinued_at && (p.stock_quantity ?? 0) <= 0) return false;
       if (!showInactive && !p.active) return false;
       if (supplier !== ALL && p.supplier !== supplier) return false;
       if (category !== ALL && p.category !== category) return false;
@@ -340,10 +341,16 @@ export function ProductsListClient({
                         Riesgo de quiebre
                       </Badge>
                     )}
-                    {!p.active && (
-                      <Badge variant="muted" className="ml-1">
-                        Inactivo
+                    {p.discontinued_at ? (
+                      <Badge variant="warning" className="ml-1">
+                        Liquidación · últimas botellas
                       </Badge>
+                    ) : (
+                      !p.active && (
+                        <Badge variant="muted" className="ml-1">
+                          Inactivo
+                        </Badge>
+                      )
                     )}
                     {warehouse === ALL && warehouseStock[p.id] && (
                       <div className="mt-1 whitespace-nowrap text-xs text-muted-foreground">

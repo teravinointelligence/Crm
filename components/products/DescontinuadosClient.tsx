@@ -10,7 +10,9 @@ import { TableScroll } from "@/components/ui/table-scroll";
 import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
+import { Badge } from "@/components/ui/badge";
 import { DiscontinueButton } from "./DiscontinueButton";
+import { StockBadge } from "./StockBadge";
 import { formatDate } from "@/lib/utils";
 import type { Product } from "@/types/database";
 
@@ -37,8 +39,10 @@ export function DescontinuadosClient({ products, repId }: { products: Product[];
         <div>
           <h1 className="font-display text-3xl">Productos descontinuados</h1>
           <p className="text-sm text-muted-foreground">
-            Productos retirados del catálogo. No aparecen en catálogo ni en pedidos. Puedes
-            reactivarlos cuando vuelvan a estar disponibles.
+            Productos que ya no se reabastecen. Si aún tienen stock siguen vendibles en
+            liquidación (últimas botellas) y aparecen en el catálogo con esa etiqueta; al
+            agotarse desaparecen del catálogo. Puedes reactivar uno cuando vuelva a estar
+            disponible.
           </p>
         </div>
         <Button asChild variant="outline">
@@ -82,6 +86,7 @@ export function DescontinuadosClient({ products, repId }: { products: Product[];
                 <th className="px-4 py-3">Producto</th>
                 <th className="px-4 py-3">Proveedor</th>
                 <th className="px-4 py-3">Categoría</th>
+                <th className="px-4 py-3">Stock / estado</th>
                 <th className="px-4 py-3">Descontinuado</th>
                 <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
               </tr>
@@ -100,6 +105,16 @@ export function DescontinuadosClient({ products, repId }: { products: Product[];
                   <td className="px-4 py-3 text-muted-foreground">{p.supplier}</td>
                   <td className="px-4 py-3 capitalize text-muted-foreground">
                     {p.category?.replace("_", " ") ?? "—"}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <StockBadge quantity={p.stock_quantity} minAlert={p.stock_min_alert} />
+                      {(p.stock_quantity ?? 0) > 0 ? (
+                        <Badge variant="warning">Liquidación</Badge>
+                      ) : (
+                        <Badge variant="muted">Agotado</Badge>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {p.discontinued_at ? formatDate(p.discontinued_at) : "—"}
