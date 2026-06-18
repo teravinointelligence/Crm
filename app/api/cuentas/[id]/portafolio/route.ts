@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { sendEmail, ventasFrom } from "@/lib/email";
+import { logClientEmail } from "@/lib/email-log";
 import { loadEnvioPortafolio, renderPortafolioEmail } from "@/lib/portafolios-email";
 
 export const runtime = "nodejs";
@@ -77,6 +78,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       html,
       from: ventasFrom(),
       replyTo: rep.email || undefined,
+    });
+    await logClientEmail(supabase, {
+      accountId: params.id,
+      kind: "portafolio",
+      subject,
+      recipients: to,
+      resendId: result.id,
+      sentBy: rep.id,
     });
     return NextResponse.json({ ok: true, id: result.id, to, zonaNombre: zona.nombre });
   } catch (e) {

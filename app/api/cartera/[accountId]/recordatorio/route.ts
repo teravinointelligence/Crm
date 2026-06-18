@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { sendEmail, cobranzaFrom } from "@/lib/email";
+import { logClientEmail } from "@/lib/email-log";
 import { buildRecordatorio } from "@/lib/cobranza-email";
 
 export const runtime = "nodejs";
@@ -41,6 +42,14 @@ export async function POST(_req: Request, { params }: { params: { accountId: str
       subject: r.subject,
       html: r.html,
       replyTo: cobranzaFrom().replace(/^.*<|>$/g, "").trim() || "cobranza@teravino.com",
+    });
+    await logClientEmail(supabase, {
+      accountId: params.accountId,
+      kind: "estado_cuenta",
+      subject: r.subject,
+      recipients: r.to,
+      resendId: result.id,
+      sentBy: rep.id,
     });
     return NextResponse.json({ ok: true, id: result.id, to: r.to, estado: r.estado });
   } catch (e) {

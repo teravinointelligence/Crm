@@ -11,6 +11,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { sendEmail, ventasFrom } from "@/lib/email";
+import { logClientEmail } from "@/lib/email-log";
 import { RequisitosConsignatarioPdf } from "@/components/consignaciones/RequisitosConsignatarioPdf";
 import {
   REQUISITOS_CONSIGNATARIO,
@@ -129,6 +130,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       from: ventasFrom(),
       replyTo: rep.email || undefined,
       attachments: [{ filename: "requisitos-consignacion.pdf", content: pdfBase64 }],
+    });
+    await logClientEmail(createClient(), {
+      accountId: params.id,
+      kind: "requisitos",
+      subject,
+      recipients: to,
+      resendId: result.id,
+      sentBy: rep.id,
     });
     return NextResponse.json({ ok: true, id: result.id, to });
   } catch (e) {
