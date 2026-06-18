@@ -24,7 +24,7 @@ import {
 
 export const PROMO_TYPE_LABELS: Record<string, string> = {
   descuento: "Descuento %",
-  bonificacion: "Bonificación (lleva X paga Y)",
+  bonificacion: "Promoción",
   paquete: "Paquete / Bundle",
   temporada: "Temporada",
   otro: "Otro",

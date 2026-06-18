@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { PromocionForm, PROMO_TYPE_LABELS, type PromoRow } from "./PromocionForm";
+import { EnviarPromoButton } from "./EnviarPromoButton";
 
 const TYPE_VARIANT: Record<string, "default" | "accent" | "success" | "warning" | "muted"> = {
   descuento: "success",
@@ -134,6 +135,11 @@ export function PromocionCard({
               </span>
             </div>
           )}
+
+          {/* Acciones: enviar a clientes (todos los roles) */}
+          <div className="flex flex-wrap gap-2 border-t pt-3">
+            <EnviarPromoButton promoId={promo.id} />
+          </div>
         </CardContent>
       </Card>
 

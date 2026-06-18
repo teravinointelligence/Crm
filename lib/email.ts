@@ -20,6 +20,7 @@ export type SendEmailInput = {
   from?: string;
   replyTo?: string;
   cc?: string | string[];
+  bcc?: string | string[];
   attachments?: EmailAttachment[];
   /** Cabeceras extra (p. ej. In-Reply-To / References para enhebrar la respuesta). */
   headers?: Record<string, string>;
@@ -65,6 +66,7 @@ export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> 
       html: input.html,
       ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       ...(input.cc ? { cc: Array.isArray(input.cc) ? input.cc : [input.cc] } : {}),
+      ...(input.bcc ? { bcc: Array.isArray(input.bcc) ? input.bcc : [input.bcc] } : {}),
       ...(input.attachments?.length ? { attachments: input.attachments } : {}),
       ...(input.headers && Object.keys(input.headers).length ? { headers: input.headers } : {}),
     }),
