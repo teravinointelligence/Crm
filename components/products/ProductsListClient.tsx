@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Search, Upload, Pencil, Tags, Wand2, Link2, Ban } from "lucide-react";
+import { Plus, Search, Upload, Pencil, Tags, Wand2, Link2, Ban, ArrowLeftRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -28,6 +28,7 @@ import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { StockBadge } from "./StockBadge";
+import { TransferRequestButton } from "./TransferRequestButton";
 import { WAREHOUSES, WAREHOUSE_SHORT } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
@@ -42,6 +43,8 @@ export function ProductsListClient({
   warehouseUpdated = {},
   riskIds = [],
   isAdmin,
+  repId = "",
+  canRequestTransfer = false,
 }: {
   products: Product[];
   // product_id → { almacén: existencia } (carga vía Importar Excel → Inventario por almacén)
@@ -51,7 +54,11 @@ export function ProductsListClient({
   // product_ids en riesgo de quiebre (modelo de reabasto, ver /restock/sugerencias)
   riskIds?: string[];
   isAdmin: boolean;
+  repId?: string;
+  // Vendedores (y admin) pueden solicitar transferencias entre almacenes.
+  canRequestTransfer?: boolean;
 }) {
+  const showActions = isAdmin || canRequestTransfer;
   const router = useRouter();
   const riskSet = useMemo(() => new Set(riskIds), [riskIds]);
   const supabase = createClient();
@@ -215,6 +222,13 @@ export function ProductsListClient({
             <Tags className="mr-1 h-4 w-4" /> Renombrar proveedor «{supplier}»
           </Button>
         )}
+        {canRequestTransfer && (
+          <Button asChild variant="outline">
+            <Link href="/catalogo/transferencias">
+              <ArrowLeftRight className="mr-1 h-4 w-4" /> Transferencias
+            </Link>
+          </Button>
+        )}
         {isAdmin && (
           <>
             <Button asChild variant="outline">
@@ -274,7 +288,7 @@ export function ProductsListClient({
           }
         />
       ) : (
-        <TableScroll stickyRight={isAdmin}>
+        <TableScroll stickyRight={showActions}>
           <table className="min-w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
               <tr>
@@ -286,7 +300,7 @@ export function ProductsListClient({
                 <th className="px-4 py-3">
                   {warehouse === ALL ? "Stock" : `Stock · ${warehouse}`}
                 </th>
-                {isAdmin && <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>}
+                {showActions && <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>}
               </tr>
             </thead>
             <tbody>
@@ -365,16 +379,28 @@ export function ProductsListClient({
                       </div>
                     )}
                   </td>
-                  {isAdmin && (
+                  {showActions && (
                     <td className={`px-4 py-3 text-right ${STICKY_CELL}`}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditing(p)}
-                        title="Editar proveedor / bodega"
-                      >
-                        <Pencil className="mr-1 h-3.5 w-3.5" /> Proveedor
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        {canRequestTransfer && (
+                          <TransferRequestButton
+                            productId={p.id}
+                            productName={p.name}
+                            repId={repId}
+                            stockByWarehouse={warehouseStock[p.id] ?? {}}
+                          />
+                        )}
+                        {isAdmin && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditing(p)}
+                            title="Editar proveedor / bodega"
+                          >
+                            <Pencil className="mr-1 h-3.5 w-3.5" /> Proveedor
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
