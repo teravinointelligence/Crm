@@ -1,9 +1,10 @@
 "use client";
 
-// Marca/desmarca un producto como descontinuado. Al descontinuar se pone
-// active=false y se sella discontinued_at/by; al reactivar se revierte.
-// Solo admin (RLS products_admin_write). Reusado en la ficha del producto y en
-// la lista de descontinuados.
+// Marca/desmarca un producto como descontinuado. Al descontinuar NO se toca
+// `active`: el producto sigue vendible mientras tenga stock (liquidación,
+// "últimas botellas") y solo se oculta del catálogo cuando se agota. Al
+// reactivar se limpia el estado. Solo admin (RLS products_admin_write).
+// Reusado en la ficha del producto y en la lista de descontinuados.
 
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -30,13 +31,18 @@ export function DiscontinueButton({
 
   const run = () => {
     if (!discontinued) {
-      if (!confirm(`¿Descontinuar "${productName}"? Saldrá del catálogo y de los pedidos.`)) return;
+      if (
+        !confirm(
+          `¿Descontinuar "${productName}"? Seguirá vendible en liquidación mientras tenga stock; se ocultará del catálogo al agotarse.`,
+        )
+      )
+        return;
     }
     startTransition(async () => {
       const supabase = createClient();
       const payload = discontinued
-        ? { active: true, discontinued_at: null, discontinued_by: null }
-        : { active: false, discontinued_at: new Date().toISOString(), discontinued_by: repId };
+        ? { discontinued_at: null, discontinued_by: null }
+        : { discontinued_at: new Date().toISOString(), discontinued_by: repId };
       const { error } = await supabase.from("products").update(payload).eq("id", productId);
       if (error) {
         toast.error(discontinued ? "No se pudo reactivar" : "No se pudo descontinuar", {

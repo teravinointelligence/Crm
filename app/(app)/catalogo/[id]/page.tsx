@@ -33,7 +33,12 @@ export default async function ProductDetailPage({
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-3xl">{product.name}</h1>
             {product.discontinued_at ? (
-              <Badge variant="danger">Descontinuado</Badge>
+              <>
+                <Badge variant="danger">Descontinuado</Badge>
+                {(product.stock_quantity ?? 0) > 0 && (
+                  <Badge variant="warning">Liquidación · últimas botellas</Badge>
+                )}
+              </>
             ) : (
               !product.active && <Badge variant="muted">Inactivo</Badge>
             )}
