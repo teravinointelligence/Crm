@@ -17,6 +17,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
 import { getCobranzaData, renderFactsHtml, renderFactsText, type Tono } from "@/lib/cobranza-data";
 import { sendEmail, cobranzaFrom } from "@/lib/email";
+import { logClientEmail } from "@/lib/email-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,6 +83,13 @@ export async function POST(req: Request, { params }: { params: { accountId: stri
       });
       sent_via = "resend";
       sent = true;
+      await logClientEmail(supabase, {
+        accountId: params.accountId,
+        kind: "cobranza",
+        subject: subject || `Estado de cuenta TERAVINO — ${d.cliente}`,
+        recipients: recipient,
+        sentBy: rep.id,
+      });
     } catch (e) {
       return NextResponse.json(
         { error: e instanceof Error ? e.message : "Error al enviar el correo." },

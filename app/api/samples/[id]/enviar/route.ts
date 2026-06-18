@@ -12,6 +12,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { sendEmail, ventasFrom } from "@/lib/email";
+import { logClientEmail } from "@/lib/email-log";
 import { buildMuestraEmail } from "@/lib/muestra-email";
 import { renderSamplePdf } from "@/lib/sample-pdf";
 
@@ -59,6 +60,19 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       attachments: [
         { filename: `${pdf.requestNumber}.pdf`, content: pdf.buffer.toString("base64") },
       ],
+    });
+    const { data: sr } = await supabase
+      .from("sample_requests")
+      .select("account_id")
+      .eq("id", params.id)
+      .maybeSingle();
+    await logClientEmail(supabase, {
+      accountId: (sr as { account_id?: string } | null)?.account_id ?? null,
+      kind: "muestra",
+      subject: built.subject,
+      recipients: to,
+      resendId: result.id,
+      sentBy: rep.id,
     });
     return NextResponse.json({ ok: true, id: result.id, to });
   } catch (e) {

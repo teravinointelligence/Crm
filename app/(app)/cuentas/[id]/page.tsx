@@ -21,6 +21,7 @@ import { AccountProposals, type ProposalRow } from "@/components/accounts/Accoun
 import { EnviarRecordatorioButton } from "@/components/cartera/EnviarRecordatorioButton";
 import { EnviarPortafolioButton } from "@/components/portafolios/EnviarPortafolioButton";
 import { PedirRequisitosButton } from "@/components/consignaciones/PedirRequisitosButton";
+import { AccountEmailLog, type LastSend } from "@/components/accounts/AccountEmailLog";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -226,6 +227,21 @@ export default async function CuentaDetailPage({
   // monthly_sales(_items). Un solo load de hechos; el resumen LLM es on-demand.
   const facts = await loadAccountFacts(supabase, params.id);
 
+  // Bitácora de envíos a este cliente → último por tipo.
+  const { data: emailLogRaw } = await supabase
+    .from("client_email_log")
+    .select("kind, created_at, recipient_count")
+    .eq("account_id", params.id)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const lastSends: LastSend[] = [];
+  const seenKinds = new Set<string>();
+  for (const row of (emailLogRaw ?? []) as LastSend[]) {
+    if (seenKinds.has(row.kind)) continue;
+    seenKinds.add(row.kind);
+    lastSends.push(row);
+  }
+
   const proposalList: ProposalRow[] = (proposalsRaw ?? []).map((p: any) => ({
     id: p.id,
     account_id: p.account_id,
@@ -333,6 +349,8 @@ export default async function CuentaDetailPage({
               <EnviarPortafolioButton accountId={account.id} />
               <PedirRequisitosButton accountId={account.id} />
             </div>
+
+            <AccountEmailLog sends={lastSends} />
 
             <div className="grid gap-6 lg:grid-cols-2">
               <div className="space-y-3">

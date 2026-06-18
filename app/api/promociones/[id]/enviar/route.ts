@@ -14,6 +14,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { sendEmail, ventasFrom } from "@/lib/email";
+import { logClientEmail } from "@/lib/email-log";
 import { PromoFlyerPdf, type PromoFlyerData } from "@/components/promociones/PromoFlyerPdf";
 
 export const runtime = "nodejs";
@@ -128,22 +129,31 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     ? body.extraEmails.filter((x: unknown): x is string => typeof x === "string")
     : [];
 
-  // Correos de las cuentas seleccionadas (re-validados por RLS).
+  // Correos de las cuentas seleccionadas (re-validados por RLS). Guardamos el
+  // mapeo cuenta→correo para registrar el envío por cliente en la bitácora.
+  const supabase = createClient();
   const recipients = new Set<string>();
+  const perAccount: { accountId: string; email: string }[] = [];
   if (accountIds.length) {
-    const supabase = createClient();
     const { data } = await supabase
       .from("accounts")
       .select("id, business_name, billing_email, contacts(email, is_primary)")
       .in("id", accountIds);
     for (const a of (data ?? []) as AccountRow[]) {
       const email = bestEmail(a);
-      if (email) recipients.add(email.toLowerCase());
+      if (email) {
+        recipients.add(email.toLowerCase());
+        perAccount.push({ accountId: a.id, email: email.toLowerCase() });
+      }
     }
   }
+  const extras: string[] = [];
   for (const e of extraEmails) {
     const v = e.trim().toLowerCase();
-    if (v.includes("@") && v.length <= 254) recipients.add(v);
+    if (v.includes("@") && v.length <= 254) {
+      recipients.add(v);
+      extras.push(v);
+    }
   }
 
   const to = Array.from(recipients);
@@ -165,6 +175,32 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       replyTo: rep.email || undefined,
       attachments: [{ filename: "promocion-teravino.pdf", content: pdfBase64 }],
     });
+    // Bitácora: una fila por cuenta (para el "último envío" en su ficha) + una
+    // fila para los correos sueltos sin cuenta.
+    for (const pa of perAccount) {
+      await logClientEmail(supabase, {
+        accountId: pa.accountId,
+        kind: "promocion",
+        subject,
+        recipients: [pa.email],
+        refTable: "promotions",
+        refId: params.id,
+        resendId: result.id,
+        sentBy: rep.id,
+      });
+    }
+    if (extras.length) {
+      await logClientEmail(supabase, {
+        accountId: null,
+        kind: "promocion",
+        subject,
+        recipients: extras,
+        refTable: "promotions",
+        refId: params.id,
+        resendId: result.id,
+        sentBy: rep.id,
+      });
+    }
     return NextResponse.json({ ok: true, id: result.id, count: to.length });
   } catch (e) {
     return NextResponse.json(
