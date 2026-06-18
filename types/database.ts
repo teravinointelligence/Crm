@@ -206,6 +206,8 @@ export type Database = {
           category: string | null;
           country: string | null;
           created_at: string | null;
+          discontinued_at: string | null;
+          discontinued_by: string | null;
           id: string;
           image_url: string | null;
           last_stock_source: string | null;

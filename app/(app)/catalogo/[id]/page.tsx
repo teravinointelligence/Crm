@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PriceBadge } from "@/components/products/PriceBadge";
 import { StockBadge } from "@/components/products/StockBadge";
+import { DiscontinueButton } from "@/components/products/DiscontinueButton";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function ProductDetailPage({
@@ -31,7 +32,11 @@ export default async function ProductDetailPage({
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-3xl">{product.name}</h1>
-            {!product.active && <Badge variant="muted">Inactivo</Badge>}
+            {product.discontinued_at ? (
+              <Badge variant="danger">Descontinuado</Badge>
+            ) : (
+              !product.active && <Badge variant="muted">Inactivo</Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             {[
@@ -46,9 +51,17 @@ export default async function ProductDetailPage({
           </p>
         </div>
         {isAdmin && (
-          <Button asChild variant="outline">
-            <Link href={`/catalogo/${product.id}/editar`}>Editar</Link>
-          </Button>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            <Button asChild variant="outline">
+              <Link href={`/catalogo/${product.id}/editar`}>Editar</Link>
+            </Button>
+            <DiscontinueButton
+              productId={product.id}
+              productName={product.name}
+              discontinued={!!product.discontinued_at}
+              repId={rep!.id}
+            />
+          </div>
         )}
       </div>
 
