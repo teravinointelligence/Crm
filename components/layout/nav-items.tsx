@@ -28,10 +28,11 @@ import {
   Trophy,
   Megaphone,
   Send,
+  Wrench,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; fleetFaults?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -39,6 +40,7 @@ export type GroupItem = {
   adminOnly?: boolean;
   finance?: boolean;
   flota?: boolean;
+  fleetFaults?: boolean;
   reparto?: boolean;
   incentivos?: boolean;
   portafolios?: boolean;
@@ -86,6 +88,7 @@ export const navItems: Item[] = [
   { href: "/reportes", label: "Reportes", icon: BarChart3, finance: true },
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
   { href: "/flota", label: "Flota", icon: Car, flota: true },
+  { href: "/flota/fallas", label: "Fallas de vehículos", icon: Wrench, fleetFaults: true },
   { href: "/manuales", label: "Manuales", icon: BookOpen, moduleKey: "manuales" },
   { href: "/academy", label: "Academy", icon: GraduationCap, moduleKey: "academy" },
   {
@@ -141,6 +144,8 @@ export function visibleNavItems({
           i.moduleKey === "manuales" ||
           (i.moduleKey === "academy" && canAccessAcademy(role)) ||
           (i.flota === true && canAccessFlota(role)) ||
+          // …y el reporte de fallas de vehículos (choferes incluidos).
+          ((i as { fleetFaults?: boolean }).fleetFaults === true && canReportFleetFault(role)) ||
           // El facturista (jefe de logística) además ve Consignaciones y Documentos.
           (canAccessFacturacion(role) &&
             (i.moduleKey === "consignaciones" || i.moduleKey === "documentos")) ||
@@ -158,6 +163,7 @@ export function visibleNavItems({
   return navItems
     .filter((i) => {
       if (i.flota) return canAccessFlota(role);
+      if (i.fleetFaults) return canReportFleetFault(role);
       if (i.finance) return canSeeFinance(role);
       if (i.reparto) return canViewReparto(role);
       if (i.incentivos) return canViewIncentivos(role);

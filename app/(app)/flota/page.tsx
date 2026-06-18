@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Car, AlertTriangle, CheckCircle2, Plus } from "lucide-react";
+import { Car, AlertTriangle, CheckCircle2, Plus, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,12 +44,20 @@ export default async function FlotaPage() {
             Parque vehicular de TERAVINO. Entra a cada auto para completar los datos que faltan.
           </p>
         </div>
-        <Button asChild>
-          <Link href="/flota/nuevo">
-            <Plus className="mr-1 h-4 w-4" />
-            Nuevo vehículo
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/flota/fallas">
+              <Wrench className="mr-1 h-4 w-4" />
+              Fallas de vehículos
+            </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/flota/nuevo">
+              <Plus className="mr-1 h-4 w-4" />
+              Nuevo vehículo
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {loadError ? (

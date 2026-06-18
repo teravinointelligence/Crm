@@ -83,6 +83,23 @@ export function canAccessFlota(role: string | null | undefined): boolean {
 }
 
 /**
+ * Pueden REPORTAR fallas de vehículos (servicio pendiente, llanta, frenos…):
+ * admin, jefe de logística y los CHOFERES (que son quienes manejan los autos).
+ * Es el único punto de Flota al que llega un chofer.
+ */
+export function canReportFleetFault(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica" || role === "chofer";
+}
+
+/**
+ * Pueden GESTIONAR las fallas reportadas (cambiar estatus, cerrar): logística
+ * (admin + jefe de logística). Los choferes solo reportan y ven las suyas.
+ */
+export function canManageFleetFaults(role: string | null | undefined): boolean {
+  return role === "admin" || role === "jefe_logistica";
+}
+
+/**
  * Pueden VER la lista de clientes por estatus de crédito (liberado / por revisar
  * / suspendido) dentro de Reparto. Es una vista operativa para decidir entregas:
  * admin y jefe de logística (Isaí). NO incluye choferes ni vendedores, y por
