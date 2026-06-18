@@ -15,6 +15,8 @@ export default async function PromocionesPage() {
   if (!me) redirect("/login");
 
   const isAdmin = me.role === "admin";
+  // Enviar promociones a clientes: solo admin y vendedores (rep).
+  const canSend = me.role === "admin" || me.role === "rep";
 
   const [{ data: rawPromos }, { data: products }] = await Promise.all([
     supabase
@@ -79,7 +81,7 @@ export default async function PromocionesPage() {
               <h2 className="font-display text-lg">Vigentes</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {vigentes.map((p) => (
-                  <PromocionCard key={p.id} promo={p} isAdmin={isAdmin} products={productList} repId={me.id} />
+                  <PromocionCard key={p.id} promo={p} isAdmin={isAdmin} canSend={canSend} products={productList} repId={me.id} />
                 ))}
               </div>
             </section>
@@ -90,7 +92,7 @@ export default async function PromocionesPage() {
               <h2 className="font-display text-lg text-muted-foreground">Próximas</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {proximas.map((p) => (
-                  <PromocionCard key={p.id} promo={p} isAdmin={isAdmin} products={productList} repId={me.id} />
+                  <PromocionCard key={p.id} promo={p} isAdmin={isAdmin} canSend={canSend} products={productList} repId={me.id} />
                 ))}
               </div>
             </section>
@@ -101,7 +103,7 @@ export default async function PromocionesPage() {
               <h2 className="font-display text-lg text-muted-foreground">Vencidas / inactivas</h2>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {vencidas.map((p) => (
-                  <PromocionCard key={p.id} promo={p} isAdmin={isAdmin} products={productList} repId={me.id} />
+                  <PromocionCard key={p.id} promo={p} isAdmin={isAdmin} canSend={canSend} products={productList} repId={me.id} />
                 ))}
               </div>
             </section>

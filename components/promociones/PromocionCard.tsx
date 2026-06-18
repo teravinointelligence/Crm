@@ -28,11 +28,13 @@ function bonificacionLabel(bonus_per: number | null, bonus_qty: number | null) {
 export function PromocionCard({
   promo,
   isAdmin,
+  canSend,
   products,
   repId,
 }: {
   promo: PromoRow;
   isAdmin: boolean;
+  canSend: boolean;
   products: { id: string; name: string; supplier: string | null }[];
   repId: string;
 }) {
@@ -136,10 +138,12 @@ export function PromocionCard({
             </div>
           )}
 
-          {/* Acciones: enviar a clientes (todos los roles) */}
-          <div className="flex flex-wrap gap-2 border-t pt-3">
-            <EnviarPromoButton promoId={promo.id} />
-          </div>
+          {/* Acciones: enviar a clientes (admin y vendedores) */}
+          {canSend && (
+            <div className="flex flex-wrap gap-2 border-t pt-3">
+              <EnviarPromoButton promoId={promo.id} />
+            </div>
+          )}
         </CardContent>
       </Card>
 
