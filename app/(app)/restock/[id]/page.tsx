@@ -27,6 +27,16 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
   }>;
   const r = req as typeof req & { sales_reps: { full_name: string | null } | null; reviewer: { full_name: string | null } | null };
 
+  // Agrupar items por proveedor (una OC por proveedor).
+  const bySupplier = new Map<string, typeof items>();
+  for (const i of items) {
+    const key = i.supplier?.trim() || "Sin proveedor";
+    const arr = bySupplier.get(key) ?? [];
+    arr.push(i);
+    bySupplier.set(key, arr);
+  }
+  const supplierGroups = Array.from(bySupplier.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <Button asChild variant="ghost" size="sm"><Link href="/restock"><ArrowLeft className="mr-1 h-4 w-4" /> Restock</Link></Button>
@@ -63,18 +73,27 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
 
       <Card><CardContent className="p-0">
         <table className="min-w-full text-sm">
-          <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="px-4 py-3">Producto</th><th className="px-4 py-3">Proveedor</th><th className="px-4 py-3 text-right">Pedido</th><th className="px-4 py-3 text-right">Aprobado</th><th className="px-4 py-3">Nota</th></tr></thead>
-          <tbody>
-            {items.map((i) => (
-              <tr key={i.id} className="border-b last:border-b-0">
-                <td className="px-4 py-3 font-medium">{i.product_name}</td>
-                <td className="px-4 py-3 text-muted-foreground">{i.supplier ?? "—"}</td>
-                <td className="px-4 py-3 text-right">{i.quantity_requested}</td>
-                <td className="px-4 py-3 text-right">{i.quantity_approved ?? "—"}</td>
-                <td className="px-4 py-3 text-muted-foreground">{i.notes ?? "—"}</td>
-              </tr>
-            ))}
-          </tbody>
+          <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground"><tr><th className="px-4 py-3">Producto</th><th className="px-4 py-3 text-right">Pedido</th><th className="px-4 py-3 text-right">Aprobado</th><th className="px-4 py-3">Nota</th></tr></thead>
+          {supplierGroups.map(([supplier, group]) => {
+            const totalPedido = group.reduce((s, i) => s + Number(i.quantity_requested || 0), 0);
+            return (
+              <tbody key={supplier} className="border-b last:border-b-0">
+                <tr className="bg-muted/30">
+                  <td colSpan={4} className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-brand-carmesi">
+                    {supplier} · {group.length} producto{group.length === 1 ? "" : "s"} · {totalPedido} btl
+                  </td>
+                </tr>
+                {group.map((i) => (
+                  <tr key={i.id} className="border-t">
+                    <td className="px-4 py-3 font-medium">{i.product_name}</td>
+                    <td className="px-4 py-3 text-right">{i.quantity_requested}</td>
+                    <td className="px-4 py-3 text-right">{i.quantity_approved ?? "—"}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{i.notes ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            );
+          })}
         </table>
       </CardContent></Card>
 

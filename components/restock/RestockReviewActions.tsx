@@ -28,6 +28,18 @@ export function RestockReviewActions({
     Object.fromEntries(items.map((i) => [i.id, i.quantity_approved ?? i.quantity_requested])),
   );
 
+  // Agrupar por proveedor (una OC por proveedor).
+  const groups = (() => {
+    const m = new Map<string, Item[]>();
+    for (const i of items) {
+      const k = i.supplier?.trim() || "Sin proveedor";
+      const arr = m.get(k) ?? [];
+      arr.push(i);
+      m.set(k, arr);
+    }
+    return Array.from(m.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  })();
+
   const decide = (status: "aprobada" | "rechazada", reviewNotes: string) => {
     startTransition(async () => {
       if (status === "aprobada") {
@@ -50,15 +62,18 @@ export function RestockReviewActions({
       <h3 className="font-display text-lg">Revisión</h3>
       <table className="min-w-full text-sm">
         <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">Producto</th><th className="py-2 text-right">Pedido</th><th className="py-2 text-right w-28">Aprobar</th></tr></thead>
-        <tbody>
-          {items.map((i) => (
-            <tr key={i.id} className="border-b">
-              <td className="py-2">{i.product_name}{i.supplier && <span className="text-xs text-muted-foreground"> · {i.supplier}</span>}</td>
-              <td className="py-2 text-right text-muted-foreground">{i.quantity_requested}</td>
-              <td className="py-2 text-right"><Input type="number" min={0} value={approved[i.id] ?? 0} onChange={(e) => setApproved((p) => ({ ...p, [i.id]: Number(e.target.value) || 0 }))} className="h-8 text-right" /></td>
-            </tr>
-          ))}
-        </tbody>
+        {groups.map(([supplier, group]) => (
+          <tbody key={supplier}>
+            <tr><td colSpan={3} className="pt-3 pb-1 text-xs font-semibold uppercase tracking-wide text-brand-carmesi">{supplier}</td></tr>
+            {group.map((i) => (
+              <tr key={i.id} className="border-b">
+                <td className="py-2">{i.product_name}</td>
+                <td className="py-2 text-right text-muted-foreground">{i.quantity_requested}</td>
+                <td className="py-2 text-right"><Input type="number" min={0} value={approved[i.id] ?? 0} onChange={(e) => setApproved((p) => ({ ...p, [i.id]: Number(e.target.value) || 0 }))} className="h-8 text-right" /></td>
+              </tr>
+            ))}
+          </tbody>
+        ))}
       </table>
       <form onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); decide("aprobada", String(fd.get("notes") ?? "")); }} className="space-y-2">
         <Label htmlFor="notes">Comentario de revisión</Label>
