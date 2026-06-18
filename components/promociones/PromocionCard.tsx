@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatDate } from "@/lib/utils";
 import { PromocionForm, PROMO_TYPE_LABELS, type PromoRow } from "./PromocionForm";
+import { EnviarPromoButton } from "./EnviarPromoButton";
 
 const TYPE_VARIANT: Record<string, "default" | "accent" | "success" | "warning" | "muted"> = {
   descuento: "success",
@@ -27,11 +28,13 @@ function bonificacionLabel(bonus_per: number | null, bonus_qty: number | null) {
 export function PromocionCard({
   promo,
   isAdmin,
+  canSend,
   products,
   repId,
 }: {
   promo: PromoRow;
   isAdmin: boolean;
+  canSend: boolean;
   products: { id: string; name: string; supplier: string | null }[];
   repId: string;
 }) {
@@ -132,6 +135,13 @@ export function PromocionCard({
                 {" → "}
                 {promo.valid_to ? formatDate(promo.valid_to) : "sin fecha de fin"}
               </span>
+            </div>
+          )}
+
+          {/* Acciones: enviar a clientes (admin y vendedores) */}
+          {canSend && (
+            <div className="flex flex-wrap gap-2 border-t pt-3">
+              <EnviarPromoButton promoId={promo.id} />
             </div>
           )}
         </CardContent>
