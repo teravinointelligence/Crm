@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Pencil, Trash2, CalendarDays, Wine, Tag, Package } from "lucide-react";
+import { Pencil, Trash2, CalendarDays, Wine, Tag, Package, Eye } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -138,12 +138,18 @@ export function PromocionCard({
             </div>
           )}
 
-          {/* Acciones: enviar a clientes (admin y vendedores) */}
-          {canSend && (
-            <div className="flex flex-wrap gap-2 border-t pt-3">
-              <EnviarPromoButton promoId={promo.id} />
-            </div>
-          )}
+          {/* Acciones: previsualizar (todos) y enviar a clientes (admin y vendedores) */}
+          <div className="flex flex-wrap gap-2 border-t pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(`/api/promociones/${promo.id}/pdf`, "_blank", "noopener,noreferrer")}
+            >
+              <Eye className="mr-1 h-3.5 w-3.5" />
+              Previsualizar
+            </Button>
+            {canSend && <EnviarPromoButton promoId={promo.id} />}
+          </div>
         </CardContent>
       </Card>
 
