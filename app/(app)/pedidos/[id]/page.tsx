@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { OrderStatusActions } from "@/components/orders/OrderStatusActions";
+import { EnviarPedidoButton } from "@/components/orders/EnviarPedidoButton";
 
 export default async function PedidoDetailPage({
   params,
@@ -98,6 +99,9 @@ export default async function PedidoDetailPage({
               <FileDown className="mr-1 h-4 w-4" /> Descargar PDF
             </a>
           </Button>
+          {order.order_type === "pedido" && (
+            <EnviarPedidoButton orderId={order.id} orderNumber={order.order_number} />
+          )}
           <OrderStatusActions
             orderId={order.id}
             current={order.status ?? "borrador"}
