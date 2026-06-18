@@ -46,7 +46,6 @@ export default async function CatalogoPage() {
         warehouseUpdated={warehouseUpdated}
         riskIds={riskIds}
         isAdmin={!!isAdmin}
-        repId={rep?.id ?? ""}
         canRequestTransfer={rep?.role === "admin" || rep?.role === "rep"}
       />
     </div>

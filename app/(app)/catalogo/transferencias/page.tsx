@@ -59,7 +59,7 @@ export default async function TransferenciasPage() {
           </Link>
         </Button>
       </div>
-      <TransferenciasClient requests={requests} isAdmin={isAdmin} repId={rep.id} />
+      <TransferenciasClient requests={requests} isAdmin={isAdmin} />
     </div>
   );
 }

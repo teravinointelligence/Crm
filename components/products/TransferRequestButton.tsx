@@ -8,7 +8,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowLeftRight } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,12 +30,10 @@ import { WAREHOUSES } from "@/lib/warehouses";
 export function TransferRequestButton({
   productId,
   productName,
-  repId,
   stockByWarehouse = {},
 }: {
   productId: string;
   productName: string;
-  repId: string;
   stockByWarehouse?: Record<string, number>;
 }) {
   const router = useRouter();
@@ -68,22 +65,25 @@ export function TransferRequestButton({
       return;
     }
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.from("warehouse_transfer_requests").insert({
-        product_id: productId,
-        product_label: productName,
-        from_warehouse: from,
-        to_warehouse: to,
-        quantity: q,
-        reason: reason.trim() || null,
-        requested_by: repId,
+      const res = await fetch("/api/catalogo/transferencias", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productId,
+          productLabel: productName,
+          fromWarehouse: from,
+          toWarehouse: to,
+          quantity: q,
+          reason: reason.trim(),
+        }),
       });
-      if (error) {
-        toast.error("No se pudo crear la solicitud", { description: error.message });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error("No se pudo crear la solicitud", { description: data.error ?? `HTTP ${res.status}` });
         return;
       }
       toast.success("Solicitud de transferencia enviada", {
-        description: "Queda pendiente de aprobación por admin.",
+        description: data.notified ? "Se avisó a admin para aprobarla." : "Queda pendiente de aprobación por admin.",
       });
       setOpen(false);
       setQty("");

@@ -4,7 +4,6 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ArrowRight, Check, X, PackageCheck } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -31,11 +30,9 @@ const ALL = "_all";
 export function TransferenciasClient({
   requests,
   isAdmin,
-  repId,
 }: {
   requests: TransferRequest[];
   isAdmin: boolean;
-  repId: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -48,22 +45,19 @@ export function TransferenciasClient({
 
   const decide = (id: string, next: TransferStatus, notes?: string | null) => {
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("warehouse_transfer_requests")
-        .update({
-          status: next,
-          decided_by: repId,
-          decided_at: new Date().toISOString(),
-          admin_notes: notes ?? null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", id);
-      if (error) {
-        toast.error("No se pudo actualizar", { description: error.message });
+      const res = await fetch(`/api/catalogo/transferencias/${id}/decision`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: next, notes: notes ?? "" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error("No se pudo actualizar", { description: data.error ?? `HTTP ${res.status}` });
         return;
       }
-      toast.success(`Solicitud ${TRANSFER_STATUS_LABEL[next].toLowerCase()}`);
+      toast.success(`Solicitud ${TRANSFER_STATUS_LABEL[next].toLowerCase()}`, {
+        description: data.notified ? "Se notificó al vendedor." : undefined,
+      });
       router.refresh();
     });
   };
