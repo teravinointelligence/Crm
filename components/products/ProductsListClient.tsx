@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Plus, Search, Upload, Pencil, Tags, Wand2, Link2 } from "lucide-react";
+import { Plus, Search, Upload, Pencil, Tags, Wand2, Link2, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -72,6 +72,8 @@ export function ProductsListClient({
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter((p) => {
+      // Los descontinuados viven en su propia sección (/catalogo/descontinuados).
+      if (p.discontinued_at) return false;
       if (!showInactive && !p.active) return false;
       if (supplier !== ALL && p.supplier !== supplier) return false;
       if (category !== ALL && p.category !== category) return false;
@@ -232,6 +234,11 @@ export function ProductsListClient({
             <Button asChild variant="outline">
               <Link href="/catalogo/proveedores">
                 <Tags className="mr-1 h-4 w-4" /> Cargar proveedores
+              </Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link href="/catalogo/descontinuados">
+                <Ban className="mr-1 h-4 w-4" /> Descontinuados
               </Link>
             </Button>
             <Button asChild>
