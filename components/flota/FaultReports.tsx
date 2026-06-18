@@ -78,21 +78,26 @@ export function FaultReports({
       return;
     }
     startTransition(async () => {
-      const supabase = createClient();
-      const { error } = await supabase.from("fleet_fault_reports").insert({
-        vehicle_id: vehicleSel === MANUAL ? null : vehicleSel,
-        vehicle_label: vehicleLabel,
-        fault_type: faultType,
-        description: description.trim(),
-        urgency,
-        km: km !== "" ? Number(km) : null,
-        reported_by: repId,
+      const res = await fetch("/api/flota/fallas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicleId: vehicleSel === MANUAL ? null : vehicleSel,
+          vehicleLabel,
+          faultType,
+          urgency,
+          km: km !== "" ? Number(km) : null,
+          description: description.trim(),
+        }),
       });
-      if (error) {
-        toast.error("No se pudo reportar la falla", { description: error.message });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error("No se pudo reportar la falla", { description: data.error ?? `HTTP ${res.status}` });
         return;
       }
-      toast.success("Falla reportada");
+      toast.success("Falla reportada", {
+        description: data.notified ? "Se notificó a logística." : undefined,
+      });
       setDescription("");
       setKm("");
       setManualVehicle("");
