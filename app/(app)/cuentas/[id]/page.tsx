@@ -11,7 +11,7 @@ import { AccountHeader } from "@/components/accounts/AccountHeader";
 import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
-import { ChurnCard, CrossSellCard } from "@/components/accounts/AccountIntelCards";
+import { ChurnCard, CrossSellCard, TopProductsCard } from "@/components/accounts/AccountIntelCards";
 import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
 import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
@@ -262,6 +262,7 @@ export default async function CuentaDetailPage({
                 basis="cartera, qué compra, tendencia mensual, churn y venta cruzada"
               />
               <ChurnCard churn={facts.churn} trend={facts.trend} />
+              <TopProductsCard products={facts.topProducts} />
               <CrossSellCard recommendations={facts.recommendations} />
             </div>
 

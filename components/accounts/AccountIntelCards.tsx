@@ -1,7 +1,7 @@
 // Tarjetas presentacionales de inteligencia por cuenta (churn + cross-sell).
 // Server-safe (sin hooks). Todo lo que muestran trae su "por qué" explícito.
 
-import { TrendingDown, ShoppingBasket } from "lucide-react";
+import { TrendingDown, ShoppingBasket, Package } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { CHURN_LABEL, type ChurnResult, type ChurnStatus } from "@/lib/churn";
@@ -45,6 +45,49 @@ export function ChurnCard({ churn, trend }: { churn: ChurnResult; trend?: { peri
               </span>
             ))}
           </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+export function TopProductsCard({
+  products,
+}: {
+  products: { nombre: string; cantidad: number; total: number }[];
+}) {
+  const money = (n: number) =>
+    new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN", maximumFractionDigits: 0 }).format(n);
+  const qty = (n: number) => new Intl.NumberFormat("es-MX").format(Math.round(n));
+
+  return (
+    <Card>
+      <CardContent className="space-y-3 p-5">
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-muted-foreground" />
+          <h3 className="font-display text-lg">Qué nos compra</h3>
+        </div>
+        {!products.length ? (
+          <p className="text-sm text-muted-foreground">
+            Aún no hay ventas por producto registradas para esta cuenta.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {products.map((p) => (
+              <li
+                key={p.nombre}
+                className="flex items-start justify-between gap-3 border-b pb-2 last:border-0 last:pb-0"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium leading-tight">{p.nombre}</div>
+                  <div className="text-xs text-muted-foreground">{money(p.total)} acumulado</div>
+                </div>
+                <Badge variant="accent" className="shrink-0">
+                  {qty(p.cantidad)} pz
+                </Badge>
+              </li>
+            ))}
+          </ul>
         )}
       </CardContent>
     </Card>
