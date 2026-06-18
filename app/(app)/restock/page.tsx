@@ -26,11 +26,11 @@ export default async function RestockPage() {
 
   const { data } = await supabase
     .from("restock_requests")
-    .select("id, request_number, region_destino, status, created_at, sales_reps:sales_rep_id(full_name)")
+    .select("id, request_number, region_destino, fulfillment, status, created_at, sales_reps:sales_rep_id(full_name)")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as unknown as Array<{
-    id: string; request_number: string; region_destino: string | null; status: string | null; created_at: string | null;
+    id: string; request_number: string; region_destino: string | null; fulfillment: string | null; status: string | null; created_at: string | null;
     sales_reps: { full_name: string | null } | null;
   }>;
   const pendingCount = rows.filter((r) => r.status === "enviada").length;
@@ -91,7 +91,12 @@ export default async function RestockPage() {
                 <tr key={r.id} className="border-b last:border-b-0 hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium"><Link href={`/restock/${r.id}`} className="hover:text-brand-carmesi">{r.request_number}</Link></td>
                   <td className="px-4 py-3 text-muted-foreground">{r.sales_reps?.full_name ?? "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.region_destino ?? "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {r.region_destino ?? "—"}
+                    {r.fulfillment === "directo_proveedor" && (
+                      <Badge variant="accent" className="ml-2">Directo proveedor</Badge>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3"><Badge variant={statusVariant[r.status ?? ""] ?? "muted"}>{r.status}</Badge></td>
                   <td className="px-4 py-3 text-right"><Button asChild size="sm" variant="ghost"><Link href={`/restock/${r.id}`}>Ver</Link></Button></td>
