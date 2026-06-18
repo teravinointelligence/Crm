@@ -27,6 +27,7 @@ import {
   Sparkles,
   Trophy,
   Megaphone,
+  Send,
 } from "lucide-react";
 import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
 
@@ -58,6 +59,7 @@ export const navItems: Item[] = [
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
   { href: "/portafolios", label: "Portafolios", icon: Briefcase, portafolios: true },
   { href: "/promociones", label: "Promociones", icon: Megaphone }, // siempre visible (todos los vendedores)
+  { href: "/envios", label: "Envíos a clientes", icon: Send, adminOnly: true },
   // Cotizaciones y pedidos viven en una sola lista (orders.order_type); la
   // entrada vieja /cotizaciones redirige aquí. Compat: usuarios con el módulo
   // legacy "cotizaciones" habilitado también ven esta entrada (ver filtro abajo).
