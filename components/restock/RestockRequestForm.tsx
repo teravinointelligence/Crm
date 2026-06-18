@@ -18,6 +18,12 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { REGIONS, type Product, type Region } from "@/types/database";
+import {
+  FULFILLMENT_TYPES,
+  FULFILLMENT_LABEL,
+  FULFILLMENT_HINT,
+  type FulfillmentType,
+} from "@/lib/restock-fulfillment";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
 
@@ -34,6 +40,7 @@ export function RestockRequestForm({
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [region, setRegion] = useState<string>(defaultRegion ?? "");
+  const [fulfillment, setFulfillment] = useState<FulfillmentType>("almacen");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [query, setQuery] = useState("");
@@ -62,7 +69,7 @@ export function RestockRequestForm({
       if (numErr || !num) { toast.error("No pudimos generar el número", { description: numErr?.message }); return; }
       const { data: req, error: reqErr } = await supabase
         .from("restock_requests")
-        .insert({ request_number: num, sales_rep_id: repId, region_destino: region || null, status, notes: notes || null })
+        .insert({ request_number: num, sales_rep_id: repId, region_destino: region || null, fulfillment, status, notes: notes || null })
         .select("id")
         .single();
       if (reqErr || !req) { toast.error("No pudimos crear el pedido", { description: reqErr?.message }); return; }
@@ -80,11 +87,23 @@ export function RestockRequestForm({
     <div className="space-y-6">
       <Card><CardContent className="grid gap-4 p-6 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label>Región destino</Label>
+          <Label>Región / plaza destino</Label>
           <Select value={region} onValueChange={setRegion}>
             <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
             <SelectContent>{REGIONS.map((r: Region) => <SelectItem key={r} value={r}>{r}</SelectItem>)}</SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>Tipo de surtido</Label>
+          <Select value={fulfillment} onValueChange={(v) => setFulfillment(v as FulfillmentType)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {FULFILLMENT_TYPES.map((f) => (
+                <SelectItem key={f} value={f}>{FULFILLMENT_LABEL[f]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">{FULFILLMENT_HINT[fulfillment]}</p>
         </div>
       </CardContent></Card>
 

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RestockReviewActions } from "@/components/restock/RestockReviewActions";
 import { formatDateTime } from "@/lib/utils";
+import { FULFILLMENT_LABEL, FULFILLMENT_HINT, FULFILLMENT_VARIANT, type FulfillmentType } from "@/lib/restock-fulfillment";
 
 export default async function RestockDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -38,8 +39,20 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
               {r.sales_reps?.full_name ?? "—"} · {r.region_destino ?? "sin región"} · {formatDateTime(r.created_at)}
             </p>
           </div>
-          <Badge variant="muted">{r.status}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            {r.fulfillment && (
+              <Badge variant={FULFILLMENT_VARIANT[r.fulfillment as FulfillmentType] ?? "muted"}>
+                {FULFILLMENT_LABEL[r.fulfillment as FulfillmentType] ?? r.fulfillment}
+              </Badge>
+            )}
+            <Badge variant="muted">{r.status}</Badge>
+          </div>
         </div>
+        {r.fulfillment === "directo_proveedor" && (
+          <p className="mt-3 rounded-md bg-accent/15 p-3 text-sm">
+            {FULFILLMENT_HINT.directo_proveedor}
+          </p>
+        )}
         {r.notes && <p className="mt-4 border-t pt-4 text-sm">{r.notes}</p>}
         {r.review_notes && (
           <p className="mt-2 rounded-md bg-accent/15 p-3 text-sm">
