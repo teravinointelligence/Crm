@@ -8,6 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { PriceBadge } from "@/components/products/PriceBadge";
 import { StockBadge } from "@/components/products/StockBadge";
 import { DiscontinueButton } from "@/components/products/DiscontinueButton";
+import { ProductCustomersPanel } from "@/components/products/ProductCustomersPanel";
+import { loadProductCustomers } from "@/lib/product-customers";
+import { canSeeFinance } from "@/lib/modules";
 import { formatDateTime } from "@/lib/utils";
 
 export default async function ProductDetailPage({
@@ -25,6 +28,13 @@ export default async function ProductDetailPage({
     .eq("id", params.id)
     .single();
   if (!product) notFound();
+
+  // Rastreo del producto: qué clientes lo compran (histórico de Ventas). RLS
+  // limita la lista a las cuentas del vendedor; admin/contador ven todas.
+  const customers = await loadProductCustomers(supabase, {
+    codigo_contpaqi: product.codigo_contpaqi,
+    sku: product.sku,
+  });
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -119,6 +129,11 @@ export default async function ProductDetailPage({
           )}
         </CardContent>
       </Card>
+
+      <ProductCustomersPanel
+        rows={customers}
+        partial={!canSeeFinance(rep?.role)}
+      />
     </div>
   );
 }
