@@ -146,7 +146,10 @@ export function OrderDiscount({
             </Button>
             {!isAdmin && input > MAX_VENDOR_DISCOUNT_PCT && (
               <p className="w-full text-xs text-amber-700">
-                Arriba de {MAX_VENDOR_DISCOUNT_PCT}% queda pendiente de autorización del admin.
+                {MAX_VENDOR_DISCOUNT_PCT > 0
+                  ? `Arriba de ${MAX_VENDOR_DISCOUNT_PCT}% queda`
+                  : "Queda"}{" "}
+                pendiente de autorización del admin.
               </p>
             )}
           </div>

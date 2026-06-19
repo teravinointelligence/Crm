@@ -12,9 +12,10 @@ export const REGION_TIER: Record<Region, PriceTier> = {
 export const IVA_RATE = 0.16;
 export const PLUS_10_FACTOR = 1.1;
 
-/** % máximo de descuento que un vendedor puede aplicar sin autorización admin.
- *  Debe coincidir con el límite del trigger tg_orders_discount (migración 0079). */
-export const MAX_VENDOR_DISCOUNT_PCT = 5;
+/** % máximo de descuento que un vendedor puede aplicar sin autorización admin
+ *  (0 = ninguno; cualquier descuento de un vendedor queda pendiente).
+ *  Debe coincidir con v_limit del trigger tg_orders_discount (migración 0080). */
+export const MAX_VENDOR_DISCOUNT_PCT = 0;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
