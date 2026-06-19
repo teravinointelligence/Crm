@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FlaskConical, PackageCheck } from "lucide-react";
+import { FlaskConical, PackageCheck, PackagePlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,12 +64,45 @@ export function SampleBankClient({
   const [qty, setQty] = useState(1);
   const [note, setNote] = useState("");
   const [accountId, setAccountId] = useState<string>(NONE);
+  const [release, setRelease] = useState<BankRow | null>(null);
+  const [relQty, setRelQty] = useState(1);
+  const [relNote, setRelNote] = useState("");
 
   const openTake = (r: BankRow) => {
     setTake(r);
     setQty(1);
     setNote("");
     setAccountId(NONE);
+  };
+
+  const openRelease = (r: BankRow) => {
+    setRelease(r);
+    setRelQty(1);
+    setRelNote("");
+  };
+
+  const confirmRelease = () => {
+    if (!release) return;
+    if (relQty <= 0) {
+      toast.error("Cantidad inválida");
+      return;
+    }
+    startTransition(async () => {
+      const { error } = await supabase.rpc("sample_bank_release", {
+        p_product: release.product_id,
+        p_region: release.region,
+        p_qty: relQty,
+        p_location: release.location,
+        p_note: relNote || null,
+      });
+      if (error) {
+        toast.error("No se pudo liberar", { description: error.message });
+        return;
+      }
+      toast.success(`Liberaste ${relQty} × ${release.product_name}`);
+      setRelease(null);
+      router.refresh();
+    });
   };
 
   const confirmTake = () => {
@@ -207,9 +240,16 @@ export function SampleBankClient({
                       })()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
-                        <PackageCheck className="mr-1 h-4 w-4" /> Tomar
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        {isAdmin && (
+                          <Button size="sm" variant="ghost" onClick={() => openRelease(r)} disabled={pending}>
+                            <PackagePlus className="mr-1 h-4 w-4" /> Liberar
+                          </Button>
+                        )}
+                        <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
+                          <PackageCheck className="mr-1 h-4 w-4" /> Tomar
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -271,6 +311,54 @@ export function SampleBankClient({
                 </Button>
                 <Button onClick={confirmTake} disabled={pending}>
                   {pending ? "Tomando…" : "Tomar"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!release} onOpenChange={(o) => !o && setRelease(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Liberar botellas</DialogTitle>
+          </DialogHeader>
+          {release && (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <div className="font-medium">{release.product_name}</div>
+                <div className="text-muted-foreground">
+                  {[release.supplier, release.region ?? "Sin zona", release.location ?? "Sin bodega", `${release.available} disponibles`].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Repone botellas a este vino en su zona y bodega para que los vendedores puedan volver a tomarlas.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="rel_qty">Cantidad a liberar</Label>
+                <Input
+                  id="rel_qty"
+                  type="number"
+                  min={1}
+                  value={relQty}
+                  onChange={(e) => setRelQty(Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rel_note">Nota (motivo)</Label>
+                <Input
+                  id="rel_note"
+                  value={relNote}
+                  onChange={(e) => setRelNote(e.target.value)}
+                  placeholder="Reposición / botellas devueltas…"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setRelease(null)} disabled={pending}>
+                  Cancelar
+                </Button>
+                <Button onClick={confirmRelease} disabled={pending}>
+                  {pending ? "Liberando…" : "Liberar"}
                 </Button>
               </div>
             </div>

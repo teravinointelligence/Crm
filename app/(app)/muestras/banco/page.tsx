@@ -25,8 +25,8 @@ export default async function BancoMuestrasPage() {
       .order("product_name"),
     supabase
       .from("sample_bank_movements")
-      .select("product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name)")
-      .eq("kind", "toma")
+      .select("id, reverts_id, product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name)")
+      .in("kind", ["toma", "devolucion"])
       .order("created_at", { ascending: false }),
     supabase.from("account_products").select("account_id, product_id").eq("status", "encartado"),
     supabase.from("accounts").select("id, business_name, region").order("business_name"),
@@ -45,16 +45,30 @@ export default async function BancoMuestrasPage() {
 
   // Métricas de uso vs encartes (las tomas tienen cantidad negativa).
   const encartado = new Set((encData ?? []).map((e) => `${e.account_id}|${e.product_id}`));
-  const tomas = (movData ?? []) as unknown as {
+  const movAll = (movData ?? []) as unknown as {
+    id: string; reverts_id: string | null; kind: string;
     product_id: string; region: string | null; quantity: number | string; account_id: string | null;
     created_at: string | null; notes: string | null;
     rep: { full_name: string | null } | null; account: { business_name: string | null } | null;
   }[];
 
+  // Botellas ya devueltas por toma (las devoluciones apuntan a su toma via reverts_id).
+  const revertedQty = new Map<string, number>();
+  for (const d of movAll) {
+    if (d.kind !== "devolucion" || !d.reverts_id) continue;
+    revertedQty.set(d.reverts_id, (revertedQty.get(d.reverts_id) ?? 0) + Number(d.quantity ?? 0));
+  }
+  // Tomas con su cantidad NETA (descontando lo devuelto). Las totalmente
+  // devueltas (neto 0) no cuentan como usadas ni como último uso.
+  const tomas = movAll
+    .filter((m) => m.kind === "toma")
+    .map((t) => ({ ...t, net: Math.max(0, -Number(t.quantity ?? 0) - (revertedQty.get(t.id) ?? 0)) }));
+
   // Último uso por (producto|zona): quién la tomó, para qué cliente y cuándo.
   // `tomas` viene ordenado por created_at desc, así que la primera por clave es la más reciente.
   const lastUse: Record<string, { rep: string | null; account: string | null; date: string | null; note: string | null }> = {};
   for (const t of tomas) {
+    if (t.net <= 0) continue;
     const key = `${t.product_id}|${t.region ?? "Sin zona"}`;
     if (lastUse[key]) continue;
     lastUse[key] = {
@@ -69,7 +83,7 @@ export default async function BancoMuestrasPage() {
   let encartadas = 0;
   const byRegion = new Map<string, RegionMetrics>();
   for (const t of tomas) {
-    const used = -Number(t.quantity ?? 0);
+    const used = t.net;
     if (used <= 0) continue;
     usadas += used;
     const isEnc = t.account_id && encartado.has(`${t.account_id}|${t.product_id}`);

@@ -16,24 +16,43 @@ export default async function HistorialMuestrasPage() {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
 
+  const isAdmin = rep.role === "admin";
   const supabase = createClient();
-  const { data } = await supabase
-    .from("sample_bank_movements")
-    .select("id, created_at, region, quantity, notes, product:product_id(name), rep:taken_by(full_name), account:account_id(business_name)")
-    .eq("kind", "toma")
-    .order("created_at", { ascending: false })
-    .limit(1000);
+  const [{ data }, { data: devData }] = await Promise.all([
+    supabase
+      .from("sample_bank_movements")
+      .select("id, created_at, region, quantity, notes, product:product_id(name), rep:taken_by(full_name), account:account_id(business_name)")
+      .eq("kind", "toma")
+      .order("created_at", { ascending: false })
+      .limit(1000),
+    // Tomas ya devueltas: las devoluciones apuntan a la toma via reverts_id.
+    supabase
+      .from("sample_bank_movements")
+      .select("reverts_id, quantity")
+      .eq("kind", "devolucion"),
+  ]);
 
-  const rows: TomaRow[] = (data ?? []).map((r: any) => ({
-    id: r.id,
-    created_at: r.created_at,
-    region: r.region ?? null,
-    qty: Math.abs(Number(r.quantity ?? 0)),
-    notes: r.notes ?? null,
-    product_name: r.product?.name ?? "—",
-    rep_name: r.rep?.full_name ?? null,
-    account_name: r.account?.business_name ?? null,
-  }));
+  // Suma devuelta por toma; se considera "devuelta" si cubre la cantidad tomada.
+  const revertedQty = new Map<string, number>();
+  for (const d of (devData ?? []) as { reverts_id: string | null; quantity: number | string }[]) {
+    if (!d.reverts_id) continue;
+    revertedQty.set(d.reverts_id, (revertedQty.get(d.reverts_id) ?? 0) + Number(d.quantity ?? 0));
+  }
+
+  const rows: TomaRow[] = (data ?? []).map((r: any) => {
+    const qty = Math.abs(Number(r.quantity ?? 0));
+    return {
+      id: r.id,
+      created_at: r.created_at,
+      region: r.region ?? null,
+      qty,
+      notes: r.notes ?? null,
+      product_name: r.product?.name ?? "—",
+      rep_name: r.rep?.full_name ?? null,
+      account_name: r.account?.business_name ?? null,
+      reverted: (revertedQty.get(r.id) ?? 0) >= qty,
+    };
+  });
 
   return (
     <div className="space-y-6">
@@ -48,7 +67,7 @@ export default async function HistorialMuestrasPage() {
           <Link href="/muestras/banco"><ArrowLeft className="mr-1 h-4 w-4" /> Banco de muestras</Link>
         </Button>
       </div>
-      <SampleHistoryClient rows={rows} />
+      <SampleHistoryClient rows={rows} isAdmin={isAdmin} />
     </div>
   );
 }
