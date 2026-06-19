@@ -1,8 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { Search, Undo2 } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -25,11 +37,17 @@ export type TomaRow = {
   product_name: string;
   rep_name: string | null;
   account_name: string | null;
+  reverted?: boolean;
 };
 
 const ALL = "_all";
 
-export function SampleHistoryClient({ rows }: { rows: TomaRow[] }) {
+export function SampleHistoryClient({ rows, isAdmin = false }: { rows: TomaRow[]; isAdmin?: boolean }) {
+  const router = useRouter();
+  const supabase = createClient();
+  const [pending, startTransition] = useTransition();
+  const [revert, setRevert] = useState<TomaRow | null>(null);
+  const [revertNote, setRevertNote] = useState("");
   const [query, setQuery] = useState("");
   const [rep, setRep] = useState(ALL);
   const [account, setAccount] = useState(ALL);
@@ -59,6 +77,24 @@ export function SampleHistoryClient({ rows }: { rows: TomaRow[] }) {
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
   const totalBtl = filtered.reduce((s, r) => s + r.qty, 0);
+
+  const confirmRevert = () => {
+    if (!revert) return;
+    startTransition(async () => {
+      const { error } = await supabase.rpc("sample_bank_revert_take", {
+        p_movement: revert.id,
+        p_note: revertNote || null,
+      });
+      if (error) {
+        toast.error("No se pudo devolver la toma", { description: error.message });
+        return;
+      }
+      toast.success(`Devolviste ${revert.qty} × ${revert.product_name} al banco`);
+      setRevert(null);
+      setRevertNote("");
+      router.refresh();
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -109,6 +145,7 @@ export function SampleHistoryClient({ rows }: { rows: TomaRow[] }) {
                 <th className="px-4 py-3">Vendedor</th>
                 <th className="px-4 py-3">Cliente</th>
                 <th className="px-4 py-3">Nota</th>
+                {isAdmin && <th className="px-4 py-3 text-right" />}
               </tr>
             </thead>
             <tbody>
@@ -121,6 +158,17 @@ export function SampleHistoryClient({ rows }: { rows: TomaRow[] }) {
                   <td className="px-4 py-3 text-muted-foreground">{r.rep_name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.account_name ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{r.notes ?? "—"}</td>
+                  {isAdmin && (
+                    <td className="px-4 py-3 text-right">
+                      {r.reverted ? (
+                        <Badge variant="muted">Devuelta</Badge>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => { setRevert(r); setRevertNote(""); }} disabled={pending}>
+                          <Undo2 className="mr-1 h-4 w-4" /> Devolver
+                        </Button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -129,6 +177,44 @@ export function SampleHistoryClient({ rows }: { rows: TomaRow[] }) {
       )}
 
       <Pager page={page} pageCount={pageCount} total={total} onPageChange={setPage} />
+
+      <Dialog open={!!revert} onOpenChange={(o) => !o && setRevert(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Devolver toma al banco</DialogTitle>
+          </DialogHeader>
+          {revert && (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <div className="font-medium">{revert.qty} × {revert.product_name}</div>
+                <div className="text-muted-foreground">
+                  {[revert.rep_name ?? "—", revert.account_name ?? "sin cliente", revert.region ?? "Sin zona"].join(" · ")}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Regresa estas botellas al banco para que el vendedor pueda volver a tomarlas. Dejará de contar como muestra usada.
+              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="revert_note">Nota (motivo)</Label>
+                <Input
+                  id="revert_note"
+                  value={revertNote}
+                  onChange={(e) => setRevertNote(e.target.value)}
+                  placeholder="Toma por error / botellas no usadas…"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setRevert(null)} disabled={pending}>
+                  Cancelar
+                </Button>
+                <Button onClick={confirmRevert} disabled={pending}>
+                  {pending ? "Devolviendo…" : "Devolver al banco"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
