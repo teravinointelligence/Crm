@@ -25,8 +25,9 @@ export default async function BancoMuestrasPage() {
       .order("product_name"),
     supabase
       .from("sample_bank_movements")
-      .select("product_id, region, quantity, kind, account_id")
-      .eq("kind", "toma"),
+      .select("product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name)")
+      .eq("kind", "toma")
+      .order("created_at", { ascending: false }),
     supabase.from("account_products").select("account_id, product_id").eq("status", "encartado"),
     supabase.from("accounts").select("id, business_name, region").order("business_name"),
   ]);
@@ -44,7 +45,26 @@ export default async function BancoMuestrasPage() {
 
   // Métricas de uso vs encartes (las tomas tienen cantidad negativa).
   const encartado = new Set((encData ?? []).map((e) => `${e.account_id}|${e.product_id}`));
-  const tomas = (movData ?? []) as { product_id: string; region: string | null; quantity: number | string; account_id: string | null }[];
+  const tomas = (movData ?? []) as unknown as {
+    product_id: string; region: string | null; quantity: number | string; account_id: string | null;
+    created_at: string | null; notes: string | null;
+    rep: { full_name: string | null } | null; account: { business_name: string | null } | null;
+  }[];
+
+  // Último uso por (producto|zona): quién la tomó, para qué cliente y cuándo.
+  // `tomas` viene ordenado por created_at desc, así que la primera por clave es la más reciente.
+  const lastUse: Record<string, { rep: string | null; account: string | null; date: string | null; note: string | null }> = {};
+  for (const t of tomas) {
+    const key = `${t.product_id}|${t.region ?? "Sin zona"}`;
+    if (lastUse[key]) continue;
+    lastUse[key] = {
+      rep: t.rep?.full_name ?? null,
+      account: t.account?.business_name ?? null,
+      date: t.created_at,
+      note: t.notes,
+    };
+  }
+
   let usadas = 0;
   let encartadas = 0;
   const byRegion = new Map<string, RegionMetrics>();
@@ -89,7 +109,7 @@ export default async function BancoMuestrasPage() {
         </div>
       )}
 
-      <SampleBankClient rows={rows} isAdmin={isAdmin} accounts={accounts} metricsByRegion={metricsByRegion} />
+      <SampleBankClient rows={rows} isAdmin={isAdmin} accounts={accounts} metricsByRegion={metricsByRegion} lastUse={lastUse} />
     </div>
   );
 }
