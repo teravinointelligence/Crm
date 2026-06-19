@@ -2,12 +2,15 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FileDown, ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentRep } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { OrderStatusActions } from "@/components/orders/OrderStatusActions";
 import { EnviarPedidoButton } from "@/components/orders/EnviarPedidoButton";
+import { OrderDiscount } from "@/components/orders/OrderDiscount";
+import type { DiscountStatus } from "@/lib/pricing";
 
 export default async function PedidoDetailPage({
   params,
@@ -15,17 +18,29 @@ export default async function PedidoDetailPage({
   params: { id: string };
 }) {
   const supabase = createClient();
+  const me = await getCurrentRep();
   const { data: order } = await supabase
     .from("orders")
     .select(
       `*,
       accounts:account_id (id, business_name, region, city, price_tier, rfc),
       sales_reps:sales_rep_id (full_name, email),
+      requester:discount_requested_by (full_name),
+      authorizer:discount_authorized_by (full_name),
       order_items (*)`,
     )
     .eq("id", params.id)
     .single();
   if (!order) notFound();
+
+  const isAdmin = me?.role === "admin";
+  const isOwner = !!me && order.sales_rep_id === me.id;
+  const discountStatus = (order.discount_status ?? "none") as DiscountStatus;
+  const discountAmount = Number(order.discount_amount ?? 0);
+  const discountPct = Number(order.discount_pct ?? 0);
+  const canEditDiscount = isOwner && ["borrador", "enviada"].includes(order.status ?? "");
+  const requesterName = (order.requester as { full_name: string | null } | null)?.full_name ?? null;
+  const authorizerName = (order.authorizer as { full_name: string | null } | null)?.full_name ?? null;
 
   const account = (order.accounts ?? null) as {
     id: string;
@@ -150,6 +165,16 @@ export default async function PedidoDetailPage({
                   {formatCurrency(order.subtotal)}
                 </td>
               </tr>
+              {discountAmount > 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-2 text-right text-muted-foreground">
+                    Descuento ({discountPct}%)
+                  </td>
+                  <td className="px-4 py-2 text-right text-brand-carmesi">
+                    − {formatCurrency(discountAmount)}
+                  </td>
+                </tr>
+              )}
               <tr>
                 <td colSpan={3} className="px-4 py-2 text-right text-muted-foreground">
                   IVA 16%
@@ -173,6 +198,21 @@ export default async function PedidoDetailPage({
           </table>
         </CardContent>
       </Card>
+
+      {me && (
+        <OrderDiscount
+          orderId={order.id}
+          repId={me.id}
+          isAdmin={isAdmin}
+          canEdit={canEditDiscount}
+          pct={discountPct}
+          status={discountStatus}
+          amount={discountAmount}
+          requestedBy={requesterName}
+          authorizedBy={authorizerName}
+          note={order.discount_note ?? null}
+        />
+      )}
 
       {order.notes && (
         <Card>

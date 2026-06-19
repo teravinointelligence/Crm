@@ -39,6 +39,7 @@ export default async function NuevoPedidoPage({
         accounts={accounts ?? []}
         products={products ?? []}
         repId={rep.id}
+        isAdmin={rep.role === "admin"}
         defaultAccountId={searchParams.account}
       />
     </div>

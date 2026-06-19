@@ -133,6 +133,8 @@ export type OrderPdfData = {
     subtotal: number;
     iva: number;
     total: number;
+    discount_pct?: number;
+    discount_amount?: number;
   };
   account: {
     business_name: string;
@@ -228,6 +230,14 @@ export function OrderPdf({ data }: { data: OrderPdfData }) {
             <Text>Subtotal</Text>
             <Text>{mxn(order.subtotal)}</Text>
           </View>
+          {(order.discount_amount ?? 0) > 0 && (
+            <View style={styles.totalsRow}>
+              <Text style={{ color: COLOR_CARMESI }}>
+                Descuento{order.discount_pct ? ` (${order.discount_pct}%)` : ""}
+              </Text>
+              <Text style={{ color: COLOR_CARMESI }}>- {mxn(order.discount_amount ?? 0)}</Text>
+            </View>
+          )}
           <View style={styles.totalsRow}>
             <Text style={{ color: COLOR_MUTED }}>IVA 16%</Text>
             <Text style={{ color: COLOR_MUTED }}>{mxn(order.iva)}</Text>
