@@ -455,9 +455,11 @@ export function OrderForm({
             </div>
             {discountPendiente && (
               <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">
-                Arriba de {MAX_VENDOR_DISCOUNT_PCT}%: el descuento quedará{" "}
-                <strong>pendiente de autorización</strong> y no se aplica al total hasta que un
-                admin lo autorice.
+                {MAX_VENDOR_DISCOUNT_PCT > 0
+                  ? `Arriba de ${MAX_VENDOR_DISCOUNT_PCT}%: `
+                  : "El descuento "}
+                quedará <strong>pendiente de autorización</strong> y no se aplica al total hasta
+                que un admin lo autorice.
               </p>
             )}
             <div className="flex justify-between text-muted-foreground">
