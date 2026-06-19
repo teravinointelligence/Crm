@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
-import { ArrowRight, Check, X, PackageCheck } from "lucide-react";
+import { ArrowRight, Check, X, PackageCheck, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -95,8 +96,17 @@ export function TransferenciasClient({
           title="Sin solicitudes"
           description={
             requests.length === 0
-              ? "Aún no hay solicitudes de transferencia. Genera una desde el catálogo."
+              ? "Las solicitudes se generan desde el catálogo, con el botón “Transferir” en cada vino."
               : "No hay solicitudes con ese estatus."
+          }
+          action={
+            requests.length === 0 ? (
+              <Button asChild className="mt-2">
+                <Link href="/catalogo">
+                  <Plus className="mr-1 h-4 w-4" /> Ir al catálogo
+                </Link>
+              </Button>
+            ) : undefined
           }
         />
       ) : (
