@@ -17,7 +17,7 @@ export async function GET(
     .select(
       `
       id, order_number, order_type, order_date, notes,
-      subtotal, iva, total,
+      subtotal, iva, total, discount_pct, discount_amount,
       accounts:account_id (
         business_name, fiscal_name, rfc, address, city, region
       ),
@@ -41,6 +41,8 @@ export async function GET(
       subtotal: Number(order.subtotal ?? 0),
       iva: Number(order.iva ?? 0),
       total: Number(order.total ?? 0),
+      discount_pct: Number(order.discount_pct ?? 0),
+      discount_amount: Number(order.discount_amount ?? 0),
     },
     account: order.accounts as unknown as OrderPdfData["account"],
     rep: order.sales_reps as unknown as OrderPdfData["rep"],

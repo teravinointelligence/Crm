@@ -28,7 +28,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     .from("orders")
     .select(
       `id, order_number, order_type, order_date, notes, status, sales_rep_id,
-       subtotal, iva, total,
+       subtotal, iva, total, discount_pct, discount_amount,
        accounts:account_id ( business_name, fiscal_name, rfc, address, city, region, client_number ),
        sales_reps:sales_rep_id ( full_name, email ),
        order_items ( product_name, supplier, vintage, quantity, unit_price, line_total )`,
@@ -58,6 +58,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       subtotal: Number(order.subtotal ?? 0),
       iva: Number(order.iva ?? 0),
       total: Number(order.total ?? 0),
+      discount_pct: Number(order.discount_pct ?? 0),
+      discount_amount: Number(order.discount_amount ?? 0),
     },
     account: order.accounts as unknown as OrderPdfData["account"],
     rep: order.sales_reps as unknown as OrderPdfData["rep"],
@@ -101,6 +103,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       </table>
       <p style="text-align:right;margin:12px 0 0;font-size:15px">
         Subtotal: ${formatCurrency(Number(order.subtotal ?? 0))}<br/>
+        ${Number(order.discount_amount ?? 0) > 0 ? `<span style="color:#A91E3A">Descuento${order.discount_pct ? ` (${order.discount_pct}%)` : ""}: - ${formatCurrency(Number(order.discount_amount ?? 0))}</span><br/>` : ""}
         IVA 16%: ${formatCurrency(Number(order.iva ?? 0))}<br/>
         <strong style="color:#A91E3A;font-size:18px">Total: ${formatCurrency(Number(order.total ?? 0))}</strong>
       </p>

@@ -19,7 +19,12 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { AccountCombobox } from "@/components/accounts/AccountCombobox";
 import { createClient } from "@/lib/supabase/client";
-import { applyRegionPrice, ivaAmount, withIVA } from "@/lib/pricing";
+import {
+  applyRegionPrice,
+  discountStatusFor,
+  orderTotals,
+  MAX_VENDOR_DISCOUNT_PCT,
+} from "@/lib/pricing";
 import { formatCurrency } from "@/lib/utils";
 import type { Account, PriceTier, Product } from "@/types/database";
 
@@ -38,6 +43,7 @@ type Props = {
   accounts: Pick<Account, "id" | "business_name" | "region" | "price_tier">[];
   products: Product[];
   repId: string;
+  isAdmin: boolean;
   defaultAccountId?: string;
 };
 
@@ -45,6 +51,7 @@ export function OrderForm({
   accounts,
   products,
   repId,
+  isAdmin,
   defaultAccountId,
 }: Props) {
   const router = useRouter();
@@ -57,6 +64,7 @@ export function OrderForm({
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([]);
   const [query, setQuery] = useState("");
+  const [discountPct, setDiscountPct] = useState(0);
 
   const account = accounts.find((a) => a.id === accountId);
   const tier: PriceTier =
@@ -66,8 +74,9 @@ export function OrderForm({
     (sum, i) => sum + (i.quantity * i.unit_price || 0),
     0,
   );
-  const iva = ivaAmount(subtotal);
-  const total = withIVA(subtotal);
+  const discountStatus = discountStatusFor(discountPct, isAdmin);
+  const { discount, iva, total } = orderTotals(subtotal, discountPct, discountStatus);
+  const discountPendiente = discountStatus === "pendiente";
 
   const activeProducts = useMemo(
     () => products.filter((p) => p.active !== false),
@@ -181,6 +190,16 @@ export function OrderForm({
           iva,
           total,
           notes: notes || null,
+          // El trigger normaliza estado/monto/IVA/total según el rol y el límite.
+          discount_pct: discountPct || 0,
+          ...(discountPct > 0
+            ? {
+                discount_requested_by: repId,
+                ...(isAdmin
+                  ? { discount_authorized_by: repId, discount_authorized_at: new Date().toISOString() }
+                  : {}),
+              }
+            : {}),
         })
         .select("id")
         .single();
@@ -412,6 +431,35 @@ export function OrderForm({
               <span>Subtotal</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="order_discount" className="text-muted-foreground">
+                Descuento (%)
+              </Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="order_discount"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.5"
+                  value={discountPct}
+                  onChange={(e) =>
+                    setDiscountPct(Math.max(0, Math.min(100, Number(e.target.value) || 0)))
+                  }
+                  className="h-8 w-20 text-right"
+                />
+                <span className="w-28 text-right text-muted-foreground">
+                  {discount > 0 ? `- ${formatCurrency(discount)}` : "—"}
+                </span>
+              </div>
+            </div>
+            {discountPendiente && (
+              <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700">
+                Arriba de {MAX_VENDOR_DISCOUNT_PCT}%: el descuento quedará{" "}
+                <strong>pendiente de autorización</strong> y no se aplica al total hasta que un
+                admin lo autorice.
+              </p>
+            )}
             <div className="flex justify-between text-muted-foreground">
               <span>IVA 16%</span>
               <span>{formatCurrency(iva)}</span>
