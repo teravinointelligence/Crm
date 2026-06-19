@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Boxes, PackageOpen, Package, Wine } from "lucide-react";
+import { ArrowLeft, Boxes, PackageOpen, Package, Wine, History } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -88,9 +88,14 @@ export default async function BancoMuestrasPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <Button asChild variant="ghost" size="sm">
-        <Link href="/muestras"><ArrowLeft className="mr-1 h-4 w-4" /> Muestras</Link>
-      </Button>
+      <div className="flex items-center justify-between gap-2">
+        <Button asChild variant="ghost" size="sm">
+          <Link href="/muestras"><ArrowLeft className="mr-1 h-4 w-4" /> Muestras</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href="/muestras/banco/historial"><History className="mr-1 h-4 w-4" /> Historial de tomas</Link>
+        </Button>
+      </div>
       <div>
         <h1 className="font-display text-3xl">Banco de muestras</h1>
         <p className="text-sm text-muted-foreground">
