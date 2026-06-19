@@ -92,6 +92,17 @@ export function canReportFleetFault(role: string | null | undefined): boolean {
 }
 
 /**
+ * Pueden ver/usar Restock (requisiciones de reabasto): admin, todos los
+ * vendedores (rep), el jefe de logística (Isaí) y el contador. NO los choferes.
+ * Es acceso por rol (no por el toggle de módulos) para que siempre esté visible.
+ */
+export function canViewRestock(role: string | null | undefined): boolean {
+  return (
+    role === "admin" || role === "rep" || role === "jefe_logistica" || role === "contador"
+  );
+}
+
+/**
  * Pueden GESTIONAR las fallas reportadas (cambiar estatus, cerrar): logística
  * (admin + jefe de logística). Los choferes solo reportan y ven las suyas.
  */
