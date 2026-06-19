@@ -130,13 +130,23 @@ export function TransferenciasClient({
                   <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">
                     {formatDateTime(r.created_at)}
                   </td>
-                  <td className="px-4 py-3 font-medium">{r.product_label}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {(r.item_count ?? 0) > 0 ? (
+                      <Link href={`/catalogo/transferencias/${r.id}`} className="hover:text-brand-carmesi">
+                        Traspaso · {r.item_count} productos
+                      </Link>
+                    ) : (
+                      r.product_label ?? "—"
+                    )}
+                  </td>
                   <td className="whitespace-nowrap px-4 py-3">
                     <span className="inline-flex items-center gap-1">
                       {r.from_warehouse} <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" /> {r.to_warehouse}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-medium">{r.quantity}</td>
+                  <td className="px-4 py-3 text-right font-medium">
+                    {(r.item_count ?? 0) > 0 ? `${r.item_qty} btl` : r.quantity}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {r.reason || "—"}
                     {r.admin_notes && (

@@ -22,25 +22,31 @@ export default async function TransferenciasPage() {
   const supabase = createClient();
   const { data } = await supabase
     .from("warehouse_transfer_requests")
-    .select("*, requester:requested_by(full_name)")
+    .select("*, requester:requested_by(full_name), warehouse_transfer_items(quantity)")
     .order("created_at", { ascending: false })
     .limit(500);
 
-  const requests: TransferRequest[] = (data ?? []).map((r: any) => ({
-    id: r.id,
-    product_id: r.product_id,
-    product_label: r.product_label,
-    from_warehouse: r.from_warehouse,
-    to_warehouse: r.to_warehouse,
-    quantity: Number(r.quantity),
-    reason: r.reason,
-    status: r.status,
-    admin_notes: r.admin_notes,
-    created_at: r.created_at,
-    decided_at: r.decided_at,
-    requested_by: r.requested_by,
-    requester_name: r.requester?.full_name ?? null,
-  }));
+  const requests: TransferRequest[] = (data ?? []).map((r: any) => {
+    const items = (r.warehouse_transfer_items ?? []) as { quantity: number }[];
+    const itemCount = items.length;
+    return {
+      id: r.id,
+      product_id: r.product_id,
+      product_label: r.product_label,
+      from_warehouse: r.from_warehouse,
+      to_warehouse: r.to_warehouse,
+      quantity: r.quantity != null ? Number(r.quantity) : null,
+      reason: r.reason,
+      status: r.status,
+      admin_notes: r.admin_notes,
+      created_at: r.created_at,
+      decided_at: r.decided_at,
+      requested_by: r.requested_by,
+      requester_name: r.requester?.full_name ?? null,
+      item_count: itemCount,
+      item_qty: itemCount ? items.reduce((s, i) => s + Number(i.quantity || 0), 0) : 0,
+    };
+  });
 
   return (
     <div className="space-y-6">

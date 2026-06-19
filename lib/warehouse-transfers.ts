@@ -22,10 +22,10 @@ export const TRANSFER_STATUS_VARIANT: Record<TransferStatus, "warning" | "succes
 export type TransferRequest = {
   id: string;
   product_id: string | null;
-  product_label: string;
+  product_label: string | null;
   from_warehouse: string;
   to_warehouse: string;
-  quantity: number;
+  quantity: number | null;
   reason: string | null;
   status: TransferStatus;
   admin_notes: string | null;
@@ -33,4 +33,14 @@ export type TransferRequest = {
   decided_at: string | null;
   requested_by: string | null;
   requester_name?: string | null;
+  // Multi-producto (traspaso): número de renglones y total de botellas.
+  item_count?: number;
+  item_qty?: number;
+};
+
+export type TransferItem = {
+  id: string;
+  product_id: string | null;
+  product_label: string;
+  quantity: number;
 };
