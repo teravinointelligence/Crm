@@ -33,6 +33,13 @@ import type { Contact } from "@/types/database";
 
 type Props = { accountId: string; contacts: Contact[] };
 
+// Normaliza un número a dígitos para wa.me. Si viene como local mexicano de 10
+// dígitos (sin lada país), antepone 52 para que WhatsApp lo abra bien.
+function waNumber(raw: string): string {
+  const d = raw.replace(/\D/g, "");
+  return d.length === 10 ? `52${d}` : d;
+}
+
 export function ContactsList({ accountId, contacts }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -264,12 +271,24 @@ export function ContactsList({ accountId, contacts }: Props) {
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
                   {c.phone && (
-                    <a
-                      href={`tel:${c.phone}`}
-                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 hover:bg-muted"
-                    >
-                      <Phone className="h-3 w-3" /> {c.phone}
-                    </a>
+                    <span className="inline-flex items-stretch overflow-hidden rounded-md border">
+                      <a
+                        href={`tel:${c.phone}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 hover:bg-muted"
+                      >
+                        <Phone className="h-3 w-3" /> {c.phone}
+                      </a>
+                      <a
+                        href={`https://wa.me/${waNumber(c.phone)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Abrir en WhatsApp"
+                        aria-label="Abrir en WhatsApp"
+                        className="inline-flex items-center border-l px-2 text-green-700 hover:bg-green-50"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                      </a>
+                    </span>
                   )}
                   {c.email && (
                     <a
@@ -281,7 +300,7 @@ export function ContactsList({ accountId, contacts }: Props) {
                   )}
                   {c.whatsapp && (
                     <a
-                      href={`https://wa.me/${c.whatsapp.replace(/\D/g, "")}`}
+                      href={`https://wa.me/${waNumber(c.whatsapp)}`}
                       target="_blank"
                       rel="noreferrer"
                       className="inline-flex items-center gap-1 rounded-md border border-green-600/30 px-2 py-1 text-green-700 hover:bg-green-50"
