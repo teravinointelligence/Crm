@@ -30,9 +30,9 @@ import {
   Send,
   Wrench,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, canViewRestock, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; fleetFaults?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -41,6 +41,7 @@ export type GroupItem = {
   finance?: boolean;
   flota?: boolean;
   fleetFaults?: boolean;
+  restock?: boolean;
   reparto?: boolean;
   incentivos?: boolean;
   portafolios?: boolean;
@@ -82,7 +83,7 @@ export const navItems: Item[] = [
       { href: "/consignaciones/tomas", label: "Tomas de inventario", icon: ClipboardList },
     ],
   },
-  { href: "/restock", label: "Restock", icon: PackageCheck, moduleKey: "restock" },
+  { href: "/restock", label: "Restock", icon: PackageCheck, restock: true },
   { href: "/transito", label: "Tránsito", icon: Truck, moduleKey: "transito" },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, finance: true },
   { href: "/reportes", label: "Reportes", icon: BarChart3, finance: true },
@@ -146,6 +147,8 @@ export function visibleNavItems({
           (i.flota === true && canAccessFlota(role)) ||
           // …y el reporte de fallas de vehículos (choferes incluidos).
           ((i as { fleetFaults?: boolean }).fleetFaults === true && canReportFleetFault(role)) ||
+          // …y Restock (el jefe de logística hace requisiciones de reabasto).
+          ((i as { restock?: boolean }).restock === true && canViewRestock(role)) ||
           // El facturista (jefe de logística) además ve Consignaciones y Documentos.
           (canAccessFacturacion(role) &&
             (i.moduleKey === "consignaciones" || i.moduleKey === "documentos")) ||
@@ -164,6 +167,7 @@ export function visibleNavItems({
     .filter((i) => {
       if (i.flota) return canAccessFlota(role);
       if (i.fleetFaults) return canReportFleetFault(role);
+      if (i.restock) return canViewRestock(role);
       if (i.finance) return canSeeFinance(role);
       if (i.reparto) return canViewReparto(role);
       if (i.incentivos) return canViewIncentivos(role);
