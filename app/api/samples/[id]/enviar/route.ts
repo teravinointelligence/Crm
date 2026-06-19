@@ -51,10 +51,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!pdf) return NextResponse.json({ error: "No se pudo generar el PDF" }, { status: 500 });
 
   try {
+    // Copia al vendedor que solicitó (si su correo no es ya el destinatario).
+    const cc = built.repEmail && built.repEmail !== to ? built.repEmail : undefined;
     const result = await sendEmail({
       to,
       from: ventasFrom(),
       replyTo: rep.email ?? undefined,
+      cc,
       subject: built.subject,
       html: built.html,
       attachments: [
