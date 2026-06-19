@@ -43,6 +43,19 @@ export function canSeeFinance(role: string | null | undefined): boolean {
 }
 
 /**
+ * Roles que pueden ser "vendedores" en el CRM: llevan cartera de cuentas y por
+ * tanto aparecen en los selectores de vendedor (filtro y asignación de Cuentas,
+ * Calendario, etc.). Excluye choferes, contador y jefe de logística, que no
+ * tienen cartera. Admin va incluido porque dirección también puede llevar
+ * cuentas. Úsalo como `.in("role", SELLER_ROLES)` en queries de sales_reps.
+ */
+export const SELLER_ROLES: UserRole[] = ["admin", "rep"];
+
+export function isSellerRole(role: string | null | undefined): boolean {
+  return role === "admin" || role === "rep";
+}
+
+/**
  * Roles cuyo único alcance en el CRM web es la sección Reparto. Se usan en el
  * middleware para confinar la navegación y en el sidebar para ocultar el resto.
  */

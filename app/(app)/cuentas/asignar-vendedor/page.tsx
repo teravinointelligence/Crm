@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
+import { SELLER_ROLES } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import {
   AsignarVendedorBoard,
@@ -26,6 +27,7 @@ export default async function AsignarVendedorPage() {
       .from("sales_reps")
       .select("id, full_name")
       .eq("active", true)
+      .in("role", SELLER_ROLES)
       .order("full_name"),
   ]);
 

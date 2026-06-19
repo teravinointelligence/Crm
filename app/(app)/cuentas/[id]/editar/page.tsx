@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { SELLER_ROLES } from "@/lib/modules";
 import { AccountForm } from "@/components/accounts/AccountForm";
 
 export const metadata = { title: "Editar cuenta — TERAVINO CRM" };
@@ -20,6 +21,7 @@ export default async function EditarCuentaPage({
       .from("sales_reps")
       .select("*")
       .eq("active", true)
+      .in("role", SELLER_ROLES)
       .order("full_name"),
   ]);
 
