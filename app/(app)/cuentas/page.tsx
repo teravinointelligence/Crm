@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Link2, Download, MailWarning, Upload, AlarmClock, PackageX, UserPlus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { SELLER_ROLES } from "@/lib/modules";
 import { AccountsListClient } from "@/components/accounts/AccountsListClient";
 import { Button } from "@/components/ui/button";
 
@@ -21,6 +22,7 @@ export default async function CuentasPage() {
       .from("sales_reps")
       .select("*")
       .eq("active", true)
+      .in("role", SELLER_ROLES)
       .order("full_name"),
   ]);
 

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { SELLER_ROLES } from "@/lib/modules";
 import { getAtRiskProductIds } from "@/lib/restock-data";
 import { loadChurnRanking } from "@/lib/account-intel";
 import { CHURN_LABEL, type ChurnStatus } from "@/lib/churn";
@@ -156,7 +157,7 @@ export default async function DashboardPage() {
 
   // Vendedores para el selector del calendario (solo admin lo usa).
   const repsForCalendar = isAdmin
-    ? (((await supabase.from("sales_reps").select("id, full_name").eq("active", true).order("full_name")).data ?? []) as { id: string; full_name: string }[])
+    ? (((await supabase.from("sales_reps").select("id, full_name").eq("active", true).in("role", SELLER_ROLES).order("full_name")).data ?? []) as { id: string; full_name: string }[])
     : [];
 
   // Cuentas sin actividad reciente (>30 días) para el recordatorio "Visitar pronto".

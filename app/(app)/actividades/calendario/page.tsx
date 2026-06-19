@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight, Plus, Clock, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { SELLER_ROLES } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { ActivityViewTabs } from "@/components/activities/ActivityViewTabs";
 import { CalendarMonth, type CalItem } from "@/components/activities/CalendarMonth";
@@ -76,6 +77,7 @@ export default async function CalendarioPage({
         .from("sales_reps")
         .select("id, full_name")
         .eq("active", true)
+        .in("role", SELLER_ROLES)
         .order("full_name")
     : { data: null };
   const reps = (repsData ?? []) as { id: string; full_name: string }[];
