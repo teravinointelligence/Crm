@@ -3,7 +3,7 @@
 
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
@@ -53,11 +53,18 @@ export default async function TransferenciasPage() {
               : "Tus solicitudes de transferencia entre almacenes."}
           </p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/catalogo">
-            <ArrowLeft className="mr-1 h-4 w-4" /> Volver al catálogo
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild>
+            <Link href="/catalogo">
+              <Plus className="mr-1 h-4 w-4" /> Nueva solicitud (en el catálogo)
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/catalogo">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Volver al catálogo
+            </Link>
+          </Button>
+        </div>
       </div>
       <TransferenciasClient requests={requests} isAdmin={isAdmin} />
     </div>
