@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { AccountCombobox } from "@/components/accounts/AccountCombobox";
 import { SAMPLE_LOCATIONS } from "@/lib/samples";
+import { formatDate } from "@/lib/utils";
 
 export type BankRow = {
   product_id: string;
@@ -35,6 +36,7 @@ export type BankRow = {
 };
 
 export type RegionMetrics = { usadas: number; encartadas: number };
+export type LastUse = { rep: string | null; account: string | null; date: string | null; note: string | null };
 
 type AccountOption = { id: string; business_name: string; region?: string | null };
 
@@ -46,11 +48,14 @@ export function SampleBankClient({
   isAdmin,
   accounts,
   metricsByRegion,
+  lastUse = {},
 }: {
   rows: BankRow[];
   isAdmin: boolean;
   accounts: AccountOption[];
   metricsByRegion: Record<string, RegionMetrics>;
+  // key `${product_id}|${region ?? "Sin zona"}` → último uso
+  lastUse?: Record<string, LastUse>;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -156,6 +161,7 @@ export function SampleBankClient({
                   <th className="px-4 py-3">Bodega (vino)</th>
                   <th className="px-4 py-3">Ubicación</th>
                   <th className="px-4 py-3 text-right">Disponibles</th>
+                  <th className="px-4 py-3">Último uso</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -184,6 +190,21 @@ export function SampleBankClient({
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Badge variant="success">{r.available}</Badge>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const u = lastUse[`${r.product_id}|${r.region ?? "Sin zona"}`];
+                        if (!u) return <span className="text-xs text-muted-foreground">Sin registro</span>;
+                        return (
+                          <div className="text-xs leading-tight">
+                            <div className="font-medium">{u.rep ?? "—"}</div>
+                            <div className="text-muted-foreground">
+                              {u.account ? `→ ${u.account}` : "sin cliente"}
+                              {u.date ? ` · ${formatDate(u.date)}` : ""}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
