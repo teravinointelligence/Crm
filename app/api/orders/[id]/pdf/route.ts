@@ -16,7 +16,7 @@ export async function GET(
     .from("orders")
     .select(
       `
-      id, order_number, order_type, order_date, notes,
+      id, order_number, order_type, order_date, warehouse, fulfillment_status, notes,
       subtotal, iva, total, discount_pct, discount_amount,
       accounts:account_id (
         business_name, fiscal_name, rfc, address, city, region
@@ -37,6 +37,8 @@ export async function GET(
       order_number: order.order_number,
       order_type: order.order_type,
       order_date: order.order_date,
+      warehouse: order.warehouse,
+      fulfillment_status: order.fulfillment_status,
       notes: order.notes,
       subtotal: Number(order.subtotal ?? 0),
       iva: Number(order.iva ?? 0),

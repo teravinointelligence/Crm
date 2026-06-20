@@ -33,7 +33,7 @@ export default async function PedidosPage({
   let query = supabase
     .from("orders")
     .select(
-      "id, order_number, order_type, status, discount_status, order_date, total, accounts:account_id(business_name, region, client_number)",
+      "id, order_number, order_type, status, discount_status, fulfillment_status, warehouse, order_date, total, accounts:account_id(business_name, region, client_number)",
     )
     .order("order_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -51,6 +51,8 @@ export default async function PedidosPage({
     order_type: string;
     status: string | null;
     discount_status: string | null;
+    fulfillment_status: string | null;
+    warehouse: string | null;
     order_date: string;
     total: number | null;
     accounts: {
@@ -150,6 +152,11 @@ export default async function PedidosPage({
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <Badge variant="muted">{o.status}</Badge>
+                      {o.order_type === "pedido" && (
+                        <Badge variant={o.fulfillment_status === "surtido" ? "success" : "warning"}>
+                          {o.fulfillment_status === "surtido" ? "Surtido" : "Por surtir"}
+                        </Badge>
+                      )}
                       {o.discount_status === "pendiente" && (
                         <Badge variant="warning">Desc. pendiente</Badge>
                       )}

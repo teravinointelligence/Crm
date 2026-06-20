@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { OrderStatusActions } from "@/components/orders/OrderStatusActions";
 import { EnviarPedidoButton } from "@/components/orders/EnviarPedidoButton";
+import { FulfillmentActions } from "@/components/orders/FulfillmentActions";
 import { OrderDiscount } from "@/components/orders/OrderDiscount";
 import type { DiscountStatus } from "@/lib/pricing";
 
@@ -35,6 +36,9 @@ export default async function PedidoDetailPage({
 
   const isAdmin = me?.role === "admin";
   const isOwner = !!me && order.sales_rep_id === me.id;
+  const isPedido = order.order_type === "pedido";
+  const surtido = order.fulfillment_status === "surtido";
+  const canManageFulfillment = ["admin", "jefe_logistica"].includes(me?.role ?? "");
   const discountStatus = (order.discount_status ?? "none") as DiscountStatus;
   const discountAmount = Number(order.discount_amount ?? 0);
   const discountPct = Number(order.discount_pct ?? 0);
@@ -83,9 +87,20 @@ export default async function PedidoDetailPage({
             {account?.price_tier === "+10" && (
               <Badge variant="accent">+10%</Badge>
             )}
+            {isPedido && (
+              <Badge variant={surtido ? "success" : "warning"}>
+                {surtido ? "Surtido" : "Por surtir"}
+              </Badge>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
             {formatDate(order.order_date)}
+            {isPedido && (
+              <>
+                {" · Almacén: "}
+                <strong>{order.warehouse ?? "sin definir"}</strong>
+              </>
+            )}
           </p>
           {account && (
             <Link
@@ -123,6 +138,14 @@ export default async function PedidoDetailPage({
           />
         </div>
       </div>
+
+      {isPedido && canManageFulfillment && (
+        <FulfillmentActions
+          orderId={order.id}
+          fulfillmentStatus={order.fulfillment_status ?? "por_surtir"}
+          warehouse={order.warehouse ?? null}
+        />
+      )}
 
       <Card>
         <CardContent className="p-0">

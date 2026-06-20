@@ -28,6 +28,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     .from("orders")
     .select(
       `id, order_number, order_type, order_date, notes, status, sales_rep_id,
+       warehouse, fulfillment_status,
        subtotal, iva, total, discount_pct, discount_amount,
        accounts:account_id ( business_name, fiscal_name, rfc, address, city, region, client_number ),
        sales_reps:sales_rep_id ( full_name, email ),
@@ -54,6 +55,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       order_number: order.order_number,
       order_type: order.order_type,
       order_date: order.order_date,
+      warehouse: order.warehouse,
+      fulfillment_status: order.fulfillment_status,
       notes: order.notes,
       subtotal: Number(order.subtotal ?? 0),
       iva: Number(order.iva ?? 0),
@@ -90,6 +93,14 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         ${account?.region ? ` · ${account.region}` : ""}<br/>
         Fecha: ${formatDate(order.order_date)} · Atiende: ${rep.full_name}
       </p>
+      ${
+        order.order_type === "pedido"
+          ? `<p style="margin:0 0 12px;padding:8px 12px;background:#f3f0ea;border-left:3px solid #A91E3A;font-size:14px">
+               <strong>Almacén de salida:</strong> ${order.warehouse ?? "⚠️ sin definir"}
+               · <strong>Surtido:</strong> ${order.fulfillment_status === "surtido" ? "Sí" : "Por surtir"}
+             </p>`
+          : ""
+      }
       <table style="width:100%;border-collapse:collapse;font-size:13px">
         <thead>
           <tr style="background:#f3f0ea;text-transform:uppercase;font-size:11px;color:#777">

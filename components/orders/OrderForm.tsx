@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { AccountCombobox } from "@/components/accounts/AccountCombobox";
+import { WAREHOUSES } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 import {
   applyRegionPrice,
@@ -40,7 +41,10 @@ type LineItem = {
 };
 
 type Props = {
-  accounts: Pick<Account, "id" | "business_name" | "region" | "price_tier">[];
+  accounts: Pick<
+    Account,
+    "id" | "business_name" | "region" | "price_tier" | "fiscal_name" | "client_number"
+  >[];
   products: Product[];
   repId: string;
   isAdmin: boolean;
@@ -61,6 +65,7 @@ export function OrderForm({
   const [orderType, setOrderType] = useState<"cotizacion" | "pedido">(
     "cotizacion",
   );
+  const [warehouse, setWarehouse] = useState<string>("");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([]);
   const [query, setQuery] = useState("");
@@ -165,6 +170,10 @@ export function OrderForm({
       toast.error("Revisa que las líneas tengan nombre, cantidad y precio");
       return;
     }
+    if (orderType === "pedido" && !warehouse) {
+      toast.error("Elige el almacén de salida del pedido");
+      return;
+    }
 
     startTransition(async () => {
       const { data: numberRes, error: numberError } = await supabase.rpc(
@@ -185,6 +194,7 @@ export function OrderForm({
           account_id: accountId,
           sales_rep_id: repId,
           order_type: orderType,
+          warehouse: orderType === "pedido" ? warehouse : warehouse || null,
           status,
           subtotal,
           iva,
@@ -232,7 +242,27 @@ export function OrderForm({
         return;
       }
 
-      toast.success(`${numberRes} creada`);
+      // Al "Crear y enviar" un PEDIDO, lo mandamos automáticamente a
+      // pedidos@teravino.com como solicitud de facturación (con PDF). Las
+      // cotizaciones y los borradores no se envían.
+      if (status === "enviada" && orderType === "pedido") {
+        const res = await fetch(`/api/orders/${order.id}/enviar`, {
+          method: "POST",
+        });
+        if (!res.ok) {
+          const d = (await res.json().catch(() => ({}))) as { error?: string };
+          toast.error("Pedido creado, pero falló el envío a pedidos@", {
+            description: d.error ?? `HTTP ${res.status}`,
+          });
+          router.push(`/pedidos/${order.id}`);
+          router.refresh();
+          return;
+        }
+        toast.success(`${numberRes} enviado a pedidos@teravino.com`);
+      } else {
+        toast.success(`${numberRes} creada`);
+      }
+
       router.push(`/pedidos/${order.id}`);
       router.refresh();
     });
@@ -270,6 +300,28 @@ export function OrderForm({
               <SelectContent>
                 <SelectItem value="cotizacion">Cotización (COT)</SelectItem>
                 <SelectItem value="pedido">Pedido (PED)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>
+              Almacén de salida{" "}
+              {orderType === "pedido" ? (
+                <span className="text-brand-carmesi">*</span>
+              ) : (
+                <span className="text-xs text-muted-foreground">(opcional en cotización)</span>
+              )}
+            </Label>
+            <Select value={warehouse} onValueChange={setWarehouse}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona almacén" />
+              </SelectTrigger>
+              <SelectContent>
+                {WAREHOUSES.map((w) => (
+                  <SelectItem key={w} value={w}>
+                    {w}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
