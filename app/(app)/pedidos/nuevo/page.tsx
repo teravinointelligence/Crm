@@ -17,7 +17,7 @@ export default async function NuevoPedidoPage({
   const [{ data: accounts }, { data: products }] = await Promise.all([
     supabase
       .from("accounts")
-      .select("id, business_name, region, price_tier")
+      .select("id, business_name, region, price_tier, fiscal_name, client_number")
       .order("business_name"),
     supabase
       .from("products")

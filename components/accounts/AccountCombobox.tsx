@@ -8,6 +8,10 @@ type AccountOption = {
   id: string;
   business_name: string;
   region?: string | null;
+  /** Nombre fiscal/razón social — se incluye en la búsqueda aunque no se muestre. */
+  fiscal_name?: string | null;
+  /** Número de cliente — también se puede buscar por él. */
+  client_number?: string | null;
 };
 
 const MAX_VISIBLE = 50;
@@ -56,7 +60,9 @@ export function AccountCombobox({
       .filter(
         (a) =>
           a.business_name.toLowerCase().includes(q) ||
-          (a.region ?? "").toLowerCase().includes(q),
+          (a.region ?? "").toLowerCase().includes(q) ||
+          (a.fiscal_name ?? "").toLowerCase().includes(q) ||
+          (a.client_number ?? "").toLowerCase().includes(q),
       )
       .slice(0, MAX_VISIBLE);
   }, [accounts, query]);

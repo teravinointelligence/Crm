@@ -170,6 +170,10 @@ export type Database = {
           status: string | null;
           subtotal: number | null;
           total: number | null;
+          warehouse: string | null;
+          fulfillment_status: string;
+          fulfilled_at: string | null;
+          fulfilled_by: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["orders"]["Row"]> & {
           account_id: string;

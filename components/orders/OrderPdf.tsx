@@ -129,6 +129,8 @@ export type OrderPdfData = {
     order_number: string;
     order_type: string;
     order_date: string;
+    warehouse?: string | null;
+    fulfillment_status?: string | null;
     notes: string | null;
     subtotal: number;
     iva: number;
@@ -201,6 +203,15 @@ export function OrderPdf({ data }: { data: OrderPdfData }) {
             </View>
           )}
         </View>
+
+        {order.order_type === "pedido" && (
+          <Text style={[styles.small, { marginBottom: 6 }]}>
+            Almacén de salida: {order.warehouse ?? "sin definir"}
+            {order.fulfillment_status
+              ? ` · ${order.fulfillment_status === "surtido" ? "SURTIDO" : "Por surtir"}`
+              : ""}
+          </Text>
+        )}
 
         <Text style={styles.h2}>Productos</Text>
         <View style={styles.tableHeader}>
