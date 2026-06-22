@@ -13,7 +13,7 @@ export default async function CuentasPage() {
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
 
-  const [accountsRes, repsRes] = await Promise.all([
+  const [accountsRes, repsRes, balancesRes] = await Promise.all([
     supabase
       .from("accounts")
       .select("*, sales_reps:assigned_rep_id(full_name)")
@@ -24,7 +24,23 @@ export default async function CuentasPage() {
       .eq("active", true)
       .in("role", SELLER_ROLES)
       .order("full_name"),
+    supabase
+      .from("v_account_balance")
+      .select("account_id, total_facturado, saldo_vencido"),
   ]);
+
+  // Estado de cartera por cuenta: solo clientes con facturación.
+  // "al corriente" = sin saldo vencido → elegibles para promociones vigentes.
+  const carteraStatusById: Record<string, "al_corriente" | "vencido"> = {};
+  for (const b of (balancesRes.data ?? []) as {
+    account_id: string;
+    total_facturado: number | null;
+    saldo_vencido: number | null;
+  }[]) {
+    if ((b.total_facturado ?? 0) <= 0) continue;
+    carteraStatusById[b.account_id] =
+      (b.saldo_vencido ?? 0) > 0 ? "vencido" : "al_corriente";
+  }
 
   return (
     <div className="space-y-6">
@@ -79,6 +95,7 @@ export default async function CuentasPage() {
         accounts={(accountsRes.data ?? []) as never}
         reps={repsRes.data ?? []}
         isAdmin={!!isAdmin}
+        carteraStatusById={carteraStatusById}
       />
     </div>
   );
