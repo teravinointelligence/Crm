@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/recordatorio-tomas",
       "schedule": "0 15 * * 1"
+    },
+    {
+      "path": "/api/cron/recordatorio-eventos",
+      "schedule": "0 15 * * *"
     }
   ]
 }

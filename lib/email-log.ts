@@ -12,6 +12,7 @@ export type ClientEmailKind =
   | "muestra"
   | "cobranza"
   | "pedido"
+  | "invitacion"
   | "otro";
 
 export const EMAIL_KIND_LABEL: Record<ClientEmailKind, string> = {
@@ -22,6 +23,7 @@ export const EMAIL_KIND_LABEL: Record<ClientEmailKind, string> = {
   muestra: "Muestras",
   cobranza: "Cobranza",
   pedido: "Pedido",
+  invitacion: "Invitación a evento",
   otro: "Otro",
 };
 
