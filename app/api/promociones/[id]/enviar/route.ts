@@ -27,6 +27,16 @@ type AccountRow = {
   contacts: { email: string | null; is_primary: boolean | null }[] | null;
 };
 
+type Cliente = {
+  id: string;
+  name: string;
+  email: string;
+  cartera: "al_corriente" | "vencido" | null;
+  // true/false si la promo tiene productos participantes (compró o no);
+  // null si la promo no tiene productos etiquetados (filtro oculto).
+  compraPromo: boolean | null;
+};
+
 function bestEmail(a: AccountRow): string | null {
   const contacts = (a.contacts ?? []).filter((c) => c.email && c.email.includes("@"));
   const primary = contacts.find((c) => c.is_primary);
@@ -55,16 +65,83 @@ async function loadPromo(id: string): Promise<PromoFlyerData | null> {
   };
 }
 
-async function loadClientes() {
+// Cuentas que ya compraron algún producto participante de la promo.
+// Devuelve null si la promo no tiene productos etiquetados (sin filtro).
+async function loadPromoBuyers(promoId: string): Promise<Set<string> | null> {
   const supabase = createClient();
-  const { data } = await supabase
-    .from("accounts")
-    .select("id, business_name, billing_email, contacts(email, is_primary)")
-    .order("business_name");
-  const clientes: { id: string; name: string; email: string }[] = [];
+  const { data: pp } = await supabase
+    .from("promotion_products")
+    .select("product_id")
+    .eq("promotion_id", promoId);
+  const productIds = (pp ?? []).map((r) => (r as { product_id: string }).product_id);
+  if (!productIds.length) return null;
+
+  const { data: prods } = await supabase
+    .from("products")
+    .select("sku, codigo_contpaqi")
+    .in("id", productIds);
+  const codes = new Set<string>();
+  for (const p of (prods ?? []) as { sku: string | null; codigo_contpaqi: string | null }[]) {
+    if (p.sku) codes.add(p.sku);
+    if (p.codigo_contpaqi) codes.add(p.codigo_contpaqi);
+  }
+  if (!codes.size) return new Set();
+
+  // Códigos vendidos → ventas mensuales → cuentas (RLS aplica sobre monthly_sales).
+  const { data: items } = await supabase
+    .from("monthly_sales_items")
+    .select("monthly_sale_id")
+    .in("codigo", Array.from(codes));
+  const saleIds = Array.from(
+    new Set((items ?? []).map((r) => (r as { monthly_sale_id: string }).monthly_sale_id)),
+  );
+  if (!saleIds.length) return new Set();
+
+  const buyers = new Set<string>();
+  // chunk por seguridad si la lista crece
+  for (let i = 0; i < saleIds.length; i += 500) {
+    const { data: sales } = await supabase
+      .from("monthly_sales")
+      .select("account_id")
+      .in("id", saleIds.slice(i, i + 500));
+    for (const s of (sales ?? []) as { account_id: string }[]) buyers.add(s.account_id);
+  }
+  return buyers;
+}
+
+async function loadClientes(buyerSet: Set<string> | null) {
+  const supabase = createClient();
+  const [{ data }, { data: balances }] = await Promise.all([
+    supabase
+      .from("accounts")
+      .select("id, business_name, billing_email, contacts(email, is_primary)")
+      .order("business_name"),
+    // Estado de cartera por cuenta (v_account_balance respeta RLS por vendedor).
+    // "al corriente" = con facturación y sin saldo vencido.
+    supabase.from("v_account_balance").select("account_id, total_facturado, saldo_vencido"),
+  ]);
+
+  const carteraById = new Map<string, "al_corriente" | "vencido">();
+  for (const b of (balances ?? []) as {
+    account_id: string;
+    total_facturado: number | null;
+    saldo_vencido: number | null;
+  }[]) {
+    if ((b.total_facturado ?? 0) <= 0) continue;
+    carteraById.set(b.account_id, (b.saldo_vencido ?? 0) > 0 ? "vencido" : "al_corriente");
+  }
+
+  const clientes: Cliente[] = [];
   for (const a of (data ?? []) as AccountRow[]) {
     const email = bestEmail(a);
-    if (email) clientes.push({ id: a.id, name: a.business_name ?? "(sin nombre)", email });
+    if (email)
+      clientes.push({
+        id: a.id,
+        name: a.business_name ?? "(sin nombre)",
+        email,
+        cartera: carteraById.get(a.id) ?? null,
+        compraPromo: buyerSet ? buyerSet.has(a.id) : null,
+      });
   }
   return clientes;
 }
@@ -76,7 +153,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const promo = await loadPromo(params.id);
   if (!promo) return NextResponse.json({ error: "Promoción no encontrada" }, { status: 404 });
 
-  const clientes = await loadClientes();
+  const buyerSet = await loadPromoBuyers(params.id);
+  const clientes = await loadClientes(buyerSet);
   return NextResponse.json({ promo: { title: promo.title }, clientes });
 }
 

@@ -16,8 +16,25 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 
-type Cliente = { id: string; name: string; email: string };
+type CarteraStatus = "al_corriente" | "vencido" | null;
+type Cliente = {
+  id: string;
+  name: string;
+  email: string;
+  cartera: CarteraStatus;
+  compraPromo: boolean | null;
+};
+
+const CARTERA_ALL = "_all";
 
 export function EnviarPromoButton({ promoId }: { promoId: string }) {
   const [pending, startTransition] = useTransition();
@@ -25,14 +42,26 @@ export function EnviarPromoButton({ promoId }: { promoId: string }) {
   const [clientes, setClientes] = useState<Cliente[] | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  const [cartera, setCartera] = useState<string>(CARTERA_ALL);
+  const [soloCompradores, setSoloCompradores] = useState(false);
   const [extra, setExtra] = useState("");
+
+  // La promo tiene productos participantes si algún cliente trae compraPromo no-nulo.
+  const tienePromoProductos = useMemo(
+    () => (clientes ?? []).some((c) => c.compraPromo !== null),
+    [clientes],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!clientes) return [];
-    if (!q) return clientes;
-    return clientes.filter((c) => c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
-  }, [clientes, query]);
+    return clientes.filter((c) => {
+      if (cartera !== CARTERA_ALL && (c.cartera ?? "") !== cartera) return false;
+      if (soloCompradores && c.compraPromo !== true) return false;
+      if (q && !c.name.toLowerCase().includes(q) && !c.email.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [clientes, query, cartera, soloCompradores]);
 
   const extraEmails = useMemo(
     () =>
@@ -122,15 +151,39 @@ export function EnviarPromoButton({ promoId }: { promoId: string }) {
               Ver el flyer PDF que se adjuntará
             </a>
 
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                className="pl-8"
-                placeholder="Buscar cliente por nombre o correo…"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-              />
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  className="pl-8"
+                  placeholder="Buscar cliente por nombre o correo…"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                />
+              </div>
+              <Select value={cartera} onValueChange={setCartera}>
+                <SelectTrigger className="w-40 shrink-0">
+                  <SelectValue placeholder="Cartera" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={CARTERA_ALL}>Toda la cartera</SelectItem>
+                  <SelectItem value="al_corriente">Al corriente</SelectItem>
+                  <SelectItem value="vencido">Con saldo vencido</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+
+            {tienePromoProductos && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-brand-carmesi"
+                  checked={soloCompradores}
+                  onChange={(e) => setSoloCompradores(e.target.checked)}
+                />
+                Solo clientes que ya compran esta promoción
+              </label>
+            )}
 
             {clientes === null ? (
               <p className="py-6 text-center text-muted-foreground">Cargando clientes…</p>
@@ -160,7 +213,19 @@ export function EnviarPromoButton({ promoId }: { promoId: string }) {
                           onChange={() => toggle(c.id)}
                         />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate font-medium">{c.name}</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="truncate font-medium">{c.name}</span>
+                            {c.cartera === "al_corriente" && (
+                              <Badge variant="success" className="shrink-0">
+                                Al corriente
+                              </Badge>
+                            )}
+                            {c.cartera === "vencido" && (
+                              <Badge variant="danger" className="shrink-0">
+                                Con vencido
+                              </Badge>
+                            )}
+                          </span>
                           <span className="block truncate text-xs text-muted-foreground">{c.email}</span>
                         </span>
                       </label>
