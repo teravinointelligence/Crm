@@ -195,6 +195,17 @@ export function canViewPortafolios(role: string | null | undefined): boolean {
   return role === "admin" || role === "rep" || role === "jefe_logistica";
 }
 
+/**
+ * Pueden VER Visitas de proveedor y Eventos (/visitas, /eventos): el admin
+ * (crea y administra) y los vendedores (ven el calendario y AGENDAN actividades
+ * / invitan a sus clientes). Acceso por rol —no por módulo seleccionable— para
+ * que todos los vendedores lo vean sin configurarlo uno por uno. La creación y
+ * edición de visitas/eventos es solo del admin (ver RLS de la migración 0084).
+ */
+export function canViewVisitas(role: string | null | undefined): boolean {
+  return role === "admin" || role === "rep";
+}
+
 export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "cuentas", label: "Cuentas", href: "/cuentas" },
   { key: "contactos", label: "Contactos", href: "/contactos" },

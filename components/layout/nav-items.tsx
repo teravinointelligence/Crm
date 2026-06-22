@@ -29,10 +29,11 @@ import {
   Megaphone,
   Send,
   Wrench,
+  CalendarClock,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, canViewRestock, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; visitas?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -45,6 +46,7 @@ export type GroupItem = {
   reparto?: boolean;
   incentivos?: boolean;
   portafolios?: boolean;
+  visitas?: boolean;
   moduleKey?: string;
   basePath: string;
   children: { href: string; label: string; icon: typeof LayoutDashboard; manageOnly?: boolean; creditoOnly?: boolean }[];
@@ -62,6 +64,18 @@ export const navItems: Item[] = [
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
   { href: "/portafolios", label: "Portafolios", icon: Briefcase, portafolios: true },
   { href: "/promociones", label: "Promociones", icon: Megaphone }, // siempre visible (todos los vendedores)
+  {
+    kind: "group",
+    label: "Visitas y eventos",
+    icon: CalendarClock,
+    visitas: true,
+    basePath: "/visitas",
+    children: [
+      { href: "/visitas", label: "Visitas de proveedor", icon: CalendarClock },
+      { href: "/visitas/calendario", label: "Calendario", icon: CalendarCheck2 },
+      { href: "/eventos", label: "Eventos", icon: Wine },
+    ],
+  },
   { href: "/envios", label: "Envíos a clientes", icon: Send, adminOnly: true },
   // Cotizaciones y pedidos viven en una sola lista (orders.order_type); la
   // entrada vieja /cotizaciones redirige aquí. Compat: usuarios con el módulo
@@ -172,6 +186,7 @@ export function visibleNavItems({
       if (i.reparto) return canViewReparto(role);
       if (i.incentivos) return canViewIncentivos(role);
       if (i.portafolios) return canViewPortafolios(role);
+      if (i.visitas) return canViewVisitas(role);
       if (i.adminOnly) return isAdmin;
       if (isAdmin) return true;
       if (!i.moduleKey) return true; // dashboard / siempre visible

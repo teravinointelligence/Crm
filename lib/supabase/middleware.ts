@@ -43,11 +43,16 @@ export async function updateSession(request: NextRequest) {
   // Estado de cuenta público por token (link a clientes que no son usuarios del
   // CRM): se auto-protege validando el token en su propio handler.
   const isEstadoPublico = path.startsWith("/estado") || path.startsWith("/api/estado");
+  // Invitación a evento por token (link a clientes que no son usuarios del CRM):
+  // se auto-protege validando el rsvp_token en su propio handler.
+  const isInvitacionPublica =
+    path.startsWith("/invitacion") || path.startsWith("/api/invitacion");
   const isPublic =
     isAuthRoute ||
     isCron ||
     isInbound ||
     isEstadoPublico ||
+    isInvitacionPublica ||
     path.startsWith("/_next") ||
     path === "/favicon.ico";
 
