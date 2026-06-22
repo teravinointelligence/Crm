@@ -15,6 +15,7 @@ import { ChurnCard, CrossSellCard, TopProductsCard } from "@/components/accounts
 import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
 import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
+import { AccountVisitas } from "@/components/accounts/AccountVisitas";
 import { ImportPedidosCuenta } from "@/components/accounts/ImportPedidosCuenta";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { AccountProposals, type ProposalRow } from "@/components/accounts/AccountProposals";
@@ -272,6 +273,7 @@ export default async function CuentaDetailPage({
 
         <TabsContent value="resumen">
           <div className="space-y-6">
+            <AccountVisitas accountId={account.id} />
             <div className="grid gap-4 lg:grid-cols-2">
               <NextBestActionCard
                 accountId={account.id}
