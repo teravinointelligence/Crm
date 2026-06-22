@@ -27,6 +27,13 @@ type AccountRow = {
   contacts: { email: string | null; is_primary: boolean | null }[] | null;
 };
 
+type Cliente = {
+  id: string;
+  name: string;
+  email: string;
+  cartera: "al_corriente" | "vencido" | null;
+};
+
 function bestEmail(a: AccountRow): string | null {
   const contacts = (a.contacts ?? []).filter((c) => c.email && c.email.includes("@"));
   const primary = contacts.find((c) => c.is_primary);
@@ -57,14 +64,36 @@ async function loadPromo(id: string): Promise<PromoFlyerData | null> {
 
 async function loadClientes() {
   const supabase = createClient();
-  const { data } = await supabase
-    .from("accounts")
-    .select("id, business_name, billing_email, contacts(email, is_primary)")
-    .order("business_name");
-  const clientes: { id: string; name: string; email: string }[] = [];
+  const [{ data }, { data: balances }] = await Promise.all([
+    supabase
+      .from("accounts")
+      .select("id, business_name, billing_email, contacts(email, is_primary)")
+      .order("business_name"),
+    // Estado de cartera por cuenta (v_account_balance respeta RLS por vendedor).
+    // "al corriente" = con facturación y sin saldo vencido.
+    supabase.from("v_account_balance").select("account_id, total_facturado, saldo_vencido"),
+  ]);
+
+  const carteraById = new Map<string, "al_corriente" | "vencido">();
+  for (const b of (balances ?? []) as {
+    account_id: string;
+    total_facturado: number | null;
+    saldo_vencido: number | null;
+  }[]) {
+    if ((b.total_facturado ?? 0) <= 0) continue;
+    carteraById.set(b.account_id, (b.saldo_vencido ?? 0) > 0 ? "vencido" : "al_corriente");
+  }
+
+  const clientes: Cliente[] = [];
   for (const a of (data ?? []) as AccountRow[]) {
     const email = bestEmail(a);
-    if (email) clientes.push({ id: a.id, name: a.business_name ?? "(sin nombre)", email });
+    if (email)
+      clientes.push({
+        id: a.id,
+        name: a.business_name ?? "(sin nombre)",
+        email,
+        cartera: carteraById.get(a.id) ?? null,
+      });
   }
   return clientes;
 }
