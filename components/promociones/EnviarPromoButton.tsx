@@ -26,7 +26,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 type CarteraStatus = "al_corriente" | "vencido" | null;
-type Cliente = { id: string; name: string; email: string; cartera: CarteraStatus };
+type Cliente = {
+  id: string;
+  name: string;
+  email: string;
+  cartera: CarteraStatus;
+  compraPromo: boolean | null;
+};
 
 const CARTERA_ALL = "_all";
 
@@ -37,17 +43,25 @@ export function EnviarPromoButton({ promoId }: { promoId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [cartera, setCartera] = useState<string>(CARTERA_ALL);
+  const [soloCompradores, setSoloCompradores] = useState(false);
   const [extra, setExtra] = useState("");
+
+  // La promo tiene productos participantes si algún cliente trae compraPromo no-nulo.
+  const tienePromoProductos = useMemo(
+    () => (clientes ?? []).some((c) => c.compraPromo !== null),
+    [clientes],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!clientes) return [];
     return clientes.filter((c) => {
       if (cartera !== CARTERA_ALL && (c.cartera ?? "") !== cartera) return false;
+      if (soloCompradores && c.compraPromo !== true) return false;
       if (q && !c.name.toLowerCase().includes(q) && !c.email.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [clientes, query, cartera]);
+  }, [clientes, query, cartera, soloCompradores]);
 
   const extraEmails = useMemo(
     () =>
@@ -158,6 +172,18 @@ export function EnviarPromoButton({ promoId }: { promoId: string }) {
                 </SelectContent>
               </Select>
             </div>
+
+            {tienePromoProductos && (
+              <label className="flex cursor-pointer items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-brand-carmesi"
+                  checked={soloCompradores}
+                  onChange={(e) => setSoloCompradores(e.target.checked)}
+                />
+                Solo clientes que ya compran esta promoción
+              </label>
+            )}
 
             {clientes === null ? (
               <p className="py-6 text-center text-muted-foreground">Cargando clientes…</p>

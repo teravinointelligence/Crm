@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
@@ -44,6 +44,7 @@ export type PromoRow = {
   valid_to: string | null;
   active: boolean;
   created_at: string;
+  participantes?: string[];
 };
 
 type Product = { id: string; name: string; supplier: string | null };
@@ -70,6 +71,34 @@ export function PromocionForm({ open, onClose, products, repId, initial }: Props
   const [validFrom, setValidFrom] = useState(initial?.valid_from ?? "");
   const [validTo, setValidTo] = useState(initial?.valid_to ?? "");
   const [active, setActive] = useState(initial?.active ?? true);
+  const [participantes, setParticipantes] = useState<Set<string>>(
+    new Set(initial?.participantes ?? []),
+  );
+  const [prodQuery, setProdQuery] = useState("");
+
+  const filteredProducts = useMemo(() => {
+    const q = prodQuery.trim().toLowerCase();
+    const base = q
+      ? products.filter(
+          (p) =>
+            p.name.toLowerCase().includes(q) ||
+            (p.supplier ?? "").toLowerCase().includes(q),
+        )
+      : products;
+    // Los seleccionados van primero para poder revisarlos/quitarlos al editar.
+    const sel = base.filter((p) => participantes.has(p.id));
+    const rest = base.filter((p) => !participantes.has(p.id));
+    return [...sel, ...rest].slice(0, 60);
+  }, [products, prodQuery, participantes]);
+
+  function toggleParticipante(id: string) {
+    setParticipantes((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   function reset() {
     setTitle(initial?.title ?? "");
@@ -82,6 +111,8 @@ export function PromocionForm({ open, onClose, products, repId, initial }: Props
     setValidFrom(initial?.valid_from ?? "");
     setValidTo(initial?.valid_to ?? "");
     setActive(initial?.active ?? true);
+    setParticipantes(new Set(initial?.participantes ?? []));
+    setProdQuery("");
   }
 
   function handleClose() {
@@ -111,15 +142,35 @@ export function PromocionForm({ open, onClose, products, repId, initial }: Props
       };
 
       let error;
+      let promoId = initial?.id ?? null;
       if (initial) {
         ({ error } = await supabase.from("promotions").update(payload).eq("id", initial.id));
       } else {
-        ({ error } = await supabase.from("promotions").insert(payload));
+        const ins = await supabase.from("promotions").insert(payload).select("id").single();
+        error = ins.error;
+        promoId = ins.data?.id ?? null;
       }
 
       if (error) {
         toast.error("Error al guardar la promoción", { description: error.message });
         return;
+      }
+
+      // Sincroniza productos participantes (para el filtro "compradores de la
+      // promo" en el envío): borra los actuales y reinserta la selección.
+      if (promoId) {
+        const ids = Array.from(participantes);
+        await supabase.from("promotion_products").delete().eq("promotion_id", promoId);
+        if (ids.length) {
+          const { error: ppErr } = await supabase
+            .from("promotion_products")
+            .insert(ids.map((product_id) => ({ promotion_id: promoId as string, product_id })));
+          if (ppErr) {
+            toast.error("La promo se guardó, pero falló guardar los productos participantes", {
+              description: ppErr.message,
+            });
+          }
+        }
       }
 
       toast.success(initial ? "Promoción actualizada" : "Promoción creada");
@@ -189,6 +240,51 @@ export function PromocionForm({ open, onClose, products, repId, initial }: Props
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Detalles de la promoción, restricciones, contacto del proveedor…"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              Productos participantes{" "}
+              <span className="font-normal text-muted-foreground">
+                (opcional — habilita el filtro “compradores de la promo” al enviar)
+              </span>
+            </Label>
+            <Input
+              placeholder="Buscar vino o proveedor para agregar…"
+              value={prodQuery}
+              onChange={(e) => setProdQuery(e.target.value)}
+            />
+            {participantes.size > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {participantes.size} producto{participantes.size === 1 ? "" : "s"} seleccionado
+                {participantes.size === 1 ? "" : "s"}
+              </p>
+            )}
+            <ul className="max-h-40 space-y-0.5 overflow-y-auto rounded-md border bg-muted/20 p-2">
+              {filteredProducts.length === 0 && (
+                <li className="px-1 py-2 text-center text-xs text-muted-foreground">
+                  Sin coincidencias.
+                </li>
+              )}
+              {filteredProducts.map((p) => (
+                <li key={p.id}>
+                  <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-1 text-sm hover:bg-muted/50">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-brand-carmesi"
+                      checked={participantes.has(p.id)}
+                      onChange={() => toggleParticipante(p.id)}
+                    />
+                    <span className="min-w-0 flex-1 truncate">
+                      {p.name}
+                      {p.supplier ? (
+                        <span className="text-muted-foreground"> · {p.supplier}</span>
+                      ) : null}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
           </div>
 
           {/* Campos según tipo */}

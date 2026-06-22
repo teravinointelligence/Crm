@@ -18,7 +18,7 @@ export default async function PromocionesPage() {
   // Enviar promociones a clientes: solo admin y vendedores (rep).
   const canSend = me.role === "admin" || me.role === "rep";
 
-  const [{ data: rawPromos }, { data: products }] = await Promise.all([
+  const [{ data: rawPromos }, { data: products }, { data: rawParticipantes }] = await Promise.all([
     supabase
       .from("promotions")
       .select("*, product:product_id(name)")
@@ -31,7 +31,16 @@ export default async function PromocionesPage() {
       .eq("active", true)
       .order("supplier")
       .order("name"),
+    supabase.from("promotion_products").select("promotion_id, product_id"),
   ]);
+
+  // Productos participantes por promoción (para segmentar el envío).
+  const participantesByPromo = new Map<string, string[]>();
+  for (const r of (rawParticipantes ?? []) as { promotion_id: string; product_id: string }[]) {
+    const arr = participantesByPromo.get(r.promotion_id) ?? [];
+    arr.push(r.product_id);
+    participantesByPromo.set(r.promotion_id, arr);
+  }
 
   const promos: PromoRow[] = (rawPromos ?? []).map((p: any) => ({
     id: p.id,
@@ -47,6 +56,7 @@ export default async function PromocionesPage() {
     valid_to: p.valid_to,
     active: p.active,
     created_at: p.created_at,
+    participantes: participantesByPromo.get(p.id) ?? [],
   }));
 
   const today = new Date().toISOString().slice(0, 10);
