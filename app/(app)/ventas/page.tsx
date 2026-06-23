@@ -13,6 +13,7 @@ import { SELLER_ROLES } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { VentasViewTabs } from "@/components/ventas/VentasViewTabs";
 import { formatCurrency } from "@/lib/utils";
 import { MonthlySalesDetail } from "@/components/ventas/MonthlySalesDetail";
 import type { MonthlySale } from "@/types/database";
@@ -127,22 +128,19 @@ export default async function VentasPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl">Ventas mensuales</h1>
+          <h1 className="font-display text-3xl">Ventas</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin ? "Ventas por vendedor, distribuidas por cliente." : "Tus ventas del periodo."}
           </p>
         </div>
-        <div className="flex gap-2">
+        {isAdmin && (
           <Button asChild variant="outline">
-            <Link href="/ventas/conciliacion"><Scale className="mr-1 h-4 w-4" /> Conciliar vs cartera</Link>
+            <Link href="/ventas/importar"><Upload className="mr-1 h-4 w-4" /> Importar ventas</Link>
           </Button>
-          {isAdmin && (
-            <Button asChild variant="outline">
-              <Link href="/ventas/importar"><Upload className="mr-1 h-4 w-4" /> Importar ventas</Link>
-            </Button>
-          )}
-        </div>
+        )}
       </div>
+
+      <VentasViewTabs />
 
       {periods.length === 0 ? (
         <EmptyState
