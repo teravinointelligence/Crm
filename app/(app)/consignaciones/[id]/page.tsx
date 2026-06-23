@@ -148,6 +148,20 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
 
       <ConsignacionActions consignacion={consignacion} totalCantidad={totalCantidad} />
 
+      {/* Botón generar contrato — visible solo si hay cuenta CRM vinculada */}
+      {crmAccount && (
+        <div className="flex justify-end">
+          <Button asChild variant="outline" size="sm">
+            <Link
+              href={`/documentos/nuevo?account=${crmAccount.id}&consignacion=${consignacion.id}`}
+            >
+              <FileText className="mr-1.5 h-4 w-4" />
+              Generar contrato de consignación
+            </Link>
+          </Button>
+        </div>
+      )}
+
       {/* Advertencia no bloqueante: hay actividad (retiros o movimientos) pero
           nadie asignó chofer. No impide operar — solo lo hace visible. */}
       {!consignacion.chofer_id &&

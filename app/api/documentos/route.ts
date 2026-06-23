@@ -18,15 +18,19 @@ import {
 } from "@/lib/base44-docs";
 import {
   buildPlaceholderVars,
+  buildListaVinos,
   generateDocNumber,
   mergeTemplate,
   type DocAccount,
   type DocContact,
+  type ConsignacionItemDoc,
 } from "@/lib/documentos";
+import { base44, type Base44Consignacion } from "@/lib/base44";
 
 type CreateInput = {
   template_id: string;
   account_id: string;
+  consignacion_id?: string;
 };
 
 function bad(message: string, status = 400) {
@@ -82,13 +86,33 @@ export async function POST(req: Request) {
       }
     : null;
 
-  // 4) Merge.
+  // 4) Si viene consignacion_id, enriquecemos con la lista de vinos.
+  let listaVinos = "";
+  if (input.consignacion_id) {
+    try {
+      const consig = await base44.entity<Base44Consignacion>("Consignacion").get(input.consignacion_id);
+      const items: ConsignacionItemDoc[] = (consig.items ?? []).map((it) => ({
+        producto_nombre: it.producto_nombre,
+        cantidad: Number(it.cantidad),
+        precio_unitario: Number(it.precio_unitario),
+        subtotal: Number(it.subtotal),
+      }));
+      listaVinos = buildListaVinos(items);
+    } catch {
+      listaVinos = "(no se pudieron cargar los productos de la consignación)";
+    }
+  }
+
+  // 5) Merge.
   const numero = generateDocNumber();
-  const vars = buildPlaceholderVars({ account: account as DocAccount, contact, numeroDocumento: numero });
+  const vars = {
+    ...buildPlaceholderVars({ account: account as DocAccount, contact, numeroDocumento: numero }),
+    ...(listaVinos ? { lista_vinos: listaVinos } : {}),
+  };
   const content = mergeTemplate(template.content_template, vars);
   const title = `${template.name} — ${account.business_name}`;
 
-  // 5) Guardar el documento generado en Base44.
+  // 6) Guardar el documento generado en Base44.
   const payload: Partial<Base44GeneratedDoc> = {
     title,
     client_id: account.id, // snapshot: id de la cuenta del CRM

@@ -157,6 +157,11 @@ export default async function CalendarioPage({
   const todayStr = dateKeyTz(now);
   const keepRep = repFilter ? `&rep=${repFilter}` : "";
 
+  // Total de actividades + tareas del mes (solo los días que caen dentro del mes).
+  const totalMes = Object.entries(itemsByDay)
+    .filter(([day]) => day.startsWith(monthStr))
+    .reduce((sum, [, items]) => sum + items.length, 0);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -235,6 +240,11 @@ export default async function CalendarioPage({
             </Link>
           </Button>
           <h2 className="font-display text-xl capitalize">{monthLabel}</h2>
+          {totalMes > 0 && (
+            <span className="flex h-6 min-w-6 items-center justify-center rounded-full bg-brand-carmesi px-1.5 text-xs font-semibold text-white">
+              {totalMes}
+            </span>
+          )}
         </div>
         <Button asChild variant="ghost" size="sm">
           <Link href={`/actividades/calendario${repFilter ? `?rep=${repFilter}` : ""}`}>

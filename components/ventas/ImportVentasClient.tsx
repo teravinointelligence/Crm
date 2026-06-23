@@ -161,9 +161,10 @@ export function ImportVentasClient() {
       const saleIds = upserted.map((r) => r.id as string);
 
       // 2) Reemplaza los items de esos meses (borra + inserta) para idempotencia.
-      if (saleIds.length) {
-        await supabase.from("monthly_sales_items").delete().in("monthly_sale_id", saleIds);
-      }
+      //    Se hace de forma ATÓMICA via RPC: el delete y el insert corren en una
+      //    sola transacción server-side, así que si el insert falla NO se pierde
+      //    el detalle previo (antes el delete era cliente-side y un error a medias
+      //    dejaba cabeceras con totales pero cero partidas).
       const itemsPayload: Record<string, unknown>[] = [];
       for (const { acc, c } of matched) {
         const saleId = saleIdByAccount.get(acc.id);
@@ -176,14 +177,11 @@ export function ImportVentasClient() {
           });
         }
       }
-      if (itemsPayload.length) {
-        // Insert por lotes de 500 para no exceder límites.
-        for (let i = 0; i < itemsPayload.length; i += 500) {
-          const chunk = itemsPayload.slice(i, i + 500);
-          const { error: itErr } = await supabase.from("monthly_sales_items").insert(chunk);
-          if (itErr) { toast.error("Error al guardar detalle de productos", { description: itErr.message }); return; }
-        }
-      }
+      const { error: itErr } = await supabase.rpc("replace_sales_items", {
+        p_sale_ids: saleIds,
+        p_items: itemsPayload,
+      });
+      if (itErr) { toast.error("Error al guardar detalle de productos", { description: itErr.message }); return; }
 
       toast.success(`${matched.length} clientes · ${itemsPayload.length} líneas de producto importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
       // Resultado persistente (el toast desaparece): filas procesadas + errores.

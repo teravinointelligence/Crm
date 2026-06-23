@@ -29,6 +29,7 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { TeamActivityBoard } from "@/components/dashboard/TeamActivityBoard";
 import { SugerenciasIA } from "@/components/dashboard/SugerenciasIA";
+import { LeaderboardCard } from "@/components/dashboard/LeaderboardCard";
 import { ComisionCard } from "@/components/dashboard/ComisionCard";
 import { formatCurrency, formatDate, formatBirthday } from "@/lib/utils";
 import { OnlinePill } from "@/components/equipo/OnlinePill";
@@ -545,6 +546,8 @@ export default async function DashboardPage() {
       <ComisionCard />
 
       <SugerenciasIA repId={rep.id} />
+
+      <LeaderboardCard myRepId={rep.id} />
 
       {(isAdmin && (samplePending.length > 0 || restockPending.length > 0 || supplierDue.length > 0)) && (
         <div className="grid gap-6 lg:grid-cols-2">

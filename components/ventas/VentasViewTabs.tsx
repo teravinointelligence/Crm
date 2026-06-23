@@ -2,23 +2,25 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, History, TrendingUp } from "lucide-react";
+import { TrendingUp, RotateCcw, Scale, Receipt, Banknote, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
-  { href: "/actividades", label: "Bitácora", icon: History },
-  { href: "/actividades/calendario", label: "Calendario", icon: CalendarDays },
-  { href: "/actividades/tareas", label: "Tareas", icon: ListChecks },
-  { href: "/actividades/conversion", label: "Conversión", icon: TrendingUp },
+  { href: "/ventas", label: "Ventas", icon: TrendingUp },
+  { href: "/ventas/reactivadas", label: "Reactivadas", icon: RotateCcw },
+  { href: "/ventas/ticket", label: "Ticket promedio", icon: Receipt },
+  { href: "/ventas/cobro", label: "Cobro", icon: Banknote },
+  { href: "/ventas/vencido", label: "Vencido", icon: AlertTriangle },
+  { href: "/ventas/conciliacion", label: "Conciliación", icon: Scale },
 ];
 
-export function ActivityViewTabs() {
+export function VentasViewTabs() {
   const pathname = usePathname();
   return (
-    <div className="inline-flex items-center gap-1 rounded-md bg-muted p-1">
+    <div className="inline-flex flex-wrap items-center gap-1 rounded-md bg-muted p-1">
       {tabs.map((t) => {
         const Icon = t.icon;
-        const active = pathname === t.href || pathname.startsWith(t.href + "/") && t.href !== "/actividades";
+        const active = pathname === t.href;
         return (
           <Link
             key={t.href}
