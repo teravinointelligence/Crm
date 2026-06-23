@@ -24,17 +24,23 @@ export function NuevoDocumentoForm({
   templates,
   accounts,
   initialTemplateId,
+  initialAccountId,
+  consignacionId,
 }: {
   templates: TemplateOption[];
   accounts: AccountOption[];
   initialTemplateId?: string;
+  initialAccountId?: string;
+  consignacionId?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [templateId, setTemplateId] = useState(
     initialTemplateId && templates.some((t) => t.id === initialTemplateId) ? initialTemplateId : "",
   );
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState(
+    initialAccountId && accounts.some((a) => a.id === initialAccountId) ? initialAccountId : "",
+  );
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
@@ -59,7 +65,7 @@ export function NuevoDocumentoForm({
         const res = await fetch("/api/documentos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ template_id: templateId, account_id: accountId }),
+          body: JSON.stringify({ template_id: templateId, account_id: accountId, consignacion_id: consignacionId }),
         });
         const data = (await res.json().catch(() => ({}))) as { id?: string; error?: string };
         if (!res.ok || !data.id) {
@@ -153,6 +159,13 @@ export function NuevoDocumentoForm({
               </>
             )}
           </div>
+
+          {consignacionId && (
+            <p className="rounded-md bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              La lista de vinos de esta consignación se insertará automáticamente en el placeholder{" "}
+              <code>{"{{lista_vinos}}"}</code> de la plantilla.
+            </p>
+          )}
 
           <Button onClick={submit} disabled={pending} className="w-full">
             <FileText className="mr-1 h-4 w-4" />

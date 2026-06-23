@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function NuevoDocumentoPage({
   searchParams,
 }: {
-  searchParams: { template?: string };
+  searchParams: { template?: string; account?: string; consignacion?: string };
 }) {
   const rep = await requireRep();
 
@@ -83,6 +83,8 @@ export default async function NuevoDocumentoPage({
           region: a.region ?? null,
         }))}
         initialTemplateId={searchParams.template ?? ""}
+        initialAccountId={searchParams.account ?? ""}
+        consignacionId={searchParams.consignacion ?? ""}
       />
     </div>
   );

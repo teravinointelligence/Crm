@@ -20,6 +20,8 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+const TARGET = 2; // actividades mínimas por día laboral
+
 export function CalendarMonth({
   year,
   month,
@@ -70,6 +72,22 @@ export function CalendarMonth({
           const isToday = cell.dateStr === today;
           const shown = items.slice(0, 3);
           const extra = items.length - shown.length;
+          // Indicador de meta: lun–sáb (weekday 0–5), solo días pasados o hoy.
+          const weekday = (new Date(cell.dateStr + "T12:00:00").getDay() + 6) % 7; // Lun=0
+          const isWorkday = weekday <= 5;
+          const isPastOrToday = cell.dateStr <= today;
+          const actCount = items.filter((i) => i.kind === "activity").length;
+          const showGoal = isWorkday && isPastOrToday;
+          const goalColor = actCount >= TARGET
+            ? "bg-emerald-500"
+            : actCount === 1
+            ? "bg-amber-400"
+            : "bg-red-400";
+          const goalTitle = actCount >= TARGET
+            ? `Meta cumplida (${actCount} actividades)`
+            : actCount === 1
+            ? "1 actividad — falta 1 para la meta"
+            : "Sin actividades este día";
           return (
             <div
               key={idx}
@@ -79,15 +97,23 @@ export function CalendarMonth({
               )}
             >
               <div className="flex items-center justify-between">
-                <div
-                  className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full text-xs",
-                    isToday
-                      ? "bg-brand-carmesi font-semibold text-white"
-                      : "text-muted-foreground",
+                <div className="flex items-center gap-1">
+                  <div
+                    className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-xs",
+                      isToday
+                        ? "bg-brand-carmesi font-semibold text-white"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {cell.day}
+                  </div>
+                  {showGoal && (
+                    <span
+                      title={goalTitle}
+                      className={cn("h-2 w-2 rounded-full shrink-0", goalColor)}
+                    />
                   )}
-                >
-                  {cell.day}
                 </div>
                 {canSchedule && (
                   <Link

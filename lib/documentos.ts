@@ -86,3 +86,28 @@ export function mergeTemplate(content: string, vars: Record<string, string>): st
     return v != null && v !== "" ? v : BLANK;
   });
 }
+
+export type ConsignacionItemDoc = {
+  producto_nombre: string;
+  cantidad: number;
+  precio_unitario: number;
+  subtotal: number;
+};
+
+/**
+ * Genera el bloque de texto {{lista_vinos}} para incluir en contratos de
+ * consignación. Produce una tabla ASCII legible en cualquier editor.
+ */
+export function buildListaVinos(items: ConsignacionItemDoc[]): string {
+  if (!items.length) return "(sin productos cargados)";
+  const header = "Producto | Cant. | Precio unit. | Subtotal";
+  const sep = "---------|-------|--------------|----------";
+  const rows = items.map((it) => {
+    const precio = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(it.precio_unitario);
+    const sub = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(it.subtotal);
+    return `${it.producto_nombre} | ${it.cantidad} | ${precio} | ${sub}`;
+  });
+  const total = items.reduce((s, i) => s + i.subtotal, 0);
+  const totalFmt = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(total);
+  return [header, sep, ...rows, sep, `TOTAL | | | ${totalFmt}`].join("\n");
+}
