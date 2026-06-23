@@ -20,6 +20,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TableScroll } from "@/components/ui/table-scroll";
 import { createClient } from "@/lib/supabase/client";
+import { SELLER_ROLES } from "@/lib/modules";
 
 type RepRow = {
   id: string;
@@ -74,6 +75,7 @@ export function TeamActivityBoard() {
           .from("sales_reps")
           .select("id, full_name, last_seen_at")
           .eq("active", true)
+          .in("role", SELLER_ROLES)
           .order("full_name"),
         supabase
           .from("activities")
