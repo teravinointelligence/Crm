@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, History } from "lucide-react";
+import { CalendarDays, ListChecks, History, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/actividades", label: "Bitácora", icon: History },
   { href: "/actividades/calendario", label: "Calendario", icon: CalendarDays },
   { href: "/actividades/tareas", label: "Tareas", icon: ListChecks },
+  { href: "/actividades/conversion", label: "Conversión", icon: TrendingUp },
 ];
 
 export function ActivityViewTabs() {
@@ -17,7 +18,7 @@ export function ActivityViewTabs() {
     <div className="inline-flex items-center gap-1 rounded-md bg-muted p-1">
       {tabs.map((t) => {
         const Icon = t.icon;
-        const active = pathname === t.href;
+        const active = pathname === t.href || pathname.startsWith(t.href + "/") && t.href !== "/actividades";
         return (
           <Link
             key={t.href}
