@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TrendingUp, RotateCcw, Scale, Receipt } from "lucide-react";
+import { TrendingUp, RotateCcw, Scale, Receipt, Banknote } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/ventas", label: "Ventas", icon: TrendingUp },
   { href: "/ventas/reactivadas", label: "Reactivadas", icon: RotateCcw },
   { href: "/ventas/ticket", label: "Ticket promedio", icon: Receipt },
+  { href: "/ventas/cobro", label: "Cobro", icon: Banknote },
   { href: "/ventas/conciliacion", label: "Conciliación", icon: Scale },
 ];
 
