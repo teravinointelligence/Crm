@@ -12,25 +12,44 @@ type DbClient = ReturnType<typeof createClient>;
 type MsRow = { id: string; account_id: string; period: string; venta_bruta: number | null };
 type ItemRow = { monthly_sale_id: string; codigo: string | null; producto_nombre: string; cantidad: number | null; total: number | null };
 
+// PostgREST corta en 1000 filas por defecto. monthly_sales/_items ya superan ese
+// límite, así que hay que paginar con .range o las filas más nuevas (cuentas/meses
+// recién cargados) se pierden silenciosamente y su tendencia sale vacía.
+const PAGE = 1000;
+async function selectAll<T>(
+  make: (from: number, to: number) => PromiseLike<{ data: T[] | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await make(from, from + PAGE - 1);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
 /** Carga monthly_sales + items una vez y arma las canastas por cuenta. */
 async function loadSalesUniverse(supabase: DbClient) {
-  const { data: ms } = await supabase
-    .from("monthly_sales")
-    .select("id, account_id, period, venta_bruta");
-  const sales = (ms ?? []) as MsRow[];
+  const sales = await selectAll<MsRow>((from, to) =>
+    supabase.from("monthly_sales").select("id, account_id, period, venta_bruta").range(from, to),
+  );
   const saleToAccount = new Map(sales.map((s) => [s.id, s.account_id]));
   const allPeriods = [...new Set(sales.map((s) => s.period.slice(0, 10)))].sort();
 
-  const { data: items } = await supabase
-    .from("monthly_sales_items")
-    .select("monthly_sale_id, codigo, producto_nombre, cantidad, total");
+  const items = await selectAll<ItemRow>((from, to) =>
+    supabase
+      .from("monthly_sales_items")
+      .select("monthly_sale_id, codigo, producto_nombre, cantidad, total")
+      .range(from, to),
+  );
 
   const nombreByCodigo = new Map<string, string>();
   const codigosByAccount = new Map<string, Set<string>>();
   // Para top productos por cuenta: account → codigo → { nombre, cantidad, total }
   const itemsByAccount = new Map<string, Map<string, { nombre: string; cantidad: number; total: number }>>();
 
-  for (const it of (items ?? []) as ItemRow[]) {
+  for (const it of items) {
     const codigo = it.codigo?.trim();
     if (!codigo) continue;
     const account = saleToAccount.get(it.monthly_sale_id);
@@ -49,8 +68,9 @@ async function loadSalesUniverse(supabase: DbClient) {
 
 /** Serie mensual de una cuenta + churn. */
 export async function loadAccountChurn(supabase: DbClient, accountId: string): Promise<ChurnResult> {
-  const { data: ms } = await supabase.from("monthly_sales").select("account_id, period, venta_bruta");
-  const sales = (ms ?? []) as MsRow[];
+  const sales = await selectAll<MsRow>((from, to) =>
+    supabase.from("monthly_sales").select("id, account_id, period, venta_bruta").range(from, to),
+  );
   const allPeriods = [...new Set(sales.map((s) => s.period.slice(0, 10)))].sort();
   const series = sales
     .filter((s) => s.account_id === accountId)
