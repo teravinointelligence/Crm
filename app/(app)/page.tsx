@@ -29,6 +29,9 @@ import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { TeamActivityBoard } from "@/components/dashboard/TeamActivityBoard";
 import { SugerenciasIA } from "@/components/dashboard/SugerenciasIA";
+import { DatosFaltantesBanner } from "@/components/dashboard/DatosFaltantesBanner";
+import { loadIncompleteAccounts, filterByCriteria } from "@/lib/missing-data-email";
+import type { MissingFlag } from "@/lib/missing-data";
 import { LeaderboardCard } from "@/components/dashboard/LeaderboardCard";
 import { ComisionCard } from "@/components/dashboard/ComisionCard";
 import { formatCurrency, formatDate, formatBirthday } from "@/lib/utils";
@@ -347,6 +350,13 @@ export default async function DashboardPage() {
         .eq("status", "activo")
         .or(`last_activity_date.is.null,last_activity_date.lt.${staleISO}`)).count ?? 0);
 
+  // Datos faltantes accionables de SUS cuentas (banner del vendedor). RLS acota
+  // accounts/contacts al propio vendedor; el admin tiene su tablero aparte.
+  const ACCIONABLES: MissingFlag[] = ["sin_contactos", "sin_email", "sin_tel", "sin_ap"];
+  const datosFaltantesCount = isAdmin
+    ? 0
+    : filterByCriteria(await loadIncompleteAccounts(supabase, rep.id), ACCIONABLES).length;
+
   const churnVariant: Record<ChurnStatus, "danger" | "warning" | "muted"> = {
     sin_facturacion: "danger",
     cayo: "danger",
@@ -384,6 +394,10 @@ export default async function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      {!isAdmin && datosFaltantesCount > 0 && (
+        <DatosFaltantesBanner count={datosFaltantesCount} />
+      )}
 
       {isAdmin && samplePendingCount > 0 && (
         <Link
