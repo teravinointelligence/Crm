@@ -23,6 +23,7 @@ import {
   type DocStatus,
 } from "@/lib/base44-docs";
 import { DeleteDocumentoButton } from "@/components/documentos/DeleteDocumentoButton";
+import { EnviarDocumentoButton } from "@/components/documentos/EnviarDocumentoButton";
 
 export const metadata = { title: "Documentos — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
@@ -174,9 +175,12 @@ export default async function DocumentosPage() {
                               </Badge>
                             </td>
                             <td className="px-4 py-2 text-right">
-                              {(d.status ?? "borrador") === "borrador" ? (
-                                <DeleteDocumentoButton id={d.id} title={d.title} />
-                              ) : null}
+                              <div className="flex items-center justify-end gap-2">
+                                <EnviarDocumentoButton id={d.id} title={d.title} />
+                                {(d.status ?? "borrador") === "borrador" ? (
+                                  <DeleteDocumentoButton id={d.id} title={d.title} />
+                                ) : null}
+                              </div>
                             </td>
                           </tr>
                         ))}
