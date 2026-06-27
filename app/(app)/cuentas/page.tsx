@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2, Download, MailWarning, Upload, AlarmClock, PackageX, UserPlus, Users } from "lucide-react";
+import { Link2, Download, MailWarning, Upload, AlarmClock, PackageX, UserPlus, Users, Sprout, UserMinus } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { SELLER_ROLES } from "@/lib/modules";
@@ -61,6 +61,16 @@ export default async function CuentasPage() {
             <Button asChild variant="outline" size="sm">
               <Link href="/cuentas/asignar-vendedor">
                 <Users className="mr-1 h-4 w-4" /> Asignar vendedor
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/cuentas/prospectos">
+                <Sprout className="mr-1 h-4 w-4" /> Prospectos
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link href="/cuentas/reasignacion">
+                <UserMinus className="mr-1 h-4 w-4" /> Reasignación
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
