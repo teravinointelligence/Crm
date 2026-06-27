@@ -10,6 +10,13 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { EmptyState } from "@/components/ui/empty-state";
 import { TableScroll } from "@/components/ui/table-scroll";
 import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
@@ -17,6 +24,8 @@ import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
 import { formatCurrency } from "@/lib/utils";
+
+const ALL = "_all";
 
 export type CarteraRow = {
   accountId: string;
@@ -35,32 +44,109 @@ export type CarteraRow = {
 
 export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
   const [query, setQuery] = useState("");
+  const [vendedor, setVendedor] = useState<string>(ALL);
+
+  // Lista de vendedores presentes en la cartera. Como el RLS ya scopea las filas
+  // por vendedor, esta lista trae varios solo para admin/contador; para un
+  // vendedor normal queda en uno y el selector se oculta.
+  const vendedores = useMemo(
+    () =>
+      Array.from(
+        new Set(rows.map((r) => r.vendedor).filter((v): v is string => Boolean(v))),
+      ).sort((a, b) => a.localeCompare(b, "es")),
+    [rows],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((r) =>
-      [r.businessName, r.clientNumber]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q)),
-    );
-  }, [query, rows]);
+    return rows.filter((r) => {
+      if (vendedor !== ALL && r.vendedor !== vendedor) return false;
+      if (
+        q &&
+        ![r.businessName, r.clientNumber]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q))
+      )
+        return false;
+      return true;
+    });
+  }, [query, vendedor, rows]);
+
+  // Vendedor a resumir: el seleccionado o, si la cartera trae uno solo (caso
+  // vendedor normal por RLS), ese único. Para admin viendo "Todos" queda null.
+  const vendedorMostrado =
+    vendedor !== ALL ? vendedor : vendedores.length === 1 ? vendedores[0] : null;
+
+  // Subtotal del vendedor mostrado (acotado por la búsqueda activa). Los KPIs de
+  // arriba siguen reflejando toda la cartera.
+  const subtotal = useMemo(
+    () =>
+      filtered.reduce(
+        (acc, r) => {
+          acc.pendiente += r.saldoPendiente ?? 0;
+          acc.vencido += r.saldoVencido ?? 0;
+          return acc;
+        },
+        { pendiente: 0, vencido: 0 },
+      ),
+    [filtered],
+  );
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
   return (
     <div className="space-y-4">
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por nombre o # de cliente…"
-          className="pl-9"
-          aria-label="Buscar cliente"
-        />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative max-w-md flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Buscar por nombre o # de cliente…"
+            className="pl-9"
+            aria-label="Buscar cliente"
+          />
+        </div>
+        {vendedores.length > 1 && (
+          <Select value={vendedor} onValueChange={setVendedor}>
+            <SelectTrigger className="sm:w-56" aria-label="Filtrar por vendedor">
+              <SelectValue placeholder="Vendedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Todos los vendedores</SelectItem>
+              {vendedores.map((v) => (
+                <SelectItem key={v} value={v}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
+
+      {vendedorMostrado && (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 rounded-lg border bg-muted/30 px-4 py-3 text-sm">
+          <span className="font-medium">{vendedorMostrado}</span>
+          <span className="text-muted-foreground">
+            {filtered.length} cliente{filtered.length === 1 ? "" : "s"}
+          </span>
+          <span>
+            Pendiente:{" "}
+            <span className="font-medium">{formatCurrency(subtotal.pendiente)}</span>
+          </span>
+          <span>
+            Vencido:{" "}
+            <span
+              className={
+                subtotal.vencido > 0 ? "font-medium text-red-600" : "font-medium"
+              }
+            >
+              {formatCurrency(subtotal.vencido)}
+            </span>
+          </span>
+        </div>
+      )}
 
       {filtered.length === 0 ? (
         <EmptyState
