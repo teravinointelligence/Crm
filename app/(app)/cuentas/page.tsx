@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Link2, Download, MailWarning, Upload, AlarmClock, PackageX, UserPlus } from "lucide-react";
+import { Link2, Download, MailWarning, Upload, AlarmClock, PackageX, UserPlus, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { SELLER_ROLES } from "@/lib/modules";
@@ -35,8 +35,14 @@ export default async function CuentasPage() {
             Hoteles, restaurantes, bares y otros clientes HORECA.
           </p>
         </div>
-        {isAdmin && (
-          <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <Link href="/prospectos/nuevo">
+              <UserPlus className="mr-1 h-4 w-4" /> Registrar prospecto
+            </Link>
+          </Button>
+          {isAdmin && (
+            <>
             <Button asChild variant="outline" size="sm">
               <a href="/api/cuentas/export">
                 <Download className="mr-1 h-4 w-4" /> Descargar Excel por vendedor
@@ -54,7 +60,7 @@ export default async function CuentasPage() {
             </Button>
             <Button asChild variant="outline" size="sm">
               <Link href="/cuentas/asignar-vendedor">
-                <UserPlus className="mr-1 h-4 w-4" /> Asignar vendedor
+                <Users className="mr-1 h-4 w-4" /> Asignar vendedor
               </Link>
             </Button>
             <Button asChild variant="outline" size="sm">
@@ -72,8 +78,9 @@ export default async function CuentasPage() {
                 <PackageX className="mr-1 h-4 w-4" /> Dejaron de pedir
               </Link>
             </Button>
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
       <AccountsListClient
         accounts={(accountsRes.data ?? []) as never}
