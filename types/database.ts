@@ -20,6 +20,7 @@ export type Database = {
           client_number: string | null;
           created_at: string | null;
           created_by: string | null;
+          reassign_warned_at: string | null;
           credit_days: number | null;
           dias_pago: string | null;
           dias_revision: string | null;
