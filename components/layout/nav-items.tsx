@@ -31,9 +31,9 @@ import {
   Wrench,
   CalendarClock,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, canViewReportes, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; visitas?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; reportes?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; visitas?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -100,7 +100,7 @@ export const navItems: Item[] = [
   { href: "/restock", label: "Restock", icon: PackageCheck, restock: true },
   { href: "/transito", label: "Tránsito", icon: Truck, moduleKey: "transito" },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, finance: true },
-  { href: "/reportes", label: "Reportes", icon: BarChart3, finance: true },
+  { href: "/reportes", label: "Reportes", icon: BarChart3, reportes: true },
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
   { href: "/flota", label: "Flota", icon: Car, flota: true },
   { href: "/flota/fallas", label: "Fallas de vehículos", icon: Wrench, fleetFaults: true },
@@ -183,6 +183,7 @@ export function visibleNavItems({
       if (i.fleetFaults) return canReportFleetFault(role);
       if (i.restock) return canViewRestock(role);
       if (i.finance) return canSeeFinance(role);
+      if (i.reportes) return canViewReportes(role);
       if (i.reparto) return canViewReparto(role);
       if (i.incentivos) return canViewIncentivos(role);
       if (i.portafolios) return canViewPortafolios(role);

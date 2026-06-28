@@ -36,10 +36,18 @@ export function isValidRole(r: string): r is UserRole {
 
 /**
  * Roles que ven las páginas financieras que normalmente son admin-only
- * (Cuentas por pagar, Reportes). Espejo del predicado SQL can_read_all().
+ * (Cuentas por pagar). Espejo del predicado SQL can_read_all().
  */
 export function canSeeFinance(role: string | null | undefined): boolean {
   return role === "admin" || role === "contador";
+}
+
+/**
+ * Roles que pueden ver /reportes. Admin y contador ven datos de todo el equipo;
+ * los vendedores (rep) ven únicamente sus propias ventas (filtrado server-side).
+ */
+export function canViewReportes(role: string | null | undefined): boolean {
+  return role === "admin" || role === "contador" || role === "rep";
 }
 
 /**
