@@ -24,23 +24,50 @@ import {
   FULFILLMENT_HINT,
   type FulfillmentType,
 } from "@/lib/restock-fulfillment";
+import { type Warehouse, type WarehouseStock } from "@/lib/warehouses";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
+
+const REGION_TO_WAREHOUSE: Record<string, Warehouse> = {
+  "Los Cabos": "Los Cabos",
+  "La Paz": "La Paz",
+  "Todos Santos": "La Paz",
+  "Tijuana": "Tijuana",
+  "Puerto Vallarta": "Vallarta",
+  "Nayarit": "Vallarta",
+};
 
 export function RestockRequestForm({
   products,
   repId,
   defaultRegion,
+  warehouseStock = [],
 }: {
   products: Product[];
   repId: string;
   defaultRegion?: string | null;
+  warehouseStock?: WarehouseStock[];
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [region, setRegion] = useState<string>(defaultRegion ?? "");
   const [fulfillment, setFulfillment] = useState<FulfillmentType>("almacen");
+
+  // Almacén destino: para "almacen" es Los Cabos (origen que surtirá); para directo es la región.
+  const destWarehouse: Warehouse | null = useMemo(() => {
+    if (fulfillment === "almacen") return "Los Cabos";
+    return region ? (REGION_TO_WAREHOUSE[region] ?? null) : null;
+  }, [fulfillment, region]);
+
+  const stockAt = useMemo(() => {
+    if (!destWarehouse) return new Map<string, number>();
+    return new Map(
+      warehouseStock
+        .filter((s) => s.warehouse === destWarehouse)
+        .map((s) => [s.product_id, s.stock_quantity])
+    );
+  }, [warehouseStock, destWarehouse]);
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([]);
   const [query, setQuery] = useState("");
@@ -118,28 +145,63 @@ export function RestockRequestForm({
         </div>
         {filtered.length > 0 && (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((p) => (
-              <button key={p.id} type="button" onClick={() => add(p)} className="rounded-md border bg-card p-3 text-left text-sm hover:border-brand-carmesi">
-                <div className="font-medium">{p.name}</div>
-                <div className="text-xs text-muted-foreground">{[p.supplier, p.vintage].filter(Boolean).join(" · ")} · stock {p.stock_quantity ?? 0}</div>
-              </button>
-            ))}
+            {filtered.map((p) => {
+              const destStock = stockAt.get(p.id);
+              return (
+                <button key={p.id} type="button" onClick={() => add(p)} className="rounded-md border bg-card p-3 text-left text-sm hover:border-brand-carmesi">
+                  <div className="font-medium">{p.name}</div>
+                  <div className="text-xs text-muted-foreground">{[p.supplier, p.vintage].filter(Boolean).join(" · ")}</div>
+                  {destWarehouse && (
+                    <div className={`mt-1 text-xs font-medium ${(destStock ?? 0) > 0 ? "text-amber-600" : "text-emerald-600"}`}>
+                      {destWarehouse}: {destStock ?? 0} uds.
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
         )}
         {lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin productos aún.</p>
         ) : (
           <table className="min-w-full text-sm">
-            <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-2">Producto</th><th className="py-2 pr-2 w-20">Cant.</th><th className="py-2 pr-2">Nota</th><th className="w-8" /></tr></thead>
+            <thead className="border-b text-left text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="py-2 pr-2">Producto</th>
+                <th className="py-2 pr-2 w-20">Cant.</th>
+                {destWarehouse && <th className="py-2 pr-2 w-28">Exist. {destWarehouse}</th>}
+                <th className="py-2 pr-2">Nota</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
             <tbody>
-              {lines.map((l) => (
-                <tr key={l.key} className="border-b align-top">
-                  <td className="py-2 pr-2"><Input value={l.product_name} onChange={(e) => upd(l.key, { product_name: e.target.value })} placeholder="Producto" />{l.supplier && <div className="mt-1 text-xs text-muted-foreground">{l.supplier}</div>}</td>
-                  <td className="py-2 pr-2"><Input type="number" min={1} value={l.qty} onChange={(e) => upd(l.key, { qty: Number(e.target.value) || 0 })} /></td>
-                  <td className="py-2 pr-2"><Input value={l.notes} onChange={(e) => upd(l.key, { notes: e.target.value })} placeholder="urgencia, cliente…" /></td>
-                  <td className="py-2"><Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => rm(l.key)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
-                </tr>
-              ))}
+              {lines.map((l) => {
+                const destStock = l.product_id ? (stockAt.get(l.product_id) ?? 0) : null;
+                const overstock = destStock !== null && destStock > 0 && l.qty > 0;
+                return (
+                  <tr key={l.key} className="border-b align-top">
+                    <td className="py-2 pr-2">
+                      <Input value={l.product_name} onChange={(e) => upd(l.key, { product_name: e.target.value })} placeholder="Producto" />
+                      {l.supplier && <div className="mt-1 text-xs text-muted-foreground">{l.supplier}</div>}
+                    </td>
+                    <td className="py-2 pr-2"><Input type="number" min={1} value={l.qty} onChange={(e) => upd(l.key, { qty: Number(e.target.value) || 0 })} /></td>
+                    {destWarehouse && (
+                      <td className="py-2 pr-2">
+                        {destStock !== null ? (
+                          <div className={`text-sm font-medium ${overstock ? "text-amber-600" : "text-muted-foreground"}`}>
+                            {destStock} uds.
+                            {overstock && <div className="text-xs font-normal">Hay stock</div>}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    )}
+                    <td className="py-2 pr-2"><Input value={l.notes} onChange={(e) => upd(l.key, { notes: e.target.value })} placeholder="urgencia, cliente…" /></td>
+                    <td className="py-2"><Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-red-600" onClick={() => rm(l.key)}><Trash2 className="h-3.5 w-3.5" /></Button></td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

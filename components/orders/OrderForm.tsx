@@ -176,77 +176,57 @@ export function OrderForm({
     }
 
     startTransition(async () => {
-      const { data: numberRes, error: numberError } = await supabase.rpc(
-        "next_order_number",
-        { p_order_type: orderType },
-      );
-      if (numberError || !numberRes) {
-        toast.error("No pudimos generar el número de orden", {
-          description: numberError?.message,
-        });
-        return;
-      }
-
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          order_number: numberRes,
-          account_id: accountId,
-          sales_rep_id: repId,
-          order_type: orderType,
-          warehouse: orderType === "pedido" ? warehouse : warehouse || null,
-          status,
-          subtotal,
-          iva,
-          total,
-          notes: notes || null,
-          // El trigger normaliza estado/monto/IVA/total según el rol y el límite.
-          discount_pct: discountPct || 0,
-          ...(discountPct > 0
-            ? {
-                discount_requested_by: repId,
-                ...(isAdmin
-                  ? { discount_authorized_by: repId, discount_authorized_at: new Date().toISOString() }
-                  : {}),
-              }
-            : {}),
-        })
-        .select("id")
-        .single();
-
-      if (orderError || !order) {
-        toast.error("No pudimos crear la orden", {
-          description: orderError?.message,
-        });
-        return;
-      }
-
-      const payload = items.map((i) => ({
-        order_id: order.id,
-        product_id: i.product_id,
+      const itemsPayload = items.map((i) => ({
+        product_id: i.product_id ?? null,
         product_name: i.product_name,
-        supplier: i.supplier,
-        vintage: i.vintage,
+        supplier: i.supplier ?? null,
+        vintage: i.vintage ?? null,
         quantity: i.quantity,
-        unit: i.unit,
+        unit: i.unit ?? "botella",
         unit_price: i.unit_price,
         line_total: Math.round(i.quantity * i.unit_price * 100) / 100,
       }));
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(payload);
-      if (itemsError) {
-        toast.error("Líneas no se guardaron", {
-          description: itemsError.message,
+
+      const { data: orderId, error: createError } = await supabase.rpc(
+        "create_order",
+        {
+          p_account_id: accountId,
+          p_sales_rep_id: repId,
+          p_order_type: orderType,
+          p_warehouse: orderType === "pedido" ? warehouse : warehouse || null,
+          p_status: status,
+          p_subtotal: subtotal,
+          p_iva: iva,
+          p_total: total,
+          p_notes: notes || null,
+          p_discount_pct: discountPct || 0,
+          p_discount_requested_by: discountPct > 0 ? repId : null,
+          p_discount_authorized_by: discountPct > 0 && isAdmin ? repId : null,
+          p_discount_authorized_at: discountPct > 0 && isAdmin ? new Date().toISOString() : null,
+          p_items: itemsPayload,
+        },
+      );
+
+      if (createError || !orderId) {
+        toast.error("No pudimos crear la orden", {
+          description: createError?.message,
         });
         return;
       }
+
+      // Obtener el folio generado para mostrarlo en el toast.
+      const { data: orderRow } = await supabase
+        .from("orders")
+        .select("order_number")
+        .eq("id", orderId)
+        .single();
+      const orderNumber = orderRow?.order_number ?? "";
 
       // Al "Crear y enviar" un PEDIDO, lo mandamos automáticamente a
       // pedidos@teravino.com como solicitud de facturación (con PDF). Las
       // cotizaciones y los borradores no se envían.
       if (status === "enviada" && orderType === "pedido") {
-        const res = await fetch(`/api/orders/${order.id}/enviar`, {
+        const res = await fetch(`/api/orders/${orderId}/enviar`, {
           method: "POST",
         });
         if (!res.ok) {
@@ -254,16 +234,16 @@ export function OrderForm({
           toast.error("Pedido creado, pero falló el envío a pedidos@", {
             description: d.error ?? `HTTP ${res.status}`,
           });
-          router.push(`/pedidos/${order.id}`);
+          router.push(`/pedidos/${orderId}`);
           router.refresh();
           return;
         }
-        toast.success(`${numberRes} enviado a pedidos@teravino.com`);
+        toast.success(`${orderNumber} enviado a pedidos@teravino.com`);
       } else {
-        toast.success(`${numberRes} creada`);
+        toast.success(`${orderNumber} creada`);
       }
 
-      router.push(`/pedidos/${order.id}`);
+      router.push(`/pedidos/${orderId}`);
       router.refresh();
     });
   };
@@ -280,12 +260,12 @@ export function OrderForm({
               onChange={setAccountId}
             />
             {account && (
-              <p className="text-xs text-muted-foreground">
+              <div className="text-xs text-muted-foreground">
                 Región: <strong>{account.region ?? "—"}</strong> · Tier:{" "}
                 <Badge variant={tier === "+10" ? "accent" : "muted"}>
                   {tier === "+10" ? "+10%" : "Base"}
                 </Badge>
-              </p>
+              </div>
             )}
           </div>
           <div className="space-y-2">
