@@ -18,9 +18,9 @@ import { sendEmail, ventasFrom } from "@/lib/email";
 type DbClient = ReturnType<typeof createClient> | SupabaseClient;
 
 /** Días sin actividad para mandar el aviso previo. */
-export const REASSIGN_WARN_DAYS = 50;
+export const REASSIGN_WARN_DAYS = 60;
 /** Días de gracia desde el aviso antes de reasignar al pool. */
-export const REASSIGN_GRACE_DAYS = 10;
+export const REASSIGN_GRACE_DAYS = 3;
 /** Estados de cuenta que entran al barrido (excluye 'perdido'). */
 const ESTADOS = ["activo", "inactivo", "prospecto"];
 const REASON = "inactividad";
