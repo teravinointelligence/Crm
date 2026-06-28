@@ -8,7 +8,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
-import { canSeeFinance } from "@/lib/modules";
+import { canViewReportes } from "@/lib/modules";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategoryBarChart, MonthlyBarChart } from "@/components/reports/Charts";
 import { formatCurrency } from "@/lib/utils";
@@ -84,7 +84,9 @@ export default async function ReportesPage({
 }) {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
-  if (!canSeeFinance(rep.role)) redirect("/");
+  if (!canViewReportes(rep.role)) redirect("/");
+
+  const isRepVendedor = rep.role === "rep";
 
   const supabase = createClient();
   const period: Period = searchParams.period ?? "ytd";
@@ -106,25 +108,37 @@ export default async function ReportesPage({
     { data: poData },
     { data: accountsByRegion },
   ] = await Promise.all([
-    supabase
-      .from("monthly_sales")
-      .select(
-        "id, account_id, sales_rep_id, period, venta_bruta, neto_desc, descuento, accounts:account_id(id, business_name, region), sales_reps:sales_rep_id(full_name)",
-      )
-      .gte("period", range.fromMonth)
-      .lte("period", range.toMonth)
-      .limit(10000),
-    supabase
-      .from("v_monthly_sales_by_rep")
-      .select("period, venta_bruta")
-      .gte("period", trendStartMonth)
-      .limit(2000),
-    supabase
-      .from("v_monthly_product_sales")
-      .select("period, codigo, producto_nombre, cantidad, total")
-      .gte("period", range.fromMonth)
-      .lte("period", range.toMonth)
-      .limit(20000),
+    (() => {
+      let q = supabase
+        .from("monthly_sales")
+        .select(
+          "id, account_id, sales_rep_id, period, venta_bruta, neto_desc, descuento, accounts:account_id(id, business_name, region), sales_reps:sales_rep_id(full_name)",
+        )
+        .gte("period", range.fromMonth)
+        .lte("period", range.toMonth)
+        .limit(10000);
+      if (isRepVendedor) q = q.eq("sales_rep_id", rep.id);
+      return q;
+    })(),
+    (() => {
+      let q = supabase
+        .from("v_monthly_sales_by_rep")
+        .select("period, venta_bruta")
+        .gte("period", trendStartMonth)
+        .limit(2000);
+      if (isRepVendedor) q = q.eq("sales_rep_id", rep.id);
+      return q;
+    })(),
+    (() => {
+      let q = supabase
+        .from("v_monthly_product_sales")
+        .select("period, codigo, producto_nombre, cantidad, total")
+        .gte("period", range.fromMonth)
+        .lte("period", range.toMonth)
+        .limit(20000);
+      if (isRepVendedor) q = q.eq("sales_rep_id", rep.id);
+      return q;
+    })(),
     supabase.from("v_account_balance").select("saldo_pendiente, saldo_vencido"),
     supabase
       .from("invoices")
@@ -260,7 +274,7 @@ export default async function ReportesPage({
         <div>
           <h1 className="font-display text-3xl">Reportes</h1>
           <p className="text-sm text-muted-foreground">
-            {range.label} · {labelMonth(range.fromMonth)} → {labelMonth(range.toMonth)} · Fuente: ventas mensuales (CONTPAQ)
+            {range.label} · {labelMonth(range.fromMonth)} → {labelMonth(range.toMonth)} · {isRepVendedor ? "Tus ventas · " : ""}Fuente: ventas mensuales (CONTPAQ)
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-lg border bg-card p-1">
@@ -284,15 +298,21 @@ export default async function ReportesPage({
         <Kpi label="Cuentas con compra" value={cuentasConCompra.toString()} subtitle={`venta prom. ${formatCurrency(ventaPromedio)}`} />
         <Kpi label="Impuestos (IVA/IEPS)" value={formatCurrency(impuestos)} subtitle="incluidos en facturado" />
         <Kpi label="Descuentos" value={formatCurrency(descuentos)} subtitle="otorgados en el periodo" />
-        <Kpi label="Saldo pendiente" value={formatCurrency(saldoPendiente)} subtitle="cartera abierta" tone={saldoPendiente > 0 ? "warning" : "default"} />
-        <Kpi label="Saldo vencido" value={formatCurrency(saldoVencido)} subtitle="cartera vencida" tone={saldoVencido > 0 ? "danger" : "default"} />
-        <Kpi label="En tránsito" value={formatCurrency(enTransito)} subtitle="OCs activas" />
-        <Kpi label="Cuentas activas" value={[...activeByRegion.values()].reduce((s, n) => s + n, 0).toString()} subtitle="total CRM" />
+        {!isRepVendedor && (
+          <>
+            <Kpi label="Saldo pendiente" value={formatCurrency(saldoPendiente)} subtitle="cartera abierta" tone={saldoPendiente > 0 ? "warning" : "default"} />
+            <Kpi label="Saldo vencido" value={formatCurrency(saldoVencido)} subtitle="cartera vencida" tone={saldoVencido > 0 ? "danger" : "default"} />
+            <Kpi label="En tránsito" value={formatCurrency(enTransito)} subtitle="OCs activas" />
+            <Kpi label="Cuentas activas" value={[...activeByRegion.values()].reduce((s, n) => s + n, 0).toString()} subtitle="total CRM" />
+          </>
+        )}
       </section>
 
       <section className="grid gap-6 lg:grid-cols-2">
         <CategoryBarChart title="Ventas por región" subtitle="Venta bruta del periodo" data={regionData} />
-        <CategoryBarChart title="Ventas por vendedor" subtitle="Venta bruta del periodo" data={repChartData} />
+        {!isRepVendedor && (
+          <CategoryBarChart title="Ventas por vendedor" subtitle="Venta bruta del periodo" data={repChartData} />
+        )}
       </section>
 
       <section>
@@ -356,48 +376,52 @@ export default async function ReportesPage({
         </Card>
       </section>
 
-      <section>
-        <CategoryBarChart
-          title="Cartera por antigüedad"
-          subtitle="Saldo abierto por días vencidos"
-          data={bucketTotals}
-          color="#A91E3A"
-          altColor="#c9a96e"
-        />
-      </section>
+      {!isRepVendedor && (
+        <>
+          <section>
+            <CategoryBarChart
+              title="Cartera por antigüedad"
+              subtitle="Saldo abierto por días vencidos"
+              data={bucketTotals}
+              color="#A91E3A"
+              altColor="#c9a96e"
+            />
+          </section>
 
-      <section>
-        <Card>
-          <CardContent className="p-0">
-            <div className="border-b px-4 py-3">
-              <h3 className="font-display text-lg">Vendedores</h3>
-              <p className="text-xs text-muted-foreground">Detalle por vendedor en el periodo</p>
-            </div>
-            {repList.length === 0 ? (
-              <p className="p-6 text-sm text-muted-foreground">Sin datos.</p>
-            ) : (
-              <table className="min-w-full text-sm">
-                <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                  <tr><th className="px-4 py-2">Vendedor</th><th className="px-4 py-2 text-right">Clientes</th><th className="px-4 py-2 text-right">Venta bruta</th><th className="px-4 py-2 text-right">% del total</th><th className="px-4 py-2 text-right">Base comisión</th></tr>
-                </thead>
-                <tbody>
-                  {repList.map((r, i) => (
-                    <tr key={i} className="border-b last:border-b-0">
-                      <td className="px-4 py-2 font-medium">{r.name}</td>
-                      <td className="px-4 py-2 text-right text-muted-foreground">{r.clientes.size}</td>
-                      <td className="px-4 py-2 text-right font-medium">{formatCurrency(r.total)}</td>
-                      <td className="px-4 py-2 text-right text-muted-foreground">
-                        {totalFacturado > 0 ? `${((r.total / totalFacturado) * 100).toFixed(1)}%` : "—"}
-                      </td>
-                      <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(r.comision)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </CardContent>
-        </Card>
-      </section>
+          <section>
+            <Card>
+              <CardContent className="p-0">
+                <div className="border-b px-4 py-3">
+                  <h3 className="font-display text-lg">Vendedores</h3>
+                  <p className="text-xs text-muted-foreground">Detalle por vendedor en el periodo</p>
+                </div>
+                {repList.length === 0 ? (
+                  <p className="p-6 text-sm text-muted-foreground">Sin datos.</p>
+                ) : (
+                  <table className="min-w-full text-sm">
+                    <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                      <tr><th className="px-4 py-2">Vendedor</th><th className="px-4 py-2 text-right">Clientes</th><th className="px-4 py-2 text-right">Venta bruta</th><th className="px-4 py-2 text-right">% del total</th><th className="px-4 py-2 text-right">Base comisión</th></tr>
+                    </thead>
+                    <tbody>
+                      {repList.map((r, i) => (
+                        <tr key={i} className="border-b last:border-b-0">
+                          <td className="px-4 py-2 font-medium">{r.name}</td>
+                          <td className="px-4 py-2 text-right text-muted-foreground">{r.clientes.size}</td>
+                          <td className="px-4 py-2 text-right font-medium">{formatCurrency(r.total)}</td>
+                          <td className="px-4 py-2 text-right text-muted-foreground">
+                            {totalFacturado > 0 ? `${((r.total / totalFacturado) * 100).toFixed(1)}%` : "—"}
+                          </td>
+                          <td className="px-4 py-2 text-right text-muted-foreground">{formatCurrency(r.comision)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        </>
+      )}
     </div>
   );
 }

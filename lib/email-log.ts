@@ -62,6 +62,19 @@ export async function logClientEmail(
       resend_id: input.resendId ?? null,
       sent_by: input.sentBy ?? null,
     });
+
+    // Registrar como actividad para que cuente en la ficha del cliente
+    if (input.accountId) {
+      const kindLabel = EMAIL_KIND_LABEL[input.kind] ?? input.kind;
+      const notes = input.subject ? `${kindLabel}: ${input.subject}` : kindLabel;
+      await supabase.from("activities").insert({
+        account_id: input.accountId,
+        sales_rep_id: input.sentBy ?? null,
+        activity_type: "email",
+        activity_date: new Date().toISOString(),
+        notes,
+      });
+    }
   } catch {
     // best-effort: no romper el flujo de envío
   }
