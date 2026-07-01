@@ -40,6 +40,7 @@ export type GroupItem = {
   icon: typeof LayoutDashboard;
   adminOnly?: boolean;
   finance?: boolean;
+  reportes?: boolean;
   flota?: boolean;
   fleetFaults?: boolean;
   restock?: boolean;
