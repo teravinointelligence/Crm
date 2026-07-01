@@ -28,9 +28,13 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    user = data.user;
+  } catch {
+    // Refresh token inválido o expirado: tratar como sesión nula y redirigir a login.
+  }
 
   const path = request.nextUrl.pathname;
   const isAuthRoute = path.startsWith("/login");
