@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { OrderForm } from "@/components/orders/OrderForm";
+import { warehouseForRegion } from "@/lib/warehouses";
 
 export const metadata = { title: "Nueva cotización — TERAVINO CRM" };
 
@@ -41,6 +42,7 @@ export default async function NuevoPedidoPage({
         repId={rep.id}
         isAdmin={rep.role === "admin"}
         defaultAccountId={searchParams.account}
+        defaultWarehouse={warehouseForRegion(rep.primary_region)}
       />
     </div>
   );
