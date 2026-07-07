@@ -19,6 +19,21 @@ export const WAREHOUSE_SHORT: Record<Warehouse, string> = {
   "Los Cabos": "CAB",
 };
 
+// Almacén predeterminado por región del vendedor.
+export const REGION_WAREHOUSE: Record<string, Warehouse> = {
+  "La Paz": "La Paz",
+  "Los Cabos": "Los Cabos",
+  Tijuana: "Tijuana",
+  "Puerto Vallarta": "Vallarta",
+  Nayarit: "Vallarta",
+  Vallarta: "Vallarta",
+};
+
+export function warehouseForRegion(region: string | null | undefined): Warehouse | null {
+  if (!region) return null;
+  return REGION_WAREHOUSE[region] ?? null;
+}
+
 export type WarehouseStock = {
   product_id: string;
   warehouse: Warehouse;

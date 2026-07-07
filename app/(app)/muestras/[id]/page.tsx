@@ -11,6 +11,7 @@ import { SendSampleEmail } from "@/components/samples/SendSampleEmail";
 import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { CitaEvidence } from "@/components/samples/CitaEvidence";
 import { CancelSampleButton } from "@/components/samples/CancelSampleButton";
+import { SubmitSampleButton } from "@/components/samples/SubmitSampleButton";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
@@ -107,6 +108,9 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
               <Button asChild size="sm" variant="outline">
                 <Link href={`/muestras/${r.id}/editar`}>Editar</Link>
               </Button>
+            )}
+            {r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id) && (
+              <SubmitSampleButton requestId={r.id} requestNumber={r.request_number ?? ""} />
             )}
             {canCancel && <CancelSampleButton requestId={r.id} status={r.status ?? ""} />}
             {canExport && (

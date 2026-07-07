@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { AccountCombobox } from "@/components/accounts/AccountCombobox";
-import { WAREHOUSES } from "@/lib/warehouses";
+import { WAREHOUSES, type Warehouse } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 import {
   applyRegionPrice,
@@ -49,6 +49,7 @@ type Props = {
   repId: string;
   isAdmin: boolean;
   defaultAccountId?: string;
+  defaultWarehouse?: Warehouse | null;
 };
 
 export function OrderForm({
@@ -57,6 +58,7 @@ export function OrderForm({
   repId,
   isAdmin,
   defaultAccountId,
+  defaultWarehouse,
 }: Props) {
   const router = useRouter();
   const supabase = createClient();
@@ -65,7 +67,7 @@ export function OrderForm({
   const [orderType, setOrderType] = useState<"cotizacion" | "pedido">(
     "cotizacion",
   );
-  const [warehouse, setWarehouse] = useState<string>("");
+  const [warehouse, setWarehouse] = useState<string>(defaultWarehouse ?? "");
   const [notes, setNotes] = useState("");
   const [items, setItems] = useState<LineItem[]>([]);
   const [query, setQuery] = useState("");

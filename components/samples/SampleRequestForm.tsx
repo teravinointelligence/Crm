@@ -202,6 +202,8 @@ export function SampleRequestForm({
           toast.error("No se pudo enviar la solicitud", { description: sendErr.message });
           return;
         }
+        // Notificar al admin/pedidos sin bloquear el flujo.
+        fetch(`/api/samples/${req.id}/notificar-admin`, { method: "POST" }).catch(() => null);
       }
       toast.success(`${req.request_number} ${status === "enviada" ? "enviada" : "guardada"}`);
       router.push(`/muestras/${req.id}`);
