@@ -148,7 +148,7 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
 
       <ConsignacionActions consignacion={consignacion} totalCantidad={totalCantidad} />
 
-      {/* Botón generar contrato — visible solo si hay cuenta CRM vinculada */}
+      {/* Botón generar convenio — visible solo si hay cuenta CRM vinculada */}
       {crmAccount && (
         <div className="flex justify-end">
           <Button asChild variant="outline" size="sm">
@@ -156,7 +156,7 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
               href={`/documentos/nuevo?account=${crmAccount.id}&consignacion=${consignacion.id}`}
             >
               <FileText className="mr-1.5 h-4 w-4" />
-              Generar contrato de consignación
+              Generar convenio de consignación
             </Link>
           </Button>
         </div>
@@ -356,9 +356,7 @@ export default async function ConsignacionDetailPage({ params }: { params: { id:
                 </thead>
                 <tbody>
                   {retiros.map((r) => {
-                    const aplicado =
-                      r.estado === "recogido" ||
-                      !!consignacion.notas?.includes(`Retiro ${r.numero_retiro ?? r.id.slice(0, 8)} aplicado`);
+                    const aplicado = r.estado === "recogido";
                     const aplicable = !aplicado && r.estado !== "cancelado";
                     return (
                     <tr key={r.id} className="border-t hover:bg-muted/20">

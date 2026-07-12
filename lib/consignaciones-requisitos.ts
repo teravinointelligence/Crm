@@ -19,7 +19,7 @@ export const REQUISITOS_CONSIGNATARIO: RequisitoSeccion[] = [
       "Comprobante de domicilio del establecimiento, con antigüedad no mayor a 3 meses.",
       "Opinión de cumplimiento de obligaciones fiscales (32-D) en sentido positivo.",
       "Datos bancarios o carátula del estado de cuenta para domiciliación de pagos.",
-      "Contrato de consignación TERAVINO firmado por el representante legal.",
+      "Convenio de consignación TERAVINO firmado por el representante legal.",
     ],
   },
   {

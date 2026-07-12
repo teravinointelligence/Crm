@@ -54,6 +54,29 @@ async function fetchLineas(repId: string | null, periods: string[]): Promise<Lin
   );
 }
 
+/** Una query para múltiples reps — evita N queries al dashboard admin. */
+async function fetchLineasForReps(repIds: string[], periods: string[]): Promise<(Linea & { _period: string; _repId: string })[]> {
+  const db = serviceClient();
+  const { data } = await db
+    .from("monthly_sales")
+    .select("period, client_number, sales_rep_id, monthly_sales_items(codigo, producto_nombre, total, descuento)")
+    .in("period", periods)
+    .in("sales_rep_id", repIds)
+    .limit(10000);
+  const rows = (data ?? []) as unknown as (SalesRow & { sales_rep_id: string })[];
+  return rows.flatMap((row) =>
+    (row.monthly_sales_items ?? []).map((it) => ({
+      codigo: it.codigo,
+      nombre: it.producto_nombre,
+      total: Number(it.total ?? 0),
+      descuento: Number(it.descuento ?? 0),
+      clientNumber: row.client_number,
+      _period: row.period,
+      _repId: row.sales_rep_id,
+    })),
+  );
+}
+
 const ZERO: ComisionResult = {
   ventaVino: 0, ventaCerveza: 0, baseVino: 0, baseCerveza: 0,
   comVino: 0, comCerveza: 0, comTotal: 0, ventaTotal: 0,
@@ -122,25 +145,28 @@ export async function GET() {
 
     const reps = (repsData ?? []) as { id: string; full_name: string }[];
     const COMMISSION_REPS: ProfileKey[] = ["emmanuel", "citlali", "yamile", "andra", "felix"];
+    const commReps = reps.filter((r) => {
+      const pk = profileKeyFromName(r.full_name);
+      return pk && COMMISSION_REPS.includes(pk);
+    });
 
-    team = await Promise.all(
-      reps
-        .filter((r) => {
-          const pk = profileKeyFromName(r.full_name);
-          return pk && COMMISSION_REPS.includes(pk);
-        })
-        .map(async (r) => {
-          const pk = profileKeyFromName(r.full_name)!;
-          const lineas = await fetchLineas(r.id, periods) as (Linea & { _period: string })[];
-          return {
-            repId: r.id,
-            repName: r.full_name,
-            profileKey: pk,
-            current: calcComision(lineas, period, pk),
-            prior: priorPeriod ? calcComision(lineas, priorPeriod, pk) : null,
-          };
-        }),
-    );
+    // Una sola query para todas las líneas del equipo (antes era N queries en paralelo)
+    const repIds = commReps.map((r) => r.id);
+    const allTeamLineas = repIds.length
+      ? (await fetchLineasForReps(repIds, periods))
+      : [];
+
+    team = commReps.map((r) => {
+      const pk = profileKeyFromName(r.full_name)!;
+      const lineas = allTeamLineas.filter((l) => l._repId === r.id) as (Linea & { _period: string })[];
+      return {
+        repId: r.id,
+        repName: r.full_name,
+        profileKey: pk,
+        current: calcComision(lineas, period, pk),
+        prior: priorPeriod ? calcComision(lineas, priorPeriod, pk) : null,
+      };
+    });
   }
 
   return NextResponse.json({ period, priorPeriod, mine, team });
