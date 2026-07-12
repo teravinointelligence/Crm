@@ -5,6 +5,7 @@ import { Mail, Send, Check, X, Loader2, ChevronDown, ChevronRight } from "lucide
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
+import { semaforoCobranza } from "@/lib/cobranza";
 import { formatCurrency } from "@/lib/utils";
 import type { AccountBalance } from "@/types/database";
 
@@ -32,6 +33,9 @@ export function CobranzaEmails({ rows }: { rows: AccountBalance[] }) {
   );
 
   const vencidas = pendientes.filter((r) => (r.saldo_vencido ?? 0) > 0);
+  const suspendidos = pendientes.filter(
+    (r) => semaforoCobranza(r.dias_vencido ?? 0, r.saldo_pendiente ?? 0).estado === "suspendido",
+  );
   const porVencer = pendientes.filter((r) => (r.saldo_vencido ?? 0) <= 0);
 
   const totalVencido = vencidas.reduce((s, r) => s + (r.saldo_vencido ?? 0), 0);
@@ -163,6 +167,17 @@ export function CobranzaEmails({ rows }: { rows: AccountBalance[] }) {
                   disabled={enviando}
                 >
                   Solo vencidas ({vencidas.length})
+                </Button>
+              )}
+              {suspendidos.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => enviarLote(suspendidos)}
+                  disabled={enviando}
+                  className="border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  Solo suspendidos ({suspendidos.length})
                 </Button>
               )}
               <span className="ml-auto text-xs text-muted-foreground">
