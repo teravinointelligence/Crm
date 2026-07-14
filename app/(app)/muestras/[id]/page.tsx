@@ -11,6 +11,7 @@ import { SendSampleEmail } from "@/components/samples/SendSampleEmail";
 import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { CitaEvidence } from "@/components/samples/CitaEvidence";
 import { CancelSampleButton } from "@/components/samples/CancelSampleButton";
+import { FinishSampleButton } from "@/components/samples/FinishSampleButton";
 import { SubmitSampleButton } from "@/components/samples/SubmitSampleButton";
 import { formatDateTime, formatDate } from "@/lib/utils";
 
@@ -23,14 +24,14 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes), sample_request_activities(id, evidence_path, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
+      "*, sales_reps:sales_rep_id(full_name, primary_region), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes, finished_at), sample_request_activities(id, evidence_path, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
     )
     .eq("id", params.id)
     .single();
   if (!req) notFound();
 
   const items = (req.sample_request_items ?? []) as Array<{
-    id: string; product_id: string | null; product_name: string; supplier: string | null; quantity: number; notes: string | null;
+    id: string; product_id: string | null; product_name: string; supplier: string | null; quantity: number; notes: string | null; finished_at: string | null;
   }>;
   const citas = ((req.sample_request_activities ?? []) as Array<{
     id: string;
@@ -47,7 +48,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
     new Set(citas.map((c) => c.accounts?.id).filter((id): id is string => Boolean(id))),
   );
   const r = req as typeof req & {
-    sales_reps: { full_name: string | null } | null;
+    sales_reps: { full_name: string | null; primary_region: string | null } | null;
     reviewer: { full_name: string | null } | null;
     accounts: { id: string; business_name: string | null } | null;
   };
@@ -86,6 +87,9 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const canCancel =
     (["borrador", "enviada"].includes(r.status ?? "") && (isAdmin || rep.id === r.sales_rep_id)) ||
     (r.status === "aprobada" && isAdmin);
+  // Marcar un vino como terminado (botellas muertas/consumidas): libera el
+  // candado de reuso cuando ya no queda stock en la zona del vendedor.
+  const canFinish = canEdit && ["aprobada", "entregada"].includes(r.status ?? "");
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -145,7 +149,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       <Card><CardContent className="p-0">
         <table className="min-w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr><th className="px-4 py-3">Vino</th><th className="px-4 py-3">Bodega</th><th className="px-4 py-3 text-right">Botellas</th><th className="px-4 py-3">Nota</th></tr>
+            <tr><th className="px-4 py-3">Vino</th><th className="px-4 py-3">Bodega</th><th className="px-4 py-3 text-right">Botellas</th><th className="px-4 py-3">Nota</th>{canFinish && <th className="px-4 py-3" />}</tr>
           </thead>
           <tbody>
             {items.map((i) => (
@@ -154,6 +158,21 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                 <td className="px-4 py-3 text-muted-foreground">{i.supplier ?? "—"}</td>
                 <td className="px-4 py-3 text-right">{i.quantity}</td>
                 <td className="px-4 py-3 text-muted-foreground">{i.notes ?? "—"}</td>
+                {canFinish && (
+                  <td className="px-4 py-3 text-right">
+                    {i.finished_at ? (
+                      <Badge variant="muted">Terminado · {formatDate(i.finished_at)}</Badge>
+                    ) : i.product_id ? (
+                      <FinishSampleButton
+                        productId={i.product_id}
+                        productName={i.product_name}
+                        supplier={i.supplier}
+                        region={r.sales_reps?.primary_region ?? null}
+                        allLocations
+                      />
+                    ) : null}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
