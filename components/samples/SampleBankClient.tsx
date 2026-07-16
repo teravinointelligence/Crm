@@ -36,10 +36,10 @@ export type BankRow = {
 };
 
 export type RegionMetrics = { usadas: number; encartadas: number };
-export type LastUse = { rep: string | null; account: string | null; date: string | null; note: string | null };
+export type LastUse = { rep: string | null; account: string | null; date: string | null; note: string | null; via?: "toma" | "solicitud" };
 export type HistoryEntry = {
   id: string;
-  kind: "toma" | "devolucion";
+  kind: "toma" | "devolucion" | "solicitud";
   qty: number;
   date: string | null;
   rep: string | null;
@@ -256,6 +256,7 @@ export function SampleBankClient({
                             <div className="text-muted-foreground">
                               {u.account ? `→ ${u.account}` : "sin cliente"}
                               {u.date ? ` · ${formatDate(u.date)}` : ""}
+                              {u.via === "solicitud" ? " · solicitud" : ""}
                             </div>
                           </div>
                         );
@@ -357,7 +358,8 @@ export function SampleBankClient({
                 </div>
                 {entries.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    Nadie ha tomado muestras de este vino en esta zona.
+                    Este vino no tiene movimientos registrados en esta zona: nadie lo ha
+                    tomado del banco ni entró por una solicitud de muestras.
                   </p>
                 ) : (
                   <ul className="divide-y">
@@ -373,8 +375,11 @@ export function SampleBankClient({
                             {e.note ? ` · ${e.note}` : ""}
                           </div>
                         </div>
-                        <Badge variant={e.kind === "toma" ? "muted" : "success"} className="shrink-0">
-                          {e.kind === "toma" ? `Tomó ${e.qty}` : `Devolvió ${e.qty}`}
+                        <Badge
+                          variant={e.kind === "toma" ? "muted" : e.kind === "devolucion" ? "success" : "accent"}
+                          className="shrink-0"
+                        >
+                          {e.kind === "toma" ? `Tomó ${e.qty}` : e.kind === "devolucion" ? `Devolvió ${e.qty}` : `Solicitó ${e.qty}`}
                         </Badge>
                       </li>
                     ))}
