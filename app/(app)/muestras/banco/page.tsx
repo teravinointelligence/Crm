@@ -25,8 +25,8 @@ export default async function BancoMuestrasPage() {
       .order("product_name"),
     supabase
       .from("sample_bank_movements")
-      .select("id, reverts_id, product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name)")
-      .in("kind", ["toma", "devolucion"])
+      .select("id, reverts_id, product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name), request:source_request_id(request_number, rep:sales_rep_id(full_name), account:account_id(business_name))")
+      .in("kind", ["toma", "devolucion", "ingreso"])
       .order("created_at", { ascending: false }),
     supabase.from("account_products").select("account_id, product_id").eq("status", "encartado"),
     supabase.from("accounts").select("id, business_name, region").order("business_name"),
@@ -50,6 +50,11 @@ export default async function BancoMuestrasPage() {
     product_id: string; region: string | null; quantity: number | string; account_id: string | null;
     created_at: string | null; notes: string | null;
     rep: { full_name: string | null } | null; account: { business_name: string | null } | null;
+    request: {
+      request_number: string | null;
+      rep: { full_name: string | null } | null;
+      account: { business_name: string | null } | null;
+    } | null;
   }[];
 
   // Botellas ya devueltas por toma (las devoluciones apuntan a su toma via reverts_id).
@@ -66,7 +71,7 @@ export default async function BancoMuestrasPage() {
 
   // Último uso por (producto|zona): quién la tomó, para qué cliente y cuándo.
   // `tomas` viene ordenado por created_at desc, así que la primera por clave es la más reciente.
-  const lastUse: Record<string, { rep: string | null; account: string | null; date: string | null; note: string | null }> = {};
+  const lastUse: Record<string, { rep: string | null; account: string | null; date: string | null; note: string | null; via?: "toma" | "solicitud" }> = {};
   for (const t of tomas) {
     if (t.net <= 0) continue;
     const key = `${t.product_id}|${t.region ?? "Sin zona"}`;
@@ -76,22 +81,43 @@ export default async function BancoMuestrasPage() {
       account: t.account?.business_name ?? null,
       date: t.created_at,
       note: t.notes,
+      via: "toma",
+    };
+  }
+  // Respaldo: si nadie la ha tomado del banco, la solicitud que metió las
+  // botellas dice quién la pidió y para qué cliente.
+  for (const m of movAll) {
+    if (m.kind !== "ingreso" || !m.request) continue;
+    const key = `${m.product_id}|${m.region ?? "Sin zona"}`;
+    if (lastUse[key]) continue;
+    lastUse[key] = {
+      rep: m.request.rep?.full_name ?? null,
+      account: m.request.account?.business_name ?? null,
+      date: m.created_at,
+      note: m.request.request_number,
+      via: "solicitud",
     };
   }
 
   // Historial completo por (producto|zona): se muestra al hacer clic en el vino.
+  // Incluye tomas, devoluciones y las solicitudes que ingresaron botellas.
   // movAll ya viene ordenado por created_at desc.
   const historyByKey: Record<string, HistoryEntry[]> = {};
   for (const m of movAll) {
+    // Los ingresos solo cuentan como historial si vienen de una solicitud
+    // (los "Liberar" manuales son reposición de stock, no uso).
+    if (m.kind === "ingreso" && !m.request) continue;
     const key = `${m.product_id}|${m.region ?? "Sin zona"}`;
     (historyByKey[key] ??= []).push({
       id: m.id,
-      kind: m.kind === "toma" ? "toma" : "devolucion",
+      kind: m.kind === "toma" ? "toma" : m.kind === "devolucion" ? "devolucion" : "solicitud",
       qty: Math.abs(Number(m.quantity ?? 0)),
       date: m.created_at,
-      rep: m.rep?.full_name ?? null,
-      account: m.account?.business_name ?? null,
-      note: m.notes,
+      rep: m.kind === "ingreso" ? m.request?.rep?.full_name ?? null : m.rep?.full_name ?? null,
+      account: m.kind === "ingreso" ? m.request?.account?.business_name ?? null : m.account?.business_name ?? null,
+      note: m.kind === "ingreso"
+        ? [m.request?.request_number ? `Solicitud ${m.request.request_number}` : null, m.notes].filter(Boolean).join(" · ") || null
+        : m.notes,
     });
   }
 
