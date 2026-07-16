@@ -25,7 +25,7 @@ export default async function BancoMuestrasPage() {
       .order("product_name"),
     supabase
       .from("sample_bank_movements")
-      .select("id, reverts_id, product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name), request:source_request_id(request_number, rep:sales_rep_id(full_name), account:account_id(business_name))")
+      .select("id, reverts_id, product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name), request:source_request_id(request_number, reason, rep:sales_rep_id(full_name), account:account_id(business_name))")
       .in("kind", ["toma", "devolucion", "ingreso"])
       .order("created_at", { ascending: false }),
     supabase.from("account_products").select("account_id, product_id").eq("status", "encartado"),
@@ -52,6 +52,7 @@ export default async function BancoMuestrasPage() {
     rep: { full_name: string | null } | null; account: { business_name: string | null } | null;
     request: {
       request_number: string | null;
+      reason: string | null;
       rep: { full_name: string | null } | null;
       account: { business_name: string | null } | null;
     } | null;
@@ -116,7 +117,11 @@ export default async function BancoMuestrasPage() {
       rep: m.kind === "ingreso" ? m.request?.rep?.full_name ?? null : m.rep?.full_name ?? null,
       account: m.kind === "ingreso" ? m.request?.account?.business_name ?? null : m.account?.business_name ?? null,
       note: m.kind === "ingreso"
-        ? [m.request?.request_number ? `Solicitud ${m.request.request_number}` : null, m.notes].filter(Boolean).join(" · ") || null
+        ? [
+            m.request?.request_number ? `Solicitud ${m.request.request_number}` : null,
+            m.request?.reason?.trim() || null,
+            m.notes,
+          ].filter(Boolean).join(" · ") || null
         : m.notes,
     });
   }
