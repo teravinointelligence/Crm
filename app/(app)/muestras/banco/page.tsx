@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { SampleBankClient, type BankRow, type RegionMetrics } from "@/components/samples/SampleBankClient";
+import { SampleBankClient, type BankRow, type RegionMetrics, type HistoryEntry } from "@/components/samples/SampleBankClient";
 
 export const metadata = { title: "Banco de muestras — TERAVINO CRM" };
 
@@ -79,6 +79,22 @@ export default async function BancoMuestrasPage() {
     };
   }
 
+  // Historial completo por (producto|zona): se muestra al hacer clic en el vino.
+  // movAll ya viene ordenado por created_at desc.
+  const historyByKey: Record<string, HistoryEntry[]> = {};
+  for (const m of movAll) {
+    const key = `${m.product_id}|${m.region ?? "Sin zona"}`;
+    (historyByKey[key] ??= []).push({
+      id: m.id,
+      kind: m.kind === "toma" ? "toma" : "devolucion",
+      qty: Math.abs(Number(m.quantity ?? 0)),
+      date: m.created_at,
+      rep: m.rep?.full_name ?? null,
+      account: m.account?.business_name ?? null,
+      note: m.notes,
+    });
+  }
+
   let usadas = 0;
   let encartadas = 0;
   const byRegion = new Map<string, RegionMetrics>();
@@ -128,7 +144,7 @@ export default async function BancoMuestrasPage() {
         </div>
       )}
 
-      <SampleBankClient rows={rows} isAdmin={isAdmin} accounts={accounts} metricsByRegion={metricsByRegion} lastUse={lastUse} />
+      <SampleBankClient rows={rows} isAdmin={isAdmin} accounts={accounts} metricsByRegion={metricsByRegion} lastUse={lastUse} history={historyByKey} />
     </div>
   );
 }

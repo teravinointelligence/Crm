@@ -37,6 +37,15 @@ export type BankRow = {
 
 export type RegionMetrics = { usadas: number; encartadas: number };
 export type LastUse = { rep: string | null; account: string | null; date: string | null; note: string | null };
+export type HistoryEntry = {
+  id: string;
+  kind: "toma" | "devolucion";
+  qty: number;
+  date: string | null;
+  rep: string | null;
+  account: string | null;
+  note: string | null;
+};
 
 type AccountOption = { id: string; business_name: string; region?: string | null };
 
@@ -49,6 +58,7 @@ export function SampleBankClient({
   accounts,
   metricsByRegion,
   lastUse = {},
+  history = {},
 }: {
   rows: BankRow[];
   isAdmin: boolean;
@@ -56,6 +66,8 @@ export function SampleBankClient({
   metricsByRegion: Record<string, RegionMetrics>;
   // key `${product_id}|${region ?? "Sin zona"}` → último uso
   lastUse?: Record<string, LastUse>;
+  // key `${product_id}|${region ?? "Sin zona"}` → movimientos (más reciente primero)
+  history?: Record<string, HistoryEntry[]>;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -67,6 +79,7 @@ export function SampleBankClient({
   const [release, setRelease] = useState<BankRow | null>(null);
   const [relQty, setRelQty] = useState(1);
   const [relNote, setRelNote] = useState("");
+  const [hist, setHist] = useState<BankRow | null>(null);
 
   const openTake = (r: BankRow) => {
     setTake(r);
@@ -201,7 +214,16 @@ export function SampleBankClient({
               <tbody>
                 {list.map((r) => (
                   <tr key={`${r.product_id}-${r.region ?? "none"}-${r.location ?? "none"}`} className="border-b last:border-b-0">
-                    <td className="px-4 py-3 font-medium">{r.product_name}</td>
+                    <td className="px-4 py-3 font-medium">
+                      <button
+                        type="button"
+                        onClick={() => setHist(r)}
+                        className="text-left underline-offset-4 hover:underline"
+                        title="Ver historial de tomas"
+                      >
+                        {r.product_name}
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-muted-foreground">{r.supplier ?? "—"}</td>
                     <td className="px-4 py-3">
                       {isAdmin ? (
@@ -315,6 +337,52 @@ export function SampleBankClient({
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!hist} onOpenChange={(o) => !o && setHist(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Historial de muestras</DialogTitle>
+          </DialogHeader>
+          {hist && (() => {
+            const entries = history[`${hist.product_id}|${hist.region ?? "Sin zona"}`] ?? [];
+            return (
+              <div className="space-y-4">
+                <div className="text-sm">
+                  <div className="font-medium">{hist.product_name}</div>
+                  <div className="text-muted-foreground">
+                    {[hist.supplier, hist.region ?? "Sin zona", `${hist.available} disponibles`].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                {entries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Nadie ha tomado muestras de este vino en esta zona.
+                  </p>
+                ) : (
+                  <ul className="divide-y">
+                    {entries.map((e) => (
+                      <li key={e.id} className="flex items-start justify-between gap-3 py-2.5 text-sm">
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="font-medium">
+                            {e.rep ?? "—"}
+                            {e.account && <span className="font-normal text-muted-foreground"> → {e.account}</span>}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {e.date ? formatDate(e.date) : "Sin fecha"}
+                            {e.note ? ` · ${e.note}` : ""}
+                          </div>
+                        </div>
+                        <Badge variant={e.kind === "toma" ? "muted" : "success"} className="shrink-0">
+                          {e.kind === "toma" ? `Tomó ${e.qty}` : `Devolvió ${e.qty}`}
+                        </Badge>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
