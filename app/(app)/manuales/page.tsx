@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { Sop } from "@/types/database";
 
-export const metadata = { title: "Manuales — TERAVINO CRM" };
+export const metadata = { title: "Manuales y políticas — TERAVINO CRM" };
 export const dynamic = "force-dynamic";
 
 export default async function ManualesPage() {
@@ -35,9 +35,9 @@ export default async function ManualesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl">Manuales de operación</h1>
+        <h1 className="font-display text-3xl">Manuales y políticas de operación</h1>
         <p className="text-sm text-muted-foreground">
-          SOPs de TERAVINO — solo lectura. Da clic en un manual para verlo.
+          SOPs y políticas de TERAVINO — solo lectura. Da clic en un documento para verlo.
         </p>
       </div>
 

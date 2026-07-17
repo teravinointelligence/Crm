@@ -105,7 +105,7 @@ export const navItems: Item[] = [
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
   { href: "/flota", label: "Flota", icon: Car, flota: true },
   { href: "/flota/fallas", label: "Fallas de vehículos", icon: Wrench, fleetFaults: true },
-  { href: "/manuales", label: "Manuales", icon: BookOpen, moduleKey: "manuales" },
+  { href: "/manuales", label: "Manuales y políticas", icon: BookOpen, moduleKey: "manuales" },
   { href: "/academy", label: "Academy", icon: GraduationCap, moduleKey: "academy" },
   {
     kind: "group",

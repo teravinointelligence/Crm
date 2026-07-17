@@ -227,7 +227,7 @@ export const SELECTABLE_MODULES: ModuleDef[] = [
   { key: "consignaciones", label: "Consignaciones", href: "/consignaciones" },
   { key: "restock", label: "Restock", href: "/restock" },
   { key: "transito", label: "Tránsito", href: "/transito" },
-  { key: "manuales", label: "Manuales", href: "/manuales" },
+  { key: "manuales", label: "Manuales y políticas", href: "/manuales" },
   { key: "academy", label: "Academy", href: "/academy" },
 ];
 
