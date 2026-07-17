@@ -11,7 +11,9 @@ export type SampleLocation = (typeof SAMPLE_LOCATIONS)[number];
 
 // ── Candado de consumo por cliente ───────────────────────────────────────────
 // Un cliente no puede recibir más de `botellasPorCliente` botellas de muestra
-// en una ventana rodante de `ventanaDias` días (capacitaciones y Admin exentos).
+// en una ventana rodante de `ventanaDias` días. Las capacitaciones quedan
+// fuera del tope pero SOLO de vinos que el cliente ya compró (compra real en
+// monthly_sales_items); el Admin queda exento de todo.
 // FOOTGUN: el candado real vive en la BD (tg_sample_client_cap, migración
 // 0092) con estos MISMOS números; esto solo alimenta los textos de la UI.
 // Si cambias uno, cambia el otro.

@@ -296,7 +296,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
           {consumo.cliente30 + totalBottles > SAMPLE_CAP.botellasPorCliente && (
             <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
               Con esta solicitud el cliente supera el tope de {SAMPLE_CAP.botellasPorCliente} botellas
-              en {SAMPLE_CAP.ventanaDias} días{r.training_people ? " (es capacitación, exenta del candado)" : ""}.
+              en {SAMPLE_CAP.ventanaDias} días{r.training_people ? " (es capacitación: solo válida sobre vinos que el cliente ya compra)" : ""}.
               Autorízala solo si el caso lo amerita.
             </p>
           )}

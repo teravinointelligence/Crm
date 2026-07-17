@@ -224,7 +224,8 @@ export default async function ConsumoMuestrasPage({
           <p className="text-sm text-muted-foreground">
             Botellas por vendedor, valor a precio de lista y costo de adquisición por encarte ·
             últimos {dias} días · candado vigente: máx {SAMPLE_CAP.botellasPorCliente} botellas por
-            cliente cada {SAMPLE_CAP.ventanaDias} días (capacitaciones exentas).
+            cliente cada {SAMPLE_CAP.ventanaDias} días (capacitaciones solo de vinos que el cliente
+            ya compra).
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-lg border bg-card p-1">
