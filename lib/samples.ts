@@ -9,6 +9,17 @@ export const SAMPLE_LOCATIONS = [
 
 export type SampleLocation = (typeof SAMPLE_LOCATIONS)[number];
 
+// ── Candado de consumo por cliente ───────────────────────────────────────────
+// Un cliente no puede recibir más de `botellasPorCliente` botellas de muestra
+// en una ventana rodante de `ventanaDias` días (capacitaciones y Admin exentos).
+// FOOTGUN: el candado real vive en la BD (tg_sample_client_cap, migración
+// 0092) con estos MISMOS números; esto solo alimenta los textos de la UI.
+// Si cambias uno, cambia el otro.
+export const SAMPLE_CAP = {
+  botellasPorCliente: 6,
+  ventanaDias: 30,
+} as const;
+
 // ── Rendimiento de muestras para capacitaciones / catas ──────────────────────
 // Estándar TERAVINO: se sirven 2 onzas por participante de una botella de 750 ml,
 // por lo que cada botella rinde ~12 personas (antes se asumían 8, a ~3 oz).

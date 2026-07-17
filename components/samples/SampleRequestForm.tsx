@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
-import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON } from "@/lib/samples";
+import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP } from "@/lib/samples";
 import type { Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
@@ -402,6 +402,13 @@ export function SampleRequestForm({
               </tr>
             </tfoot>
           </table>
+        )}
+        {!isAdmin && !isTraining && totalBottles > SAMPLE_CAP.botellasPorCliente && (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            Vas por {totalBottles} botellas: el tope es {SAMPLE_CAP.botellasPorCliente} por cliente
+            cada {SAMPLE_CAP.ventanaDias} días (sumando tus solicitudes anteriores a ese cliente).
+            Si es capacitación, márcala arriba; si no, el envío se va a rechazar en automático.
+          </p>
         )}
       </CardContent></Card>
 
