@@ -12,7 +12,8 @@ import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { CitaEvidence } from "@/components/samples/CitaEvidence";
 import { CancelSampleButton } from "@/components/samples/CancelSampleButton";
 import { SubmitSampleButton } from "@/components/samples/SubmitSampleButton";
-import { formatDateTime, formatDate } from "@/lib/utils";
+import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
+import { SAMPLE_CAP } from "@/lib/samples";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -79,6 +80,64 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       });
   }
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
+
+  // Contexto de consumo para el admin al autorizar: botellas que ya lleva el
+  // cliente (30/90 días), botellas del vendedor (30 días) y valor de ESTA
+  // solicitud a precio de lista. Mismas reglas de conteo que el candado 0092
+  // (solo solicitudes enviada/aprobada/entregada).
+  let consumo: {
+    cliente30: number; cliente90: number; vendedor30: number; valor: number; sinPrecio: number;
+  } | null = null;
+  if (isAdmin) {
+    const d30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const d90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const sumBottles = (rows: { sample_request_items: { quantity: number | null }[] | null }[] | null) =>
+      (rows ?? []).reduce(
+        (s, x) => s + (x.sample_request_items ?? []).reduce((a, i) => a + Number(i.quantity ?? 0), 0),
+        0,
+      );
+    const productIds = items.map((i) => i.product_id).filter((id): id is string => Boolean(id));
+    const [cli90Res, rep30Res, pricesRes] = await Promise.all([
+      r.account_id
+        ? supabase
+            .from("sample_requests")
+            .select("id, created_at, sample_request_items(quantity)")
+            .eq("account_id", r.account_id)
+            .in("status", ["enviada", "aprobada", "entregada"])
+            .gte("created_at", d90)
+            .neq("id", r.id)
+        : Promise.resolve({ data: [] as never[] }),
+      supabase
+        .from("sample_requests")
+        .select("id, created_at, sample_request_items(quantity)")
+        .eq("sales_rep_id", r.sales_rep_id)
+        .in("status", ["enviada", "aprobada", "entregada"])
+        .gte("created_at", d30)
+        .neq("id", r.id),
+      productIds.length
+        ? supabase.from("products").select("id, base_price").in("id", productIds)
+        : Promise.resolve({ data: [] as never[] }),
+    ]);
+    type ReqBottles = { id: string; created_at: string; sample_request_items: { quantity: number | null }[] | null };
+    const cli90Rows = ((cli90Res.data ?? []) as unknown) as ReqBottles[];
+    const priceById = new Map(
+      ((pricesRes.data ?? []) as { id: string; base_price: number | null }[]).map((p) => [p.id, Number(p.base_price ?? 0)]),
+    );
+    let valor = 0;
+    let sinPrecio = 0;
+    for (const i of items) {
+      const price = i.product_id ? priceById.get(i.product_id) : undefined;
+      if (price == null) sinPrecio += Number(i.quantity ?? 0);
+      else valor += Number(i.quantity ?? 0) * price;
+    }
+    consumo = {
+      cliente30: sumBottles(cli90Rows.filter((x) => x.created_at >= d30)),
+      cliente90: sumBottles(cli90Rows),
+      vendedor30: sumBottles(((rep30Res.data ?? []) as unknown) as ReqBottles[]),
+      valor,
+      sinPrecio,
+    };
+  }
   const canExport = r.status === "aprobada" || r.status === "entregada";
   const canEditRequest =
     (r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id)) ||
@@ -198,6 +257,50 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
 
       {canEdit && r.status !== "rechazada" && (
         <AddCitasToSample requestId={r.id} citas={attachableCitas} linkedAccountIds={distinctAccountIds} />
+      )}
+
+      {isAdmin && consumo && (
+        <Card><CardContent className="space-y-3 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-display text-lg">Consumo antes de autorizar</h3>
+            <Link href="/muestras/consumo" className="text-xs text-brand-carmesi hover:underline">
+              Ver consumo por vendedor →
+            </Link>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-4">
+            <div className="rounded-md border bg-card p-2.5">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Valor de esta solicitud</div>
+              <div className="font-display text-lg">{formatCurrency(consumo.valor)}</div>
+              {consumo.sinPrecio > 0 && (
+                <div className="text-xs text-muted-foreground">+{consumo.sinPrecio} bot. sin precio de lista</div>
+              )}
+            </div>
+            <div className="rounded-md border bg-card p-2.5">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente · 30 días</div>
+              <div className={`font-display text-lg ${consumo.cliente30 + totalBottles > SAMPLE_CAP.botellasPorCliente ? "text-red-600" : ""}`}>
+                {consumo.cliente30} + {totalBottles} de esta
+              </div>
+              <div className="text-xs text-muted-foreground">tope: {SAMPLE_CAP.botellasPorCliente} por cliente</div>
+            </div>
+            <div className="rounded-md border bg-card p-2.5">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente · 90 días</div>
+              <div className="font-display text-lg">{consumo.cliente90}</div>
+              <div className="text-xs text-muted-foreground">botellas recibidas</div>
+            </div>
+            <div className="rounded-md border bg-card p-2.5">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Vendedor · 30 días</div>
+              <div className="font-display text-lg">{consumo.vendedor30}</div>
+              <div className="text-xs text-muted-foreground">botellas en otras solicitudes</div>
+            </div>
+          </div>
+          {consumo.cliente30 + totalBottles > SAMPLE_CAP.botellasPorCliente && (
+            <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
+              Con esta solicitud el cliente supera el tope de {SAMPLE_CAP.botellasPorCliente} botellas
+              en {SAMPLE_CAP.ventanaDias} días{r.training_people ? " (es capacitación: solo válida sobre vinos que el cliente ya compra)" : ""}.
+              Autorízala solo si el caso lo amerita.
+            </p>
+          )}
+        </CardContent></Card>
       )}
 
       {isAdmin && (

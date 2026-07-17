@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
-import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON } from "@/lib/samples";
+import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP } from "@/lib/samples";
 import type { Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
@@ -251,6 +251,13 @@ export function SampleRequestForm({
                 Puedes ajustarlas abajo.
               </p>
             )}
+            {!isAdmin && (
+              <p className="text-xs text-amber-700">
+                La capacitación es para vinos que el cliente <strong>ya compra</strong> (primero se
+                encarta y compra, luego se capacita a su personal). Si algún vino no tiene compra
+                previa registrada, el envío se rechaza.
+              </p>
+            )}
           </div>
         )}
 
@@ -402,6 +409,14 @@ export function SampleRequestForm({
               </tr>
             </tfoot>
           </table>
+        )}
+        {!isAdmin && !isTraining && totalBottles > SAMPLE_CAP.botellasPorCliente && (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            Vas por {totalBottles} botellas: el tope es {SAMPLE_CAP.botellasPorCliente} por cliente
+            cada {SAMPLE_CAP.ventanaDias} días (sumando tus solicitudes anteriores a ese cliente) y
+            el envío se rechaza en automático. Solo las capacitaciones de vinos que el cliente ya
+            compra quedan fuera del tope (márcala arriba).
+          </p>
         )}
       </CardContent></Card>
 
