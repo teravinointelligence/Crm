@@ -13,6 +13,7 @@ import {
   Banknote,
   FlaskConical,
   BarChart3,
+  LineChart,
   ClipboardList,
   Route,
   UserCog,
@@ -102,6 +103,9 @@ export const navItems: Item[] = [
   { href: "/transito", label: "Tránsito", icon: Truck, moduleKey: "transito" },
   { href: "/cuentas-pagar", label: "Cuentas por pagar", icon: Banknote, finance: true },
   { href: "/reportes", label: "Reportes", icon: BarChart3, reportes: true },
+  // Tablero de KPIs (3 niveles: dirección / vendedor / región). Mismo gate que
+  // Reportes: admin y contador ven todo; el vendedor solo su tarjeta.
+  { href: "/tablero", label: "Tablero", icon: LineChart, reportes: true },
   { href: "/usuarios", label: "Usuarios", icon: UserCog, adminOnly: true },
   { href: "/flota", label: "Flota", icon: Car, flota: true },
   { href: "/flota/fallas", label: "Fallas de vehículos", icon: Wrench, fleetFaults: true },

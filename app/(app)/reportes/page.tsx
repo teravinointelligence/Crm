@@ -12,10 +12,9 @@ import { canViewReportes } from "@/lib/modules";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategoryBarChart, MonthlyBarChart } from "@/components/reports/Charts";
 import { formatCurrency } from "@/lib/utils";
+import { labelMonth, monthISO, rangeFor, type Period } from "@/lib/kpis/period";
 
 export const metadata = { title: "Reportes — TERAVINO CRM" };
-
-type Period = "ytd" | "m3" | "m6" | string; // string = año YYYY
 
 // Fila de monthly_sales con sus joins (cuenta y vendedor).
 type SaleRow = {
@@ -39,37 +38,6 @@ type ProductRow = {
 };
 
 type InvoiceRow = { id: string; account_id: string; due_date: string | null; balance: number | null; status: string };
-
-const MESES_CORTOS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
-
-function monthISO(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
-}
-
-function labelMonth(periodISO: string): string {
-  const [y, m] = periodISO.split("-").map(Number);
-  return `${MESES_CORTOS[m - 1]} ${y}`;
-}
-
-// Las ventas viven a nivel mes (period = primer día del mes), así que el
-// filtro de periodo se expresa en meses completos, no en días sueltos.
-function rangeFor(period: Period): { fromMonth: string; toMonth: string; label: string } {
-  const now = new Date();
-  const thisMonth = monthISO(now);
-  if (period === "m3" || period === "m6") {
-    const back = period === "m3" ? 2 : 5;
-    const d = new Date(now.getFullYear(), now.getMonth() - back, 1);
-    return { fromMonth: monthISO(d), toMonth: thisMonth, label: `Últimos ${back + 1} meses` };
-  }
-  const yMatch = /^(\d{4})$/.exec(period);
-  if (yMatch) {
-    const y = Number(yMatch[1]);
-    return { fromMonth: `${y}-01-01`, toMonth: `${y}-12-01`, label: `Año ${y}` };
-  }
-  // ytd (y cualquier valor desconocido)
-  const y = now.getFullYear();
-  return { fromMonth: `${y}-01-01`, toMonth: thisMonth, label: `Año ${y} (a la fecha)` };
-}
 
 const KNOWN_PERIODS: { value: string; label: string }[] = [
   { value: "ytd", label: "Año actual" },
