@@ -252,6 +252,9 @@ export type Database = {
           modules: string[] | null;
           primary_region: string | null;
           role: string | null;
+          // Cliente CONTPAQ para registrar la salida de muestras del vendedor
+          // (va en el correo a pedidos@). Migración 0093.
+          sample_client_number: string | null;
         };
         Insert: Partial<Database["public"]["Tables"]["sales_reps"]["Row"]> & {
           email: string;

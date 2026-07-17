@@ -28,7 +28,7 @@ export async function buildMuestraEmail(
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "request_number, status, reason, notes, training_people, ship_to_client, ship_date, account_id, sales_reps:sales_rep_id(full_name, email), accounts:account_id(business_name), sample_request_items(product_name, supplier, quantity, notes)",
+      "request_number, status, reason, notes, training_people, ship_to_client, ship_date, account_id, sales_reps:sales_rep_id(full_name, email, sample_client_number), accounts:account_id(business_name), sample_request_items(product_name, supplier, quantity, notes)",
     )
     .eq("id", sampleId)
     .maybeSingle();
@@ -38,7 +38,7 @@ export async function buildMuestraEmail(
     | { business_name: string | null }
     | null;
   const rep = (Array.isArray(req.sales_reps) ? req.sales_reps[0] : req.sales_reps) as
-    | { full_name: string | null; email: string | null }
+    | { full_name: string | null; email: string | null; sample_client_number: string | null }
     | null;
 
   // El correo de muestras va al área de pedidos (surtido/envío). Editable en la UI.
@@ -81,6 +81,7 @@ export async function buildMuestraEmail(
       <tbody>${rows}</tbody>
     </table>
     <p style="font-size:14px;margin:8px 0;"><strong>Total de botellas:</strong> ${totalBottles}</p>
+    ${rep?.sample_client_number ? `<p style="font-size:14px;margin:8px 0;padding:8px 10px;background:#f6f1ee;border-left:3px solid #7a1220;"><strong>Registrar salida al cliente de muestras:</strong> #${rep.sample_client_number} (${rep?.full_name ?? "vendedor"})</p>` : ""}
     ${cliente ? `<p style="font-size:14px;color:#555;margin:4px 0;"><strong>Cliente:</strong> ${cliente}</p>` : ""}
     ${shipDate ? `<p style="font-size:14px;color:#555;margin:4px 0;"><strong>Fecha de envío:</strong> ${shipDate}</p>` : ""}
     ${req.reason ? `<p style="font-size:14px;color:#555;margin:4px 0;"><strong>Motivo:</strong> ${req.reason}</p>` : ""}
@@ -93,7 +94,7 @@ export async function buildMuestraEmail(
   return {
     ok: true,
     to,
-    subject: `Muestras ${req.request_number}${cliente ? ` · ${cliente}` : ""}${shipDate ? ` · enviar ${shipDate}` : ""} — TERAVINO`,
+    subject: `Muestras ${req.request_number}${cliente ? ` · ${cliente}` : ""}${rep?.sample_client_number ? ` · cliente muestras #${rep.sample_client_number}` : ""}${shipDate ? ` · enviar ${shipDate}` : ""} — TERAVINO`,
     html,
     requestNumber: String(req.request_number),
     repEmail: rep?.email ?? null,
@@ -112,7 +113,7 @@ export async function buildMuestraCancelEmail(
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "request_number, account_id, sales_reps:sales_rep_id(full_name, email), accounts:account_id(business_name), sample_request_items(product_name, supplier, quantity, notes)",
+      "request_number, account_id, sales_reps:sales_rep_id(full_name, email, sample_client_number), accounts:account_id(business_name), sample_request_items(product_name, supplier, quantity, notes)",
     )
     .eq("id", sampleId)
     .maybeSingle();
@@ -122,7 +123,7 @@ export async function buildMuestraCancelEmail(
     | { business_name: string | null }
     | null;
   const rep = (Array.isArray(req.sales_reps) ? req.sales_reps[0] : req.sales_reps) as
-    | { full_name: string | null; email: string | null }
+    | { full_name: string | null; email: string | null; sample_client_number: string | null }
     | null;
 
   const items = (req.sample_request_items ?? []) as Array<{
@@ -158,6 +159,7 @@ export async function buildMuestraCancelEmail(
       <tbody>${rows}</tbody>
     </table>
     <p style="font-size:14px;margin:8px 0;"><strong>Total de botellas:</strong> ${totalBottles}</p>
+    ${rep?.sample_client_number ? `<p style="font-size:14px;margin:8px 0;padding:8px 10px;background:#f6f1ee;border-left:3px solid #7a1220;"><strong>Cliente de muestras del vendedor:</strong> #${rep.sample_client_number} (${rep?.full_name ?? "vendedor"}) — revertir la salida si ya se había registrado.</p>` : ""}
     ${cliente ? `<p style="font-size:14px;color:#555;margin:4px 0;"><strong>Cliente:</strong> ${cliente}</p>` : ""}
     <p style="color:#666;font-size:13px;margin-top:24px;">Solicitó: ${rep?.full_name ?? "Equipo TERAVINO"} · TERAVINO</p>
   </div>`;
