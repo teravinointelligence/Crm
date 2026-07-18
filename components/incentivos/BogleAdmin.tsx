@@ -45,6 +45,33 @@ export function BogleAdmin({
   // pendientes alcanzaría la meta al validárselos, hay que resolver YA.
   const colaCritica = race.filter((r) => r.validados < meta && r.validados + r.pendientes >= meta);
 
+  // Clientes con la marca colocada, agrupados con sus variedades.
+  const clientesEncartados = Array.from(
+    placements
+      .filter((p) => p.estado !== "rechazado")
+      .reduce((m, p) => {
+        const k = `${p.rep_id}·${p.account_id}`;
+        const e = m.get(k) ?? {
+          key: k,
+          num: p.client_number,
+          name: p.client_name,
+          rep: race.find((r) => r.rep_id === p.rep_id)?.rep_name ?? "",
+          items: [] as IncentivePlacement[],
+        };
+        e.items.push(p);
+        m.set(k, e);
+        return m;
+      }, new Map<string, { key: string; num: string | null; name: string | null; rep: string; items: IncentivePlacement[] }>())
+      .values()
+  ).sort((a, b) => b.items.length - a.items.length || (a.name ?? "").localeCompare(b.name ?? ""));
+
+  /** "BOGLE PINOT NOIR 12/750 ML" → "PINOT NOIR" (respaldo: el código). */
+  const variedad = (p: IncentivePlacement) =>
+    (p.producto ?? "")
+      .replace(/^BOGLE\s+/i, "")
+      .replace(/\s*\d+\/\d+\s*ML\.?\s*$/i, "")
+      .trim() || p.codigo;
+
   const detectar = async () => {
     setBusy("detect");
     const { data, error } = await supabase.rpc("detect_incentive_placements", { p_program_id: program.id });
@@ -234,6 +261,52 @@ export function BogleAdmin({
           Cupo sujeto a visa estadounidense vigente — si un ganador no cuenta con ella, resolver con el proveedor
           (decisión de negocio, no la automatiza el CRM).
         </p>
+
+        {/* Clientes encartados y sus variedades */}
+        <div>
+          <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            Clientes encartados{" "}
+            {clientesEncartados.length > 0 && (
+              <Badge variant="outline" className="font-normal">{clientesEncartados.length}</Badge>
+            )}
+          </div>
+          {clientesEncartados.length === 0 ? (
+            <p className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
+              Aún no hay clientes con Bogle colocado.
+            </p>
+          ) : (
+            <>
+              <ul className="divide-y rounded-md border">
+                {clientesEncartados.map((c) => (
+                  <li key={c.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 text-sm">
+                    <p className="min-w-0 truncate font-medium">
+                      #{c.num} {c.name} <span className="font-normal text-muted-foreground">· {c.rep}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {c.items.map((p) => (
+                        <Badge
+                          key={p.id}
+                          className={
+                            p.estado === "validado"
+                              ? "whitespace-nowrap border"
+                              : "whitespace-nowrap border border-amber-300 bg-amber-50 text-amber-800"
+                          }
+                          style={p.estado === "validado" ? { background: "#F5EDDD", color: "#8A6D3B", borderColor: ORO } : undefined}
+                          title={p.estado === "validado" ? "Validado" : "Pendiente de validación"}
+                        >
+                          {variedad(p)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Dorado = validado · Ámbar = pendiente de validación. Cada variedad cuenta como un encarte.
+              </p>
+            </>
+          )}
+        </div>
 
         {/* Cola de validación */}
         <div>
