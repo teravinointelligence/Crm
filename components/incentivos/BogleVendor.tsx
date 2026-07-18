@@ -90,7 +90,8 @@ export function BogleVendor({
             </CardTitle>
             <CardDescription>
               Los primeros {maxGanadores} vendedores con {meta} encartes ganan el viaje (vuelos, hospedaje y
-              experiencia en bodega, todo pagado por {program.provider}).
+              experiencia en bodega, todo pagado por {program.provider}). Periodo:{" "}
+              {monthLabel(program.start_date)}–{monthLabel(program.end_date)} {program.end_date.slice(0, 4)}.
             </CardDescription>
           </div>
           <Badge variant="outline" className="gap-1 whitespace-nowrap">

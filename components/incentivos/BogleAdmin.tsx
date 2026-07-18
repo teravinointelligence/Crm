@@ -125,6 +125,7 @@ export function BogleAdmin({
               <Plane className="h-5 w-5" style={{ color: ORO }} /> Bogle 2026 · Carrera de encartes
             </CardTitle>
             <CardDescription>
+              Periodo {monthLabel(program.start_date)}–{monthLabel(program.end_date)} {program.end_date.slice(0, 4)} ·{" "}
               Primeros {maxGanadores} con {meta} encartes validados · {dias} días restantes ·{" "}
               {program.estado === "cerrado"
                 ? `CERRADO${ganadores.length ? ` · Ganadores: ${ganadores.map((g) => g.rep_name).join(" y ")}` : ""}`
