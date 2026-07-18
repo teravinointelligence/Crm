@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Plane, RefreshCcw, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Plane, RefreshCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TableScroll } from "@/components/ui/table-scroll";
 import {
+  PLACEMENT_ESTADO_LABEL,
   VISA_LABEL,
   daysRemaining,
   monthLabel,
@@ -32,6 +33,7 @@ export function BogleAdmin({
   const router = useRouter();
   const supabase = createClient();
   const [busy, setBusy] = useState<string | null>(null);
+  const [openRep, setOpenRep] = useState<string | null>(null);
 
   const meta = program.meta_encartes ?? 10;
   const maxGanadores = program.max_ganadores ?? 2;
@@ -42,6 +44,33 @@ export function BogleAdmin({
   // ¿La cola pendiente puede estar afectando la carrera? Si alguien con
   // pendientes alcanzaría la meta al validárselos, hay que resolver YA.
   const colaCritica = race.filter((r) => r.validados < meta && r.validados + r.pendientes >= meta);
+
+  // Clientes con la marca colocada, agrupados con sus variedades.
+  const clientesEncartados = Array.from(
+    placements
+      .filter((p) => p.estado !== "rechazado")
+      .reduce((m, p) => {
+        const k = `${p.rep_id}·${p.account_id}`;
+        const e = m.get(k) ?? {
+          key: k,
+          num: p.client_number,
+          name: p.client_name,
+          rep: race.find((r) => r.rep_id === p.rep_id)?.rep_name ?? "",
+          items: [] as IncentivePlacement[],
+        };
+        e.items.push(p);
+        m.set(k, e);
+        return m;
+      }, new Map<string, { key: string; num: string | null; name: string | null; rep: string; items: IncentivePlacement[] }>())
+      .values()
+  ).sort((a, b) => b.items.length - a.items.length || (a.name ?? "").localeCompare(b.name ?? ""));
+
+  /** "BOGLE PINOT NOIR 12/750 ML" → "PINOT NOIR" (respaldo: el código). */
+  const variedad = (p: IncentivePlacement) =>
+    (p.producto ?? "")
+      .replace(/^BOGLE\s+/i, "")
+      .replace(/\s*\d+\/\d+\s*ML\.?\s*$/i, "")
+      .trim() || p.codigo;
 
   const detectar = async () => {
     setBusy("detect");
@@ -96,6 +125,7 @@ export function BogleAdmin({
               <Plane className="h-5 w-5" style={{ color: ORO }} /> Bogle 2026 · Carrera de encartes
             </CardTitle>
             <CardDescription>
+              Periodo {monthLabel(program.start_date)}–{monthLabel(program.end_date)} {program.end_date.slice(0, 4)} ·{" "}
               Primeros {maxGanadores} con {meta} encartes validados · {dias} días restantes ·{" "}
               {program.estado === "cerrado"
                 ? `CERRADO${ganadores.length ? ` · Ganadores: ${ganadores.map((g) => g.rep_name).join(" y ")}` : ""}`
@@ -141,9 +171,22 @@ export function BogleAdmin({
             <tbody>
               {race.map((r) => {
                 const visaAlerta = r.es_ganador && (r.visa_status === "sin_visa" || r.visa_status === "sin_informacion");
+                const abierto = openRep === r.rep_id;
+                const suyos = placements.filter((p) => p.rep_id === r.rep_id);
                 return (
-                  <tr key={r.rep_id} className="border-b last:border-0">
-                    <td className="py-2 pr-3 font-medium">{r.rep_name}</td>
+                  <Fragment key={r.rep_id}>
+                  <tr className="border-b last:border-0">
+                    <td className="py-2 pr-3 font-medium">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-1 hover:underline"
+                        title="Ver qué encartes le cuentan"
+                        onClick={() => setOpenRep(abierto ? null : r.rep_id)}
+                      >
+                        {abierto ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                        {r.rep_name}
+                      </button>
+                    </td>
                     <td className="py-2 pr-3 text-right font-semibold">{r.validados}</td>
                     <td className="py-2 pr-3 text-right">{r.pendientes || "—"}</td>
                     <td className="py-2 pr-3">
@@ -176,6 +219,40 @@ export function BogleAdmin({
                       )}
                     </td>
                   </tr>
+                  {abierto && (
+                    <tr className="border-b bg-muted/40 last:border-0">
+                      <td colSpan={7} className="px-3 py-2">
+                        {suyos.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">Sin encartes detectados todavía.</p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {suyos.map((p) => (
+                              <li key={p.id} className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+                                <span
+                                  className={
+                                    p.estado === "validado"
+                                      ? "font-medium"
+                                      : p.estado === "rechazado"
+                                        ? "text-muted-foreground line-through"
+                                        : "font-medium text-amber-700"
+                                  }
+                                >
+                                  #{p.client_number} {p.client_name}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {p.producto ? `· ${p.producto} ` : ""}· {monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
+                                  {program.require_paid ? "cobrado el" : "factura del"} {p.fecha_deteccion} ·{" "}
+                                  {PLACEMENT_ESTADO_LABEL[p.estado]}
+                                  {p.estado === "rechazado" && p.notas ? ` (${p.notas})` : ""}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -186,11 +263,57 @@ export function BogleAdmin({
           (decisión de negocio, no la automatiza el CRM).
         </p>
 
+        {/* Clientes encartados y sus variedades */}
+        <div>
+          <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            Clientes encartados{" "}
+            {clientesEncartados.length > 0 && (
+              <Badge variant="outline" className="font-normal">{clientesEncartados.length}</Badge>
+            )}
+          </div>
+          {clientesEncartados.length === 0 ? (
+            <p className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">
+              Aún no hay clientes con Bogle colocado.
+            </p>
+          ) : (
+            <>
+              <ul className="divide-y rounded-md border">
+                {clientesEncartados.map((c) => (
+                  <li key={c.key} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-3 py-2 text-sm">
+                    <p className="min-w-0 truncate font-medium">
+                      #{c.num} {c.name} <span className="font-normal text-muted-foreground">· {c.rep}</span>
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {c.items.map((p) => (
+                        <Badge
+                          key={p.id}
+                          className={
+                            p.estado === "validado"
+                              ? "whitespace-nowrap border"
+                              : "whitespace-nowrap border border-amber-300 bg-amber-50 text-amber-800"
+                          }
+                          style={p.estado === "validado" ? { background: "#F5EDDD", color: "#8A6D3B", borderColor: ORO } : undefined}
+                          title={p.estado === "validado" ? "Validado" : "Pendiente de validación"}
+                        >
+                          {variedad(p)}
+                        </Badge>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Dorado = validado · Ámbar = pendiente de validación. Cada variedad cuenta como un encarte.
+              </p>
+            </>
+          )}
+        </div>
+
         {/* Cola de validación */}
         <div>
-          <p className="mb-1.5 text-sm font-medium">
-            Cola de validación {pendientes.length > 0 && <Badge className="ml-1 bg-amber-100 text-amber-800">{pendientes.length}</Badge>}
-          </p>
+          <div className="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+            Cola de validación {pendientes.length > 0 && <Badge className="bg-amber-100 text-amber-800">{pendientes.length}</Badge>}
+          </div>
           {pendientes.length === 0 ? (
             <p className="rounded-md border border-dashed p-3 text-center text-sm text-muted-foreground">Sin encartes pendientes. ✓</p>
           ) : (
@@ -204,7 +327,7 @@ export function BogleAdmin({
                         #{p.client_number} {p.client_name} <span className="font-normal text-muted-foreground">· {rep?.rep_name}</span>
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
+                        {p.producto ? `${p.producto} · ` : ""}{monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
                         {program.require_paid ? "cobrado el" : "factura del"} {p.fecha_deteccion}
                         {p.estado === "en_revision" && " · EN REVISIÓN"}
                       </p>
