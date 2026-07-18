@@ -202,9 +202,10 @@ export function BogleVendor({
                   <div className="min-w-0">
                     <p className="truncate font-medium">
                       #{p.client_number} {p.client_name}
+                      {p.producto && <span className="font-normal text-muted-foreground"> · {p.producto}</span>}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Primera venta Bogle: {monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
+                      Primera venta: {monthLabel(p.period)} {p.period.slice(0, 4)} ·{" "}
                       {program.require_paid ? "cobrada el" : "factura del"} {p.fecha_deteccion}
                     </p>
                   </div>
@@ -255,7 +256,8 @@ export function BogleVendor({
             · Cuentan clientes <span className="font-medium text-foreground">nuevos y existentes</span>: lo que importa es que
             compren Bogle entre junio y septiembre 2026 —{" "}
             {program.require_paid ? "facturado y cobrado" : "con la venta facturada basta, no hace falta esperar el cobro"}.
-            Un cliente cuenta una sola vez, sin importar cuántas compras haga.
+            Cada <span className="font-medium text-foreground">variedad</span> colocada con un cliente cuenta como un encarte
+            (2 variedades con el mismo cliente = 2 encartes); la misma variedad con el mismo cliente cuenta una sola vez.
           </p>
           <p>
             · <span className="font-medium text-foreground">Requisito para viajar: visa estadounidense vigente.</span> Si no la

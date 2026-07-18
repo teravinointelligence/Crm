@@ -30,6 +30,9 @@ export type IncentivePlacement = {
   client_number: string | null;
   client_name: string | null;
   period: string;
+  /** Variedad encartada (código CONTPAQ normalizado); '' si no se pudo resolver. */
+  codigo: string;
+  producto: string | null;
   fecha_deteccion: string;
   estado: "pendiente" | "validado" | "rechazado" | "en_revision";
   evidencia_url: string | null;
