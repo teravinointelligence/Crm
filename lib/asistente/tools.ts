@@ -17,7 +17,7 @@ import { CATEGORIES, CATEGORY_LABEL } from "@/lib/catalogo/normalize.mjs";
 
 const REGIONS = ["Los Cabos", "La Paz", "Todos Santos", "Tijuana", "Puerto Vallarta", "Nayarit"];
 const TYPES = ["hotel", "restaurante", "bar", "cafe", "club", "tienda", "distribuidor", "otro"];
-const STATUSES = ["prospecto", "activo", "inactivo", "perdido"];
+const STATUSES = ["prospecto", "activo", "inactivo", "perdido", "cerrado"];
 
 const clampLimit = (v: unknown, def = 10, max = 50) => {
   const n = Math.round(Number(v));
