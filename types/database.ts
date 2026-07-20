@@ -467,12 +467,13 @@ export const ACCOUNT_TYPES: AccountType[] = [
   "otro",
 ];
 
-export type AccountStatus = "prospecto" | "activo" | "inactivo" | "perdido";
+export type AccountStatus = "prospecto" | "activo" | "inactivo" | "perdido" | "cerrado";
 export const ACCOUNT_STATUSES: AccountStatus[] = [
   "prospecto",
   "activo",
   "inactivo",
   "perdido",
+  "cerrado",
 ];
 
 export type ActivityType =
