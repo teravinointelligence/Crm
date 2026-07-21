@@ -14,6 +14,9 @@ export default async function BancoMuestrasPage() {
   const rep = await getCurrentRep();
   if (!rep) redirect("/login");
   const isAdmin = rep.role === "admin";
+  // Jefe de logística: consulta el banco completo (RLS 0094) pero no toma ni
+  // libera — coordinar la entrega no es sacar botellas.
+  const readOnly = rep.role === "jefe_logistica";
 
   // RLS: el vendedor solo ve su zona; admin/contador ven todas.
   const [{ data: viewData }, { data: movData }, { data: encData }, { data: acctData }] = await Promise.all([
@@ -175,7 +178,7 @@ export default async function BancoMuestrasPage() {
         </div>
       )}
 
-      <SampleBankClient rows={rows} isAdmin={isAdmin} accounts={accounts} metricsByRegion={metricsByRegion} lastUse={lastUse} history={historyByKey} />
+      <SampleBankClient rows={rows} isAdmin={isAdmin} readOnly={readOnly} accounts={accounts} metricsByRegion={metricsByRegion} lastUse={lastUse} history={historyByKey} />
     </div>
   );
 }
