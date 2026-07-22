@@ -174,7 +174,8 @@ export default async function EstadoCuentaPage({
           {admin && (
             <ImportCarteraCuenta accountId={account.id} businessName={account.business_name} />
           )}
-          <RegisterPaymentDialog accountId={account.id} openInvoices={openInvoices} />
+          {/* Aplicar pagos es exclusivo de admin/contador (RLS 0091). */}
+          {canReconcile && <RegisterPaymentDialog accountId={account.id} openInvoices={openInvoices} />}
         </div>
       </div>
 
