@@ -30,6 +30,7 @@ import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { TeamActivityBoard } from "@/components/dashboard/TeamActivityBoard";
 import { SugerenciasIA } from "@/components/dashboard/SugerenciasIA";
 import { DatosFaltantesBanner } from "@/components/dashboard/DatosFaltantesBanner";
+import { FraseDelDia } from "@/components/dashboard/FraseDelDia";
 import { loadIncompleteAccounts, filterByCriteria } from "@/lib/missing-data-email";
 import type { MissingFlag } from "@/lib/missing-data";
 import { LeaderboardCard } from "@/components/dashboard/LeaderboardCard";
@@ -394,6 +395,8 @@ export default async function DashboardPage() {
           </Button>
         </div>
       </div>
+
+      <FraseDelDia />
 
       {!isAdmin && datosFaltantesCount > 0 && (
         <DatosFaltantesBanner count={datosFaltantesCount} />
