@@ -1,0 +1,56 @@
+{
+  "title": "Nueva política de bonificaciones",
+  "intro_lead": "Las bonificaciones se entregan solo sobre factura pagada.",
+  "intro_mid": "Aplica en  ",
+  "locator": "CRM -> Promociones y Cartera",
+  "header_tag": "EQUIPO DE VENTAS  ·  VIGENTE DESDE EL 24 DE JULIO DE 2026",
+  "crm_bar": "crm-steel-tau.vercel.app  ·  Promociones",
+  "note_title": "VIGENCIA",
+  "note": "Esta política entra en vigor el jueves 24 de julio de 2026 y aplica a todo pedido con bonificación levantado a partir de esa fecha. Los pedidos anteriores conservan las condiciones con las que se vendieron. La entrega de la bonificación se libera al confirmarse el pago: por comprobante del cliente o en el corte mensual de conciliación.",
+  "footer_left": "TERAVINO, S.A. de C.V.   ·   RFC: TER170509L72",
+  "footer_right": "Distribución de vinos y destilados premium",
+  "capsules": [
+    {
+      "title": "La regla: bonificación = factura pagada",
+      "desc": "El cliente pide con promoción (ej. 5+1) y recibe sus 5 cajas normales; la caja de bonificación se libera hasta que la factura de ese pedido esté pagada.",
+      "when": "En todo pedido con bonificación levantado a partir de hoy.",
+      "path_full": "Promociones > Vigentes",
+      "crm_title": "Promoción 5+1",
+      "crm_cat": "Promoción",
+      "crm_desc": "6×5 (lleva 6, paga 5) · Vigente · La bonificación se entrega al confirmarse el pago de la factura.",
+      "crm_btn": "Previsualizar"
+    },
+    {
+      "title": "Comprobante de pago = entrega",
+      "desc": "Cuando el cliente mande su comprobante, el pago se registra en Cartera; con la factura marcada como pagada, la bonificación se entrega en el siguiente reparto.",
+      "when": "Al recibir el comprobante de pago del cliente.",
+      "path_full": "Cartera > Estado de cuenta del cliente",
+      "crm_title": "Cartera",
+      "crm_cat": "Cuentas",
+      "crm_desc": "Estado de cuenta por cliente — facturas y pagos.",
+      "crm_btn": "Ver estado de cuenta",
+      "crm_bar": "crm-steel-tau.vercel.app  ·  Cartera"
+    },
+    {
+      "title": "Corte mensual",
+      "desc": "Si no llega comprobante, en la conciliación de fin de mes se cruzan los pagos recibidos con las facturas; toda factura que quede pagada libera su bonificación pendiente.",
+      "when": "En la conciliación de pagos de cada fin de mes.",
+      "path_full": "Cartera > Conciliación",
+      "crm_title": "Conciliación de pagos",
+      "crm_cat": "Cartera",
+      "crm_desc": "Cruza los pagos recibidos con las facturas y marca las pagadas.",
+      "crm_btn": "Conciliar",
+      "crm_bar": "crm-steel-tau.vercel.app  ·  Cartera  ·  Conciliación"
+    },
+    {
+      "title": "Cómo decirlo al cliente",
+      "desc": "La promoción se ofrece igual que siempre; solo se explica que el producto de regalo se entrega al confirmarse el pago de la factura. Nada de entregar bonificación con factura pendiente.",
+      "when": "Al ofrecer o enviar cualquier promoción con bonificación.",
+      "path_full": "Promociones > Enviar a clientes",
+      "crm_title": "Enviar promoción a clientes",
+      "crm_cat": "Promoción",
+      "crm_desc": "Comparte el flyer de la promo; la bonificación se entrega sobre factura pagada.",
+      "crm_btn": "Enviar a clientes"
+    }
+  ]
+}
