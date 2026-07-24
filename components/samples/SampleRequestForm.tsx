@@ -12,10 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
-import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP } from "@/lib/samples";
+import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP, sampleBucket } from "@/lib/samples";
 import type { Product } from "@/types/database";
 
-type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
+type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; category: string | null; qty: number; notes: string };
 type Cita = {
   id: string;
   activity_date: string;
@@ -43,7 +43,7 @@ export function SampleRequestForm({
   bankProductIds,
   preselectAccountId,
 }: {
-  products: Pick<Product, "id" | "name" | "supplier" | "varietal" | "vintage" | "active" | "country" | "region_origin">[];
+  products: Pick<Product, "id" | "name" | "supplier" | "varietal" | "vintage" | "active" | "country" | "region_origin" | "category">[];
   repId: string;
   isAdmin: boolean;
   citas: Cita[];
@@ -114,7 +114,7 @@ export function SampleRequestForm({
     if (isTraining && n > 0) aplicarBotellas(n);
   };
 
-  const add = (p: { id: string; name: string; supplier: string }) => {
+  const add = (p: { id: string; name: string; supplier: string; category?: string | null }) => {
     if (bankSet.has(p.id)) {
       toast.error("Este vino está en el banco de tu zona", { description: "Tómala del banco de muestras antes de pedir otra." });
       return;
@@ -123,15 +123,24 @@ export function SampleRequestForm({
       toast.error("Ya tienes esta muestra en uso", { description: "Complétala con 3 clientes (agrégale citas en la muestra) antes de volver a pedirla." });
       return;
     }
-    setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, supplier: p.supplier, qty: defaultQty(), notes: "" }]);
+    setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: p.id, product_name: p.name, supplier: p.supplier, category: p.category ?? null, qty: defaultQty(), notes: "" }]);
     setQuery("");
   };
-  const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", supplier: null, qty: defaultQty(), notes: "" }]);
+  const addBlank = () => setLines((prev) => [...prev, { key: crypto.randomUUID(), product_id: null, product_name: "", supplier: null, category: null, qty: defaultQty(), notes: "" }]);
   const upd = (k: string, patch: Partial<Line>) => setLines((prev) => prev.map((l) => (l.key === k ? { ...l, ...patch } : l)));
   const rm = (k: string) => setLines((prev) => prev.filter((l) => l.key !== k));
 
   const totalBottles = useMemo(() => lines.reduce((s, l) => s + (l.qty || 0), 0), [lines]);
   const totalPeople = useMemo(() => peoplePerBottles(totalBottles), [totalBottles]);
+  // El tope aplica por categoría por separado (vino / cerveza).
+  const totalVino = useMemo(
+    () => lines.reduce((s, l) => s + (sampleBucket(l.category) === "vino" ? l.qty || 0 : 0), 0),
+    [lines],
+  );
+  const totalCerveza = useMemo(
+    () => lines.reduce((s, l) => s + (sampleBucket(l.category) === "cerveza" ? l.qty || 0 : 0), 0),
+    [lines],
+  );
 
   const submit = (status: "borrador" | "enviada") => {
     if (!lines.length) { toast.error("Agrega al menos un vino"); return; }
@@ -410,12 +419,14 @@ export function SampleRequestForm({
             </tfoot>
           </table>
         )}
-        {!isAdmin && !isTraining && totalBottles > SAMPLE_CAP.botellasPorCliente && (
+        {!isAdmin && !isTraining && (totalVino > SAMPLE_CAP.botellasPorCliente || totalCerveza > SAMPLE_CAP.botellasPorCliente) && (
           <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-            Vas por {totalBottles} botellas: el tope es {SAMPLE_CAP.botellasPorCliente} por cliente
-            cada {SAMPLE_CAP.ventanaDias} días (sumando tus solicitudes anteriores a ese cliente) y
-            el envío se rechaza en automático. Solo las capacitaciones de vinos que el cliente ya
-            compra quedan fuera del tope (márcala arriba).
+            {totalVino > SAMPLE_CAP.botellasPorCliente && <>Vas por {totalVino} botellas de vino. </>}
+            {totalCerveza > SAMPLE_CAP.botellasPorCliente && <>Vas por {totalCerveza} botellas de cerveza. </>}
+            El tope es {SAMPLE_CAP.botellasPorCliente} de vino y {SAMPLE_CAP.botellasPorCliente} de
+            cerveza por cliente cada {SAMPLE_CAP.ventanaDias} días (sumando tus solicitudes anteriores
+            a ese cliente) y el envío se rechaza en automático. Solo las capacitaciones de vinos que
+            el cliente ya compra quedan fuera del tope (márcala arriba).
           </p>
         )}
       </CardContent></Card>
