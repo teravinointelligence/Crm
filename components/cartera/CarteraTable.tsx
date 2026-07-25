@@ -23,9 +23,23 @@ import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 
 const ALL = "_all";
+
+// "hoy" / "ayer" / "hace N días" — mismo criterio que el estado de cuenta.
+function haceLabel(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const then = Date.UTC(y, m - 1, d);
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.floor((today - then) / 86_400_000);
+  if (days <= 0) return "hoy";
+  if (days === 1) return "ayer";
+  return `hace ${days} días`;
+}
 
 export type CarteraRow = {
   accountId: string;
@@ -40,6 +54,8 @@ export type CarteraRow = {
   saldoVencido: number | null;
   diasVencido: number | null;
   facturasAbiertas: number | null;
+  ultimoPagoMonto: number | null;
+  ultimoPagoFecha: string | null;
 };
 
 export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
@@ -165,6 +181,7 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                 <th className="px-4 py-3 text-right">Pagado</th>
                 <th className="px-4 py-3 text-right">Pendiente</th>
                 <th className="px-4 py-3 text-right">Vencido</th>
+                <th className="px-4 py-3 text-right">Último pago</th>
                 <th className="px-4 py-3 text-center">Facturas</th>
                 <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
               </tr>
@@ -223,6 +240,20 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                     }`}
                   >
                     {formatCurrency(b.saldoVencido)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {b.ultimoPagoFecha ? (
+                      <>
+                        <div className="font-medium text-emerald-700">
+                          {formatCurrency(b.ultimoPagoMonto)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {formatDate(b.ultimoPagoFecha)} · {haceLabel(b.ultimoPagoFecha)}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin pagos</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-center text-muted-foreground">
                     {b.facturasAbiertas ?? 0}
