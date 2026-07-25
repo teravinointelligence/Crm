@@ -25,6 +25,21 @@ function creditDaysLabel(days: number | null | undefined) {
   return `${days} días`;
 }
 
+// "hoy" / "ayer" / "hace N días" a partir de una fecha (usa el día local de
+// Mazatlán, no la hora). Robusto ante fechas 'YYYY-MM-DD' o timestamps.
+function haceLabel(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const [y, m, d] = String(dateStr).slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return "";
+  const then = Date.UTC(y, m - 1, d);
+  const now = new Date();
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const days = Math.floor((today - then) / 86_400_000);
+  if (days <= 0) return "hoy";
+  if (days === 1) return "ayer";
+  return `hace ${days} días`;
+}
+
 const pct = (n: number) => `${n.toFixed(1)}%`;
 
 export default async function EstadoCuentaPage({
@@ -94,6 +109,10 @@ export default async function EstadoCuentaPage({
 
   const inv = (invoices ?? []) as Invoice[];
   const pays = (payments ?? []) as Payment[];
+  // Pagos ya vienen ordenados por payment_date desc: el primero es el más
+  // reciente; mostramos ese en grande + los 2 anteriores como contexto.
+  const ultimoPago = pays[0] ?? null;
+  const pagosAnteriores = pays.slice(1, 3);
   const openInvoices = inv
     .filter((i) => (i.balance ?? 0) > 0)
     .map((i) => ({ id: i.id, invoice_number: i.invoice_number, balance: i.balance }));
@@ -177,6 +196,49 @@ export default async function EstadoCuentaPage({
           <RegisterPaymentDialog accountId={account.id} openInvoices={openInvoices} />
         </div>
       </div>
+
+      {/* Último pago aplicado — en el tope para que el vendedor lo vea al abrir */}
+      <Card className="border-emerald-600/40 bg-emerald-50/60 dark:bg-emerald-950/20">
+        <CardContent className="p-4">
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
+            Último pago aplicado
+          </div>
+          {!ultimoPago ? (
+            <p className="text-sm text-muted-foreground">
+              Sin pagos registrados aún para este cliente.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <div className="space-y-0.5">
+                <div className="font-display text-2xl text-emerald-700 dark:text-emerald-400">
+                  {formatCurrency(ultimoPago.amount)}
+                </div>
+                <div className="text-sm text-foreground">
+                  {formatDate(ultimoPago.payment_date)}
+                  {haceLabel(ultimoPago.payment_date) && (
+                    <span className="text-muted-foreground"> · {haceLabel(ultimoPago.payment_date)}</span>
+                  )}
+                </div>
+                {(ultimoPago.method || ultimoPago.reference) && (
+                  <div className="text-xs capitalize text-muted-foreground">
+                    {[ultimoPago.method, ultimoPago.reference].filter(Boolean).join(" · ")}
+                  </div>
+                )}
+              </div>
+              {pagosAnteriores.length > 0 && (
+                <div className="space-y-0.5 text-right text-xs text-muted-foreground">
+                  <div className="uppercase tracking-wide">Anteriores</div>
+                  {pagosAnteriores.map((p) => (
+                    <div key={p.id}>
+                      {formatCurrency(p.amount)} · {formatDate(p.payment_date)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Sección 2 — saldo y riesgo */}
       <div className="grid gap-3 sm:grid-cols-4">

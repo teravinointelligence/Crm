@@ -13,21 +13,50 @@ import type { AccountBalance } from "@/types/database";
 
 export const metadata = { title: "Cartera — TERAVINO CRM" };
 
+type UltimoPago = { amount: number | null; payment_date: string | null };
+
+// Último pago por cuenta. Los pagos vienen ordenados por fecha desc, así que el
+// primero que se ve de cada cuenta es el más reciente. Se pagina porque
+// PostgREST tope en 1000 filas por request. RLS ya scopea por vendedor.
+async function loadUltimoPagoPorCuenta(
+  supabase: ReturnType<typeof createClient>,
+): Promise<Map<string, UltimoPago>> {
+  const ultimo = new Map<string, UltimoPago>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("payments")
+      .select("account_id, amount, payment_date")
+      .order("payment_date", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error || !data?.length) break;
+    for (const p of data) {
+      if (p.account_id && !ultimo.has(p.account_id)) {
+        ultimo.set(p.account_id, { amount: p.amount, payment_date: p.payment_date });
+      }
+    }
+    if (data.length < PAGE) break;
+  }
+  return ultimo;
+}
+
 export default async function CarteraPage() {
   const supabase = createClient();
   const rep = await getCurrentRep();
   const isAdmin = rep?.role === "admin";
   const finance = canSeeFinance(rep?.role);
 
-  const [{ data: balances }, { data: reps }, { data: accts }] = await Promise.all([
-    supabase
-      .from("v_account_balance")
-      .select("*")
-      .order("saldo_vencido", { ascending: false })
-      .order("saldo_pendiente", { ascending: false }),
-    supabase.from("sales_reps").select("id, full_name"),
-    supabase.from("accounts").select("id, client_number"),
-  ]);
+  const [{ data: balances }, { data: reps }, { data: accts }, ultimoPagoPorCuenta] =
+    await Promise.all([
+      supabase
+        .from("v_account_balance")
+        .select("*")
+        .order("saldo_vencido", { ascending: false })
+        .order("saldo_pendiente", { ascending: false }),
+      supabase.from("sales_reps").select("id, full_name"),
+      supabase.from("accounts").select("id, client_number"),
+      loadUltimoPagoPorCuenta(supabase),
+    ]);
 
   const repName = new Map((reps ?? []).map((r) => [r.id, r.full_name]));
   const clientNum = new Map(
@@ -65,6 +94,8 @@ export default async function CarteraPage() {
     saldoVencido: b.saldo_vencido,
     diasVencido: b.dias_vencido,
     facturasAbiertas: b.facturas_abiertas,
+    ultimoPagoMonto: ultimoPagoPorCuenta.get(b.account_id)?.amount ?? null,
+    ultimoPagoFecha: ultimoPagoPorCuenta.get(b.account_id)?.payment_date ?? null,
   }));
 
   return (
