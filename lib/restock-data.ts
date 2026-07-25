@@ -14,7 +14,10 @@ export async function loadReorderInputs(supabase: DbClient): Promise<ReorderInpu
     supabase
       .from("products")
       .select("id, sku, name, supplier, stock_quantity, lead_time_days, codigo_contpaqi")
-      .eq("active", true),
+      .eq("active", true)
+      // Los descontinuados (discontinued_at) no se reabastecen: fuera del modelo
+      // de riesgo de quiebre aunque sigan active=true (flag independiente).
+      .is("discontinued_at", null),
     // La vista expone `sku` que en realidad es el codigo de CONTPAQ (alias).
     supabase.from("v_product_sales_velocity").select("sku, units_per_month"),
   ]);
