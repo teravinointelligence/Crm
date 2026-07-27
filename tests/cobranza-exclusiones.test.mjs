@@ -2,7 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { excluirDeCobranza } from "../lib/cobranza-exclusiones.ts";
+import { excluirDeCobranza } from "../lib/cobranza-recipients.ts";
 
 test("Pedregal Fideicomiso: excluye a Jonathan y Jairo por nombre", () => {
   const cuenta = "Pedregal Fideicomiso";

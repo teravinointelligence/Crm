@@ -69,6 +69,7 @@ export function ContactsList({ accountId, contacts }: Props) {
       whatsapp: String(fd.get("whatsapp") ?? "") || null,
       birthday: String(fd.get("birthday") ?? "") || null,
       is_primary: fd.get("is_primary") === "on",
+      cobranza_recipient: fd.get("cobranza_recipient") === "on",
       notes: String(fd.get("notes") ?? "") || null,
     };
     if (!payload.full_name) {
@@ -200,6 +201,21 @@ export function ContactsList({ accountId, contacts }: Props) {
                 />
                 Contacto principal
               </label>
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="cobranza_recipient"
+                  defaultChecked={editing?.cobranza_recipient ?? false}
+                  className="mt-0.5 h-4 w-4 rounded border-input text-brand-carmesi focus:ring-brand-carmesi"
+                />
+                <span>
+                  Recibe cobros
+                  <span className="block text-xs text-muted-foreground">
+                    Área administrativa. Si marcas al menos uno en la cuenta, los correos de
+                    cobro sólo se envían a los marcados.
+                  </span>
+                </span>
+              </label>
               <div className="space-y-1.5">
                 <Label htmlFor="notes">Notas</Label>
                 <Textarea
@@ -243,6 +259,11 @@ export function ContactsList({ accountId, contacts }: Props) {
                       {c.is_primary && (
                         <Badge variant="accent" className="gap-1">
                           <Star className="h-3 w-3" /> Principal
+                        </Badge>
+                      )}
+                      {c.cobranza_recipient && (
+                        <Badge variant="warning" className="gap-1">
+                          <Mail className="h-3 w-3" /> Cobros
                         </Badge>
                       )}
                     </div>

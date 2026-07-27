@@ -4,7 +4,7 @@
 
 import type { createClient } from "@/lib/supabase/server";
 import { semaforoCobranza, type EstadoCobranza } from "@/lib/cobranza";
-import { excluirDeCobranza } from "@/lib/cobranza-exclusiones";
+import { pickCobranzaEmails } from "@/lib/cobranza-recipients";
 import type { Invoice } from "@/types/database";
 
 type DbClient = ReturnType<typeof createClient>;
@@ -33,7 +33,7 @@ export async function buildRecordatorio(
   const [{ data: contacts }, { data: invoices }, { data: balance }] = await Promise.all([
     supabase
       .from("contacts")
-      .select("full_name, email, is_primary")
+      .select("full_name, email, is_primary, cobranza_recipient")
       .eq("account_id", accountId)
       .not("email", "is", null)
       .order("is_primary", { ascending: false }),
@@ -51,21 +51,18 @@ export async function buildRecordatorio(
       .maybeSingle(),
   ]);
 
-  // Todos los correos registrados de la cuenta (contacto principal primero),
-  // deduplicados sin distinguir mayúsculas. Se omiten los contactos excluidos
-  // de cobranza (p. ej. Jonathan/Jairo en Pedregal Fideicomiso).
+  // Destinatarios de cobro: contactos marcados como "recibe cobros" (área
+  // administrativa); si no hay ninguno, todos los contactos con correo. Se
+  // aplican exclusiones (p. ej. Jonathan/Jairo en Pedregal) y dedup.
   const cuentaNombre = [account.fiscal_name, account.business_name].filter(Boolean).join(" | ");
-  const seen = new Set<string>();
-  const to: string[] = [];
-  for (const c of (contacts ?? []) as { full_name: string | null; email: string | null }[]) {
-    const email = c.email?.trim();
-    if (!email || !email.includes("@")) continue;
-    if (excluirDeCobranza(cuentaNombre, { full_name: c.full_name, email })) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    to.push(email);
-  }
+  const to = pickCobranzaEmails(
+    cuentaNombre,
+    (contacts ?? []) as {
+      full_name: string | null;
+      email: string | null;
+      cobranza_recipient: boolean | null;
+    }[],
+  );
   if (!to.length) {
     return {
       ok: false,
