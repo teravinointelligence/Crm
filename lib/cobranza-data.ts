@@ -6,6 +6,7 @@
 
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
+import { excluirDeCobranza } from "@/lib/cobranza-exclusiones";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 type DbClient = ReturnType<typeof createClient>;
@@ -80,7 +81,7 @@ export async function getCobranzaData(
   const [{ data: contacts }, { data: invoices }, { data: balance }] = await Promise.all([
     supabase
       .from("contacts")
-      .select("email, phone, whatsapp, is_primary")
+      .select("full_name, email, phone, whatsapp, is_primary")
       .eq("account_id", accountId)
       .order("is_primary", { ascending: false }),
     supabase
@@ -97,12 +98,15 @@ export async function getCobranzaData(
       .maybeSingle(),
   ]);
 
-  // Correos deduplicados (principal primero).
+  // Correos deduplicados (principal primero). Se omiten los contactos excluidos
+  // de cobranza (p. ej. Jonathan/Jairo en Pedregal Fideicomiso).
+  const cuentaNombre = [account.fiscal_name, account.business_name].filter(Boolean).join(" | ");
   const seen = new Set<string>();
   const emails: string[] = [];
-  for (const c of (contacts ?? []) as { email: string | null }[]) {
+  for (const c of (contacts ?? []) as { full_name: string | null; email: string | null }[]) {
     const email = c.email?.trim();
     if (!email || !email.includes("@")) continue;
+    if (excluirDeCobranza(cuentaNombre, { full_name: c.full_name, email })) continue;
     const key = email.toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
