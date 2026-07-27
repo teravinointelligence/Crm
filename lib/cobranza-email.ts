@@ -4,6 +4,7 @@
 
 import type { createClient } from "@/lib/supabase/server";
 import { semaforoCobranza, type EstadoCobranza } from "@/lib/cobranza";
+import { cobranzaRecipients, type CobranzaContact } from "@/lib/cobranza-recipients";
 import type { Invoice } from "@/types/database";
 
 type DbClient = ReturnType<typeof createClient>;
@@ -50,18 +51,10 @@ export async function buildRecordatorio(
       .maybeSingle(),
   ]);
 
-  // Todos los correos registrados de la cuenta (contacto principal primero),
-  // deduplicados sin distinguir mayúsculas.
-  const seen = new Set<string>();
-  const to: string[] = [];
-  for (const c of (contacts ?? []) as { email: string | null }[]) {
-    const email = c.email?.trim();
-    if (!email || !email.includes("@")) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    to.push(email);
-  }
+  // Correos de la cuenta (contacto principal primero), deduplicados sin
+  // distinguir mayúsculas y aplicando las exclusiones de cobranza registradas
+  // (p. ej. Fideicomiso Pedregal: solo Cuentas por Pagar, sin Jonathan ni Jairo).
+  const to = cobranzaRecipients(account, (contacts ?? []) as CobranzaContact[]);
   if (!to.length) {
     return {
       ok: false,

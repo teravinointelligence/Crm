@@ -7,6 +7,7 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { cobranzaRecipients, type CobranzaContact } from "@/lib/cobranza-recipients";
 
 type DbClient = ReturnType<typeof createClient>;
 
@@ -80,7 +81,7 @@ export async function getCobranzaData(
   const [{ data: contacts }, { data: invoices }, { data: balance }] = await Promise.all([
     supabase
       .from("contacts")
-      .select("email, phone, whatsapp, is_primary")
+      .select("full_name, email, phone, whatsapp, is_primary")
       .eq("account_id", accountId)
       .order("is_primary", { ascending: false }),
     supabase
@@ -97,18 +98,10 @@ export async function getCobranzaData(
       .maybeSingle(),
   ]);
 
-  // Correos deduplicados (principal primero).
-  const seen = new Set<string>();
-  const emails: string[] = [];
-  for (const c of (contacts ?? []) as { email: string | null }[]) {
-    const email = c.email?.trim();
-    if (!email || !email.includes("@")) continue;
-    const key = email.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      emails.push(email);
-    }
-  }
+  // Correos deduplicados (principal primero), aplicando las exclusiones de
+  // cobranza registradas (p. ej. Fideicomiso Pedregal: solo Cuentas por Pagar,
+  // sin Jonathan ni Jairo). Alimenta tanto el envío como el selector "Para".
+  const emails = cobranzaRecipients(account, (contacts ?? []) as CobranzaContact[]);
 
   // WhatsApp: primer contacto con whatsapp; si no, primer phone.
   let whatsapp: string | null = null;
