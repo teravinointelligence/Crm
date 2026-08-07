@@ -8,9 +8,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
-import { canViewReportes } from "@/lib/modules";
+import { canSeeFinance, canViewReportes } from "@/lib/modules";
 import { Card, CardContent } from "@/components/ui/card";
 import { CategoryBarChart, MonthlyBarChart } from "@/components/reports/Charts";
+import { ReporteCobranzaSemanal } from "@/components/reportes/ReporteCobranzaSemanal";
 import { formatCurrency } from "@/lib/utils";
 import { labelMonth, monthISO, rangeFor, type Period } from "@/lib/kpis/period";
 
@@ -260,6 +261,12 @@ export default async function ReportesPage({
           })}
         </div>
       </div>
+
+      <section>
+        {/* Cartera de TODO el equipo: solo dirección y contabilidad. Los
+            vendedores entran a /reportes pero ven únicamente sus ventas. */}
+        {canSeeFinance(rep.role) && <ReporteCobranzaSemanal isAdmin={rep.role === "admin"} />}
+      </section>
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi label="Facturado" value={formatCurrency(totalFacturado)} subtitle={`Base comisión ${formatCurrency(baseComision)}`} />
