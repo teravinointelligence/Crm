@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/inventarios-drive",
+      "schedule": "0 15 * * 1,3,5"
+    },
+    {
       "path": "/api/cron/datos-faltantes",
       "schedule": "0 15 * * 1"
     },
