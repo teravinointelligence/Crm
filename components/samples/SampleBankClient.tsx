@@ -21,6 +21,7 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { AccountCombobox } from "@/components/accounts/AccountCombobox";
+import { FinishSampleButton } from "@/components/samples/FinishSampleButton";
 import { SAMPLE_LOCATIONS } from "@/lib/samples";
 import { formatDate } from "@/lib/utils";
 
@@ -269,6 +270,14 @@ export function SampleBankClient({
                             <PackagePlus className="mr-1 h-4 w-4" /> Liberar
                           </Button>
                         )}
+                        <FinishSampleButton
+                          productId={r.product_id}
+                          productName={r.product_name}
+                          supplier={r.supplier}
+                          region={r.region}
+                          location={r.location}
+                          available={r.available}
+                        />
                         <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
                           <PackageCheck className="mr-1 h-4 w-4" /> Tomar
                         </Button>
