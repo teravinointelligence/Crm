@@ -402,7 +402,10 @@ export function VendorIncentives({
             </select>
           </div>
           {program.require_paid && (
-            <CardDescription>Solo suman puntos los meses con la cobranza al corriente.</CardDescription>
+            <CardDescription>
+              Solo suman puntos los meses con la cobranza al corriente: un cliente-mes cuenta cuando
+              todas sus facturas de ese mes están pagadas.
+            </CardDescription>
           )}
         </CardHeader>
         <CardContent>
@@ -447,6 +450,28 @@ export function VendorIncentives({
                 </tbody>
               </table>
             </TableScroll>
+          )}
+
+          {/* Por qué un renglón sale como Pendiente. La columna se calcula sola desde la
+              cartera (invoices), NO es una autorización: no hay bandeja de aprobación. */}
+          {program.require_paid && detalle.length > 0 && (
+            <div className="mt-4 space-y-1.5 rounded-md border bg-muted/20 p-3 text-xs text-muted-foreground">
+              <p className="flex flex-wrap items-center gap-1.5">
+                <Badge className="bg-emerald-100 text-emerald-800">Sí</Badge>
+                <span>Ese cliente ya pagó todas sus facturas del mes, así que los puntos cuentan.</span>
+              </p>
+              <p className="flex flex-wrap items-center gap-1.5">
+                <Badge variant="outline" className="text-muted-foreground">Pendiente</Badge>
+                <span>
+                  Falta cobrar alguna factura de ese mes. Los puntos no se pierden: entran solos en
+                  cuanto se registre el pago en cartera.
+                </span>
+              </p>
+              <p>
+                No es una autorización: nadie tiene que aprobar estos renglones. Si un mes lleva
+                tiempo en Pendiente, revisa el estado de cuenta del cliente.
+              </p>
+            </div>
           )}
         </CardContent>
       </Card>
