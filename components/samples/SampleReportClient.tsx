@@ -3,11 +3,15 @@
 // Reporte de muestras por vendedor: el rango de fechas viaja en la URL (lo
 // resuelve el server, ver app/(app)/muestras/reporte/page.tsx) y los filtros de
 // vendedor / estatus se aplican en el cliente sobre las filas ya traídas.
+//
+// Los filtros y los cortes salen de lib/muestras-reporte.ts, el mismo módulo
+// que usa la ruta del PDF, para que el documento descargado coincida con lo
+// que está en pantalla.
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -25,30 +29,18 @@ import { TableScroll } from "@/components/ui/table-scroll";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { downloadCsv } from "@/lib/csv";
+import {
+  agrupaPorVendedor,
+  ESTATUS,
+  filtraReporte,
+  SIN_BORRADOR,
+  TODOS,
+  totalesDe,
+  type SampleReportRow,
+} from "@/lib/muestras-reporte";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
-export type SampleReportRow = {
-  id: string;
-  folio: string;
-  fecha: string | null;
-  repId: string;
-  vendedor: string;
-  cliente: string | null;
-  clientNumber: string | null;
-  motivo: string | null;
-  estatus: string;
-  botellas: number;
-  valor: number;
-  sinPrecio: number;
-  capacitacionPersonas: number | null;
-  productos: string;
-};
-
-const ALL = "_all";
-// Los borradores todavía no se solicitan (no llegan a admin): fuera por defecto.
-const SIN_BORRADOR = "_sin_borrador";
-
-const ESTATUS = ["enviada", "aprobada", "entregada", "rechazada", "cancelada", "borrador"];
+export type { SampleReportRow };
 
 const statusVariant: Record<string, "muted" | "warning" | "success" | "danger" | "accent"> = {
   borrador: "muted",
@@ -90,7 +82,7 @@ export function SampleReportClient({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [vendedor, setVendedor] = useState(ALL);
+  const [vendedor, setVendedor] = useState(TODOS);
   const [estatus, setEstatus] = useState(SIN_BORRADOR);
 
   const setRango = (d: string, h: string) => {
@@ -114,66 +106,20 @@ export function SampleReportClient({
   );
 
   const filtered = useMemo(
-    () =>
-      rows.filter((r) => {
-        if (vendedor !== ALL && r.repId !== vendedor) return false;
-        if (estatus === SIN_BORRADOR) return r.estatus !== "borrador";
-        if (estatus !== ALL && r.estatus !== estatus) return false;
-        return true;
-      }),
+    () => filtraReporte(rows, { rep: vendedor, estatus }),
     [rows, vendedor, estatus],
   );
-
-  // ── Corte por vendedor ─────────────────────────────────────────────────────
-  type RepAgg = {
-    repId: string;
-    vendedor: string;
-    solicitudes: number;
-    botellas: number;
-    valor: number;
-    sinPrecio: number;
-    capacitaciones: number;
-    clientes: Set<string>;
-  };
-  const porVendedor = useMemo(() => {
-    const map = new Map<string, RepAgg>();
-    for (const r of filtered) {
-      const agg =
-        map.get(r.repId) ??
-        {
-          repId: r.repId,
-          vendedor: r.vendedor,
-          solicitudes: 0,
-          botellas: 0,
-          valor: 0,
-          sinPrecio: 0,
-          capacitaciones: 0,
-          clientes: new Set<string>(),
-        };
-      agg.solicitudes += 1;
-      agg.botellas += r.botellas;
-      agg.valor += r.valor;
-      agg.sinPrecio += r.sinPrecio;
-      if (r.capacitacionPersonas != null) agg.capacitaciones += 1;
-      if (r.cliente) agg.clientes.add(r.cliente);
-      map.set(r.repId, agg);
-    }
-    return [...map.values()].sort((a, b) => b.botellas - a.botellas);
-  }, [filtered]);
-
-  const totales = porVendedor.reduce(
-    (acc, r) => ({
-      solicitudes: acc.solicitudes + r.solicitudes,
-      botellas: acc.botellas + r.botellas,
-      valor: acc.valor + r.valor,
-      sinPrecio: acc.sinPrecio + r.sinPrecio,
-    }),
-    { solicitudes: 0, botellas: 0, valor: 0, sinPrecio: 0 },
-  );
+  const porVendedor = useMemo(() => agrupaPorVendedor(filtered), [filtered]);
+  const totales = totalesDe(porVendedor);
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
   const sufijo = `${desde}_a_${hasta}`;
+  // El PDF lo arma el server con estos mismos parámetros.
+  const pdfHref = `/api/muestras/reporte/pdf?desde=${desde}&hasta=${hasta}&rep=${encodeURIComponent(
+    vendedor,
+  )}&estatus=${encodeURIComponent(estatus)}`;
+
   const exportResumen = () =>
     downloadCsv(`muestras-por-vendedor_${sufijo}`, [
       ["Vendedor", "Solicitudes", "Botellas", "Clientes", "Capacitaciones", "Valor (precio lista)", "Botellas sin precio"],
@@ -181,7 +127,7 @@ export function SampleReportClient({
         r.vendedor,
         r.solicitudes,
         r.botellas,
-        r.clientes.size,
+        r.clientes,
         r.capacitaciones,
         r.valor.toFixed(2),
         r.sinPrecio,
@@ -254,7 +200,7 @@ export function SampleReportClient({
             <Select value={vendedor} onValueChange={setVendedor}>
               <SelectTrigger className="sm:w-52"><SelectValue placeholder="Vendedor" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Todos los vendedores</SelectItem>
+                <SelectItem value={TODOS}>Todos los vendedores</SelectItem>
                 {vendedores.map(([id, nombre]) => (
                   <SelectItem key={id} value={id}>{nombre}</SelectItem>
                 ))}
@@ -264,13 +210,18 @@ export function SampleReportClient({
               <SelectTrigger className="sm:w-52"><SelectValue placeholder="Estatus" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value={SIN_BORRADOR}>Solicitadas (sin borradores)</SelectItem>
-                <SelectItem value={ALL}>Todos los estatus</SelectItem>
+                <SelectItem value={TODOS}>Todos los estatus</SelectItem>
                 {ESTATUS.map((s) => (
                   <SelectItem key={s} value={s}>{s[0].toUpperCase() + s.slice(1)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
             <div className="ml-auto flex flex-wrap gap-2">
+              <Button asChild size="sm" disabled={filtered.length === 0}>
+                <a href={pdfHref} target="_blank" rel="noopener noreferrer">
+                  <FileText className="mr-1 h-4 w-4" /> PDF
+                </a>
+              </Button>
               <Button type="button" variant="outline" size="sm" onClick={exportResumen} disabled={filtered.length === 0}>
                 <Download className="mr-1 h-4 w-4" /> CSV por vendedor
               </Button>
@@ -323,7 +274,7 @@ export function SampleReportClient({
                         <td className="px-4 py-2 font-medium">{r.vendedor}</td>
                         <td className="px-4 py-2 text-right">{r.solicitudes}</td>
                         <td className="px-4 py-2 text-right font-medium tabular-nums">{r.botellas}</td>
-                        <td className="px-4 py-2 text-right">{r.clientes.size}</td>
+                        <td className="px-4 py-2 text-right">{r.clientes}</td>
                         <td className="px-4 py-2 text-right">{r.capacitaciones}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {formatCurrency(r.valor)}
