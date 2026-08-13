@@ -7,8 +7,10 @@ import {
   AlarmClock,
   Banknote,
   Check,
+  CheckCircle2,
   ClipboardList,
   Loader2,
+  RotateCcw,
   Sparkles,
   UserPlus,
   X,
@@ -36,7 +38,7 @@ import {
   outcomesForSource,
   overdueDays,
 } from "@/lib/rep-tasks";
-import type { RepTaskOutcome, RepTaskSource } from "@/types/database";
+import type { RepTaskOutcome, RepTaskSource, RepTaskStatus } from "@/types/database";
 
 const SOURCE_ICON: Record<RepTaskSource, typeof Check> = {
   prospecto: UserPlus,
@@ -60,6 +62,9 @@ export type RepTaskCardData = {
   due_date: string;
   account_id: string | null;
   account_name: string | null;
+  status: RepTaskStatus;
+  outcome: RepTaskOutcome | null;
+  result_note: string | null;
 };
 
 export function RepTaskCard({
@@ -72,95 +77,115 @@ export function RepTaskCard({
   const router = useRouter();
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
+
+  // Estado local para que la tarjeta cambie de color en el momento, sin
+  // esperar al refresh del servidor.
+  const [status, setStatus] = useState<RepTaskStatus>(task.status);
+  const [outcome, setOutcome] = useState<RepTaskOutcome | null>(task.outcome);
+  const [resultNote, setResultNote] = useState<string | null>(task.result_note);
   const [gone, setGone] = useState(false);
+
   const [doneOpen, setDoneOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
-  const [outcome, setOutcome] = useState<RepTaskOutcome | null>(null);
-  const [note, setNote] = useState("");
+  const [draftOutcome, setDraftOutcome] = useState<RepTaskOutcome | null>(null);
+  const [draftNote, setDraftNote] = useState("");
 
-  const atraso = overdueDays(task.due_date, today);
+  const cerrada = status !== "pendiente";
+  const atraso = cerrada ? 0 : overdueDays(task.due_date, today);
   const Icon = SOURCE_ICON[task.source];
 
   const swipe = useSwipeAction({
-    enabled: !pending && !gone,
+    enabled: !pending && !cerrada && !gone,
     onSwipeRight: () => setDoneOpen(true),
     onSwipeLeft: () => setSnoozeOpen(true),
   });
 
+  /** Cerrar la tarea: la tarjeta se queda en su lugar y se pone verde. */
   const complete = () => {
-    if (!outcome) return;
+    if (!draftOutcome) return;
+    const nota = draftNote.trim() || null;
     setDoneOpen(false);
-    swipe.flingOut("right");
-    setGone(true);
+    setStatus("hecha");
+    setOutcome(draftOutcome);
+    setResultNote(nota);
     startTransition(async () => {
       const { error } = await supabase
         .from("rep_tasks")
         .update({
           status: "hecha",
-          outcome,
-          result_note: note.trim() || null,
+          outcome: draftOutcome,
+          result_note: nota,
           completed_at: new Date().toISOString(),
         })
         .eq("id", task.id);
       if (error) {
-        setGone(false);
-        swipe.reset();
+        setStatus("pendiente");
+        setOutcome(null);
+        setResultNote(null);
         toast.error("No pudimos cerrar la tarea", { description: error.message });
         return;
       }
-      toast.success("Tarea cerrada", { description: OUTCOME_LABEL[outcome] });
+      toast.success("Tarea cerrada", { description: OUTCOME_LABEL[draftOutcome] });
       router.refresh();
     });
   };
 
-  const snooze = (days: number, label: string) => {
-    setSnoozeOpen(false);
-    swipe.flingOut("left");
-    setGone(true);
+  const reopen = () => {
+    const prev = { status, outcome, resultNote };
+    setStatus("pendiente");
+    setOutcome(null);
+    setResultNote(null);
     startTransition(async () => {
       const { error } = await supabase
         .from("rep_tasks")
-        .update({ due_date: addDays(today, days) })
+        .update({ status: "pendiente", outcome: null, result_note: null, completed_at: null })
         .eq("id", task.id);
       if (error) {
-        setGone(false);
-        swipe.reset();
-        toast.error("No pudimos posponer", { description: error.message });
+        setStatus(prev.status);
+        setOutcome(prev.outcome);
+        setResultNote(prev.resultNote);
+        toast.error("No pudimos reabrir la tarea", { description: error.message });
         return;
       }
-      toast.success(`Pospuesta para ${label.toLowerCase()}`);
+      toast.success("Tarea reabierta");
       router.refresh();
     });
   };
 
-  const discard = () => {
+  // Posponer y descartar sí sacan la tarjeta: dejan de ser de hoy.
+  const leave = (patch: Record<string, unknown>, ok: string) => {
     setSnoozeOpen(false);
     swipe.flingOut("left");
     setGone(true);
     startTransition(async () => {
-      const { error } = await supabase
-        .from("rep_tasks")
-        .update({
-          status: "descartada",
-          result_note: "Descartada por el vendedor",
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", task.id);
+      const { error } = await supabase.from("rep_tasks").update(patch).eq("id", task.id);
       if (error) {
         setGone(false);
         swipe.reset();
-        toast.error("No pudimos descartar", { description: error.message });
+        toast.error("No pudimos actualizar la tarea", { description: error.message });
         return;
       }
-      toast.success("Tarea descartada");
+      toast.success(ok);
       router.refresh();
     });
   };
+
+  const snooze = (days: number, label: string) =>
+    leave({ due_date: addDays(today, days) }, `Pospuesta para ${label.toLowerCase()}`);
+
+  const discard = () =>
+    leave(
+      {
+        status: "descartada",
+        result_note: "Descartada por el vendedor",
+        completed_at: new Date().toISOString(),
+      },
+      "Tarea descartada",
+    );
 
   return (
     <div
       className={cn(
-        // Se desvanece a la vez que sale volando; el router.refresh() la quita.
         "relative overflow-hidden rounded-lg transition-opacity duration-200",
         gone && "pointer-events-none opacity-0",
       )}
@@ -186,14 +211,24 @@ export function RepTaskCard({
         {...swipe.handlers}
         style={swipe.style}
         className={cn(
-          "relative rounded-lg border bg-card p-3",
-          atraso > 0 && "border-l-4 border-l-red-500",
+          "relative rounded-lg border p-3 transition-colors duration-300",
+          cerrada
+            ? "border-emerald-300 bg-emerald-50"
+            : "bg-card",
+          !cerrada && atraso > 0 && "border-l-4 border-l-red-500",
         )}
       >
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+          <span
+            className={cn(
+              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+              cerrada ? "bg-emerald-600 text-white" : "bg-muted",
+            )}
+          >
             {pending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
+            ) : cerrada ? (
+              <CheckCircle2 className="h-4 w-4" />
             ) : (
               <Icon className="h-4 w-4 text-muted-foreground" />
             )}
@@ -201,10 +236,23 @@ export function RepTaskCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">{task.title}</span>
-              <Badge variant={SOURCE_VARIANT[task.source]} className="text-[11px]">
-                {SOURCE_LABEL[task.source]}
-              </Badge>
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  cerrada && "text-emerald-900/70 line-through",
+                )}
+              >
+                {task.title}
+              </span>
+              {cerrada && outcome ? (
+                <Badge variant="success" className="text-[11px]">
+                  {OUTCOME_LABEL[outcome]}
+                </Badge>
+              ) : (
+                <Badge variant={SOURCE_VARIANT[task.source]} className="text-[11px]">
+                  {SOURCE_LABEL[task.source]}
+                </Badge>
+              )}
               {atraso > 0 && (
                 <Badge variant="danger" className="text-[11px]">
                   {atraso === 1 ? "1 día de atraso" : `${atraso} días de atraso`}
@@ -212,11 +260,22 @@ export function RepTaskCard({
               )}
             </div>
 
-            {task.detail && (
-              <p className="mt-0.5 text-xs text-muted-foreground">{task.detail}</p>
+            {cerrada ? (
+              resultNote && (
+                <p className="mt-0.5 text-xs text-emerald-900/70">“{resultNote}”</p>
+              )
+            ) : (
+              task.detail && (
+                <p className="mt-0.5 text-xs text-muted-foreground">{task.detail}</p>
+              )
             )}
 
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <div
+              className={cn(
+                "mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs",
+                cerrada ? "text-emerald-900/60" : "text-muted-foreground",
+              )}
+            >
               {task.account_id && (
                 <Link
                   href={`/cuentas/${task.account_id}`}
@@ -226,7 +285,7 @@ export function RepTaskCard({
                 </Link>
               )}
               <span>· {formatDate(task.due_date)}</span>
-              {task.account_id && (
+              {!cerrada && task.account_id && (
                 <Link
                   href={`/actividades/nueva?estado=agendada&account=${task.account_id}`}
                   className="hover:text-brand-carmesi hover:underline"
@@ -236,29 +295,38 @@ export function RepTaskCard({
               )}
             </div>
 
-            {/* Botones para escritorio; en celular manda el gesto. */}
             <div className="mt-2 flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setDoneOpen(true)}
-                disabled={pending}
-              >
-                <Check className="mr-1 h-3.5 w-3.5" /> Hecho
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setSnoozeOpen(true)}
-                disabled={pending}
-              >
-                <AlarmClock className="mr-1 h-3.5 w-3.5" /> Posponer
-              </Button>
+              {cerrada ? (
+                <Button size="sm" variant="ghost" onClick={reopen} disabled={pending}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reabrir
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDoneOpen(true)}
+                    disabled={pending}
+                  >
+                    <Check className="mr-1 h-3.5 w-3.5" /> Hecho
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setSnoozeOpen(true)}
+                    disabled={pending}
+                  >
+                    <AlarmClock className="mr-1 h-3.5 w-3.5" /> Posponer
+                  </Button>
+                </>
+              )}
             </div>
 
-            <p className="mt-1 text-[11px] text-muted-foreground/70 sm:hidden">
-              Desliza → hecho · ← posponer
-            </p>
+            {!cerrada && (
+              <p className="mt-1 text-[11px] text-muted-foreground/70 sm:hidden">
+                Desliza → hecho · ← posponer
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -276,10 +344,10 @@ export function RepTaskCard({
               <button
                 key={o}
                 type="button"
-                onClick={() => setOutcome(o)}
+                onClick={() => setDraftOutcome(o)}
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-sm transition-colors",
-                  outcome === o
+                  draftOutcome === o
                     ? "border-brand-carmesi bg-brand-carmesi text-white"
                     : "border-border hover:bg-muted",
                 )}
@@ -290,8 +358,8 @@ export function RepTaskCard({
           </div>
 
           <Textarea
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
+            value={draftNote}
+            onChange={(e) => setDraftNote(e.target.value)}
             placeholder="Nota (opcional): qué acordaron, cuándo le hablas otra vez…"
             rows={3}
           />
@@ -300,7 +368,7 @@ export function RepTaskCard({
             <Button variant="outline" onClick={() => setDoneOpen(false)}>
               Cancelar
             </Button>
-            <Button onClick={complete} disabled={!outcome}>
+            <Button onClick={complete} disabled={!draftOutcome}>
               Guardar
             </Button>
           </DialogFooter>

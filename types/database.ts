@@ -496,6 +496,41 @@ export type RepTaskInsert = {
   meta?: Record<string, unknown>;
 };
 
+// ---------------------------------------------------------------------
+// Notas libres del vendedor (migración 0100), con etiquetas a cuentas y
+// contactos. Declaradas a mano igual que rep_tasks.
+// ---------------------------------------------------------------------
+export type RepNote = {
+  id: string;
+  sales_rep_id: string;
+  body: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Una etiqueta de nota apunta a una cuenta O a un contacto, nunca a ambos. */
+export type RepNoteLink = {
+  id: string;
+  note_id: string;
+  account_id: string | null;
+  contact_id: string | null;
+  created_at: string;
+};
+
+export type NoteTagKind = "cuenta" | "contacto";
+
+/** Etiqueta ya resuelta a nombre, lista para pintar. */
+export type NoteTag = {
+  kind: NoteTagKind;
+  id: string;
+  name: string;
+  /** Para contactos: la cuenta a la que pertenecen (para el enlace). */
+  accountId?: string | null;
+};
+
+export type NoteWithTags = RepNote & { tags: NoteTag[] };
+
 export type PriceTier = "base" | "+10";
 
 export type AccountType =

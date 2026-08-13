@@ -11,6 +11,9 @@ import { AgendaCitaCard, type AgendaCitaData } from "@/components/activities/Age
 import { RepTaskCard, type RepTaskCardData } from "@/components/activities/RepTaskCard";
 import { TaskRow } from "@/components/activities/TaskRow";
 import { GenerarTareasButton } from "@/components/activities/GenerarTareasButton";
+import { NoteComposer } from "@/components/activities/NoteComposer";
+import { NoteCard } from "@/components/activities/NoteCard";
+import { loadNotes } from "@/lib/notes";
 import { dateKeyTz } from "@/lib/utils";
 import { compareTasks } from "@/lib/rep-tasks";
 import type { RepTask } from "@/types/database";
@@ -32,6 +35,7 @@ type NextStepRow = {
   activity_type: string | null;
   next_step: string | null;
   next_step_date: string | null;
+  next_step_done: boolean;
   account_id: string;
   accounts: { business_name: string | null } | null;
 };
@@ -69,13 +73,18 @@ export default async function MiDiaPage({
     : { data: null };
   const reps = (repsData ?? []) as { id: string; full_name: string }[];
 
-  const [citasRes, tareasRes, pasosRes] = await Promise.all([
+  // Lo que se cerró HOY sigue en pantalla, en verde: sirve de marcador de
+  // avance y permite reabrir algo que se marcó por error.
+  const doneFrom = new Date(`${today}T00:00:00Z`);
+  doneFrom.setUTCDate(doneFrom.getUTCDate() - 1);
+
+  const [citasRes, tareasRes, pasosRes, notas] = await Promise.all([
     supabase
       .from("activities")
       .select(
         "id, activity_type, activity_date, status, notes, account_id, accounts:account_id(business_name)",
       )
-      .eq("status", "agendada")
+      .in("status", ["agendada", "realizada"])
       .eq("sales_rep_id", repId)
       .gte("activity_date", from.toISOString())
       .lt("activity_date", to.toISOString())
@@ -84,23 +93,29 @@ export default async function MiDiaPage({
       .from("rep_tasks")
       .select("*")
       .eq("sales_rep_id", repId)
-      .eq("status", "pendiente")
+      .or(
+        `status.eq.pendiente,and(status.eq.hecha,completed_at.gte.${doneFrom.toISOString()})`,
+      )
       .lte("due_date", today),
     supabase
       .from("activities")
       .select(
-        "id, activity_type, next_step, next_step_date, account_id, accounts:account_id(business_name)",
+        "id, activity_type, next_step, next_step_date, next_step_done, account_id, accounts:account_id(business_name)",
       )
       .eq("sales_rep_id", repId)
       .not("next_step", "is", null)
-      .eq("next_step_done", false)
+      .or(
+        `next_step_done.eq.false,next_step_done_at.gte.${doneFrom.toISOString()}`,
+      )
       .lte("next_step_date", today)
       .order("next_step_date", { ascending: true }),
+    loadNotes(supabase, repId),
   ]);
 
   const citasAll = (citasRes.data ?? []) as unknown as ActivityRow[];
   const citasHoy: AgendaCitaData[] = [];
   const citasAtrasadas: AgendaCitaData[] = [];
+  const citasHechas: AgendaCitaData[] = [];
   for (const a of citasAll) {
     const day = dateKeyTz(a.activity_date);
     if (day > today) continue; // las de mañana en adelante no son "mi día"
@@ -112,11 +127,14 @@ export default async function MiDiaPage({
       account_name: a.accounts?.business_name ?? null,
       notes: a.notes,
     };
-    if (day === today) citasHoy.push(item);
+    // Las realizadas solo cuentan si fueron hoy; las viejas ya son bitácora.
+    if (a.status === "realizada") {
+      if (day === today) citasHechas.push(item);
+    } else if (day === today) citasHoy.push(item);
     else citasAtrasadas.push(item);
   }
 
-  const tareas = ((tareasRes.data ?? []) as RepTask[])
+  const tareasAll = ((tareasRes.data ?? []) as RepTask[])
     .slice()
     .sort(compareTasks)
     .map<RepTaskCardData>((t) => ({
@@ -127,10 +145,13 @@ export default async function MiDiaPage({
       due_date: t.due_date,
       account_id: t.account_id,
       account_name: null,
+      status: t.status,
+      outcome: t.outcome,
+      result_note: t.result_note,
     }));
 
   // Nombre de la cuenta para las tareas (la tabla no lo guarda duplicado).
-  const accountIds = [...new Set(tareas.map((t) => t.account_id).filter(Boolean))] as string[];
+  const accountIds = [...new Set(tareasAll.map((t) => t.account_id).filter(Boolean))] as string[];
   if (accountIds.length) {
     const { data: accts } = await supabase
       .from("accounts")
@@ -142,14 +163,20 @@ export default async function MiDiaPage({
         a.business_name,
       ]),
     );
-    for (const t of tareas) {
+    for (const t of tareasAll) {
       if (t.account_id) t.account_name = names.get(t.account_id) ?? null;
     }
   }
+  const tareas = tareasAll.filter((t) => t.status === "pendiente");
+  const tareasHechas = tareasAll.filter((t) => t.status !== "pendiente");
 
-  const pasos = (pasosRes.data ?? []) as unknown as NextStepRow[];
+  const pasosAll = (pasosRes.data ?? []) as unknown as NextStepRow[];
+  const pasos = pasosAll.filter((p) => !p.next_step_done);
+  const pasosHechos = pasosAll.filter((p) => p.next_step_done);
 
-  const total = citasHoy.length + citasAtrasadas.length + tareas.length + pasos.length;
+  const hechas = citasHechas.length + tareasHechas.length + pasosHechos.length;
+  const total =
+    citasHoy.length + citasAtrasadas.length + tareas.length + pasos.length + hechas;
   const fechaLarga = new Intl.DateTimeFormat("es-MX", {
     weekday: "long",
     day: "numeric",
@@ -198,6 +225,9 @@ export default async function MiDiaPage({
           ))}
         </div>
       )}
+
+      {/* Notas libres: se escriben aquí mismo, sin colgar de una actividad. */}
+      {repId === me.id && <NoteComposer />}
 
       {total === 0 ? (
         <EmptyState
@@ -248,7 +278,48 @@ export default async function MiDiaPage({
               ))}
             </Section>
           )}
+
+          {/* Lo cerrado hoy no se esconde: queda en verde como marcador de
+              avance y por si algo se marcó por error. */}
+          {hechas > 0 && (
+            <Section title="Hechas hoy" count={hechas} tone="success">
+              {citasHechas.map((c) => (
+                <AgendaCitaCard key={c.id} cita={c} done />
+              ))}
+              {tareasHechas.map((t) => (
+                <RepTaskCard key={t.id} task={t} today={today} />
+              ))}
+              {pasosHechos.map((p) => (
+                <TaskRow
+                  key={p.id}
+                  id={p.id}
+                  accountId={p.account_id}
+                  accountName={p.accounts?.business_name ?? null}
+                  activityType={p.activity_type}
+                  nextStep={p.next_step ?? "siguiente paso"}
+                  nextStepDate={p.next_step_date}
+                  done
+                />
+              ))}
+            </Section>
+          )}
         </div>
+      )}
+
+      {notas.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="flex items-center gap-2 font-display text-lg">
+            Notas
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+              {notas.length}
+            </span>
+          </h2>
+          <div className="space-y-2">
+            {notas.map((n) => (
+              <NoteCard key={n.id} note={n} />
+            ))}
+          </div>
+        </section>
       )}
 
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -268,20 +339,20 @@ function Section({
 }: {
   title: string;
   count: number;
-  tone?: "danger";
+  tone?: "danger" | "success";
   children: React.ReactNode;
 }) {
+  const badge =
+    tone === "danger"
+      ? "bg-red-100 text-red-800"
+      : tone === "success"
+        ? "bg-emerald-100 text-emerald-800"
+        : "bg-muted text-muted-foreground";
   return (
     <section className="space-y-2">
       <h2 className="flex items-center gap-2 font-display text-lg">
         {title}
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-normal ${
-            tone === "danger"
-              ? "bg-red-100 text-red-800"
-              : "bg-muted text-muted-foreground"
-          }`}
-        >
+        <span className={`rounded-full px-2 py-0.5 text-xs font-normal ${badge}`}>
           {count}
         </span>
       </h2>

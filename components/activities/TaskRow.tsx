@@ -33,17 +33,21 @@ export function TaskRow({
   const [isDone, setIsDone] = useState(done);
   const [pending, startTransition] = useTransition();
 
-  const setNextDone = (next: boolean, exitToRight = false) => {
+  // Al completar, la tarjeta NO se va: se queda en su lugar y se pone verde.
+  const setNextDone = (next: boolean) => {
     setIsDone(next);
-    if (exitToRight) swipe.flingOut("right");
     startTransition(async () => {
       const { error } = await supabase
         .from("activities")
-        .update({ next_step_done: next })
+        .update({
+          next_step_done: next,
+          // La fecha de cierre es lo que mantiene la tarjeta verde en "Mi día"
+          // hasta el día siguiente, aunque el paso estuviera vencido.
+          next_step_done_at: next ? new Date().toISOString() : null,
+        })
         .eq("id", id);
       if (error) {
         setIsDone(!next);
-        swipe.reset();
         toast.error("No pudimos actualizar", { description: error.message });
         return;
       }
@@ -59,7 +63,7 @@ export function TaskRow({
   // Gesto de deslizar (solo para tareas pendientes → completar).
   const swipe = useSwipeAction({
     enabled: swipeEnabled,
-    onSwipeRight: () => setNextDone(true, true),
+    onSwipeRight: () => setNextDone(true),
   });
 
   return (
@@ -78,7 +82,10 @@ export function TaskRow({
         ref={swipe.ref}
         {...swipe.handlers}
         style={swipe.style}
-        className="relative flex items-start gap-3 rounded-lg border bg-card p-3"
+        className={cn(
+          "relative flex items-start gap-3 rounded-lg border p-3 transition-colors duration-300",
+          isDone ? "border-emerald-300 bg-emerald-50" : "bg-card",
+        )}
       >
         <button
           type="button"
@@ -104,12 +111,17 @@ export function TaskRow({
           <div
             className={cn(
               "text-sm font-medium",
-              isDone && "text-muted-foreground line-through",
+              isDone && "text-emerald-900/70 line-through",
             )}
           >
             {nextStep}
           </div>
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          <div
+            className={cn(
+              "mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs",
+              isDone ? "text-emerald-900/60" : "text-muted-foreground",
+            )}
+          >
             <Link
               href={`/cuentas/${accountId}`}
               className="hover:text-brand-carmesi hover:underline"
