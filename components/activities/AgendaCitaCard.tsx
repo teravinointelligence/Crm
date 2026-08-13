@@ -3,7 +3,16 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlarmClock, CalendarClock, Check, Loader2, Pencil, X } from "lucide-react";
+import {
+  AlarmClock,
+  CalendarClock,
+  Check,
+  CheckCircle2,
+  Loader2,
+  Pencil,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
@@ -38,28 +47,29 @@ function shiftIso(iso: string, days: number): string {
 export function AgendaCitaCard({
   cita,
   atrasada = false,
+  done = false,
 }: {
   cita: AgendaCitaData;
   atrasada?: boolean;
+  /** La cita ya se marcó como realizada: se pinta en verde. */
+  done?: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [gone, setGone] = useState(false);
+  const [realizada, setRealizada] = useState(done);
   const [reagendarOpen, setReagendarOpen] = useState(false);
 
   const swipe = useSwipeAction({
-    enabled: !pending && !gone,
+    enabled: !pending && !realizada && !gone,
     onSwipeRight: () => marcarRealizada(),
     onSwipeLeft: () => setReagendarOpen(true),
   });
 
-  function apply(
-    patch: Record<string, unknown>,
-    ok: string,
-    direction: "right" | "left",
-  ) {
-    swipe.flingOut(direction);
+  /** Reagendar o cancelar sí sacan la tarjeta: dejan de ser de hoy. */
+  function leave(patch: Record<string, unknown>, ok: string) {
+    swipe.flingOut("left");
     setGone(true);
     startTransition(async () => {
       const { error } = await supabase.from("activities").update(patch).eq("id", cita.id);
@@ -74,22 +84,52 @@ export function AgendaCitaCard({
     });
   }
 
+  /** Marcarla realizada la deja en su lugar y la pinta de verde. */
   function marcarRealizada() {
-    apply({ status: "realizada" }, "Cita marcada como realizada", "right");
+    setRealizada(true);
+    startTransition(async () => {
+      const { error } = await supabase
+        .from("activities")
+        .update({ status: "realizada" })
+        .eq("id", cita.id);
+      if (error) {
+        setRealizada(false);
+        toast.error("No pudimos actualizar la cita", { description: error.message });
+        return;
+      }
+      toast.success("Cita marcada como realizada");
+      router.refresh();
+    });
+  }
+
+  function reabrir() {
+    setRealizada(false);
+    startTransition(async () => {
+      const { error } = await supabase
+        .from("activities")
+        .update({ status: "agendada" })
+        .eq("id", cita.id);
+      if (error) {
+        setRealizada(true);
+        toast.error("No pudimos reabrir la cita", { description: error.message });
+        return;
+      }
+      toast.success("Cita reabierta");
+      router.refresh();
+    });
   }
 
   function reagendar(days: number, label: string) {
     setReagendarOpen(false);
-    apply(
+    leave(
       { activity_date: shiftIso(cita.activity_date, days) },
       `Reagendada para ${label.toLowerCase()}`,
-      "left",
     );
   }
 
   function cancelar() {
     setReagendarOpen(false);
-    apply({ status: "cancelada" }, "Cita cancelada", "left");
+    leave({ status: "cancelada" }, "Cita cancelada");
   }
 
   return (
@@ -120,14 +160,22 @@ export function AgendaCitaCard({
         {...swipe.handlers}
         style={swipe.style}
         className={cn(
-          "relative rounded-lg border bg-card p-3",
-          atrasada && "border-l-4 border-l-red-500",
+          "relative rounded-lg border p-3 transition-colors duration-300",
+          realizada ? "border-emerald-300 bg-emerald-50" : "bg-card",
+          !realizada && atrasada && "border-l-4 border-l-red-500",
         )}
       >
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
+          <span
+            className={cn(
+              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+              realizada ? "bg-emerald-600 text-white" : "bg-muted",
+            )}
+          >
             {pending ? (
               <Loader2 className="h-4 w-4 animate-spin" />
+            ) : realizada ? (
+              <CheckCircle2 className="h-4 w-4" />
             ) : (
               <CalendarClock className="h-4 w-4 text-muted-foreground" />
             )}
@@ -135,25 +183,40 @@ export function AgendaCitaCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium">
+              <span
+                className={cn(
+                  "text-sm font-medium",
+                  realizada && "text-emerald-900/70 line-through",
+                )}
+              >
                 {cita.account_name ?? "Cita"}
               </span>
-              <Badge variant="accent" className="text-[11px]">
-                {cita.activity_type ?? "cita"}
+              <Badge variant={realizada ? "success" : "accent"} className="text-[11px]">
+                {realizada ? "Realizada" : (cita.activity_type ?? "cita")}
               </Badge>
-              {atrasada && (
+              {!realizada && atrasada && (
                 <Badge variant="danger" className="text-[11px]">
                   Se pasó · {formatDate(cita.activity_date)}
                 </Badge>
               )}
             </div>
 
-            <p className="mt-0.5 text-xs text-muted-foreground">
+            <p
+              className={cn(
+                "mt-0.5 text-xs",
+                realizada ? "text-emerald-900/60" : "text-muted-foreground",
+              )}
+            >
               {formatTime(cita.activity_date)}
               {cita.notes ? ` · ${cita.notes}` : ""}
             </p>
 
-            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <div
+              className={cn(
+                "mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs",
+                realizada ? "text-emerald-900/60" : "text-muted-foreground",
+              )}
+            >
               <Link
                 href={`/cuentas/${cita.account_id}`}
                 className="hover:text-brand-carmesi hover:underline"
@@ -169,27 +232,37 @@ export function AgendaCitaCard({
             </div>
 
             <div className="mt-2 flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={marcarRealizada}
-                disabled={pending}
-              >
-                <Check className="mr-1 h-3.5 w-3.5" /> Realizada
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setReagendarOpen(true)}
-                disabled={pending}
-              >
-                <AlarmClock className="mr-1 h-3.5 w-3.5" /> Reagendar
-              </Button>
+              {realizada ? (
+                <Button size="sm" variant="ghost" onClick={reabrir} disabled={pending}>
+                  <RotateCcw className="mr-1 h-3.5 w-3.5" /> Reabrir
+                </Button>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={marcarRealizada}
+                    disabled={pending}
+                  >
+                    <Check className="mr-1 h-3.5 w-3.5" /> Realizada
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setReagendarOpen(true)}
+                    disabled={pending}
+                  >
+                    <AlarmClock className="mr-1 h-3.5 w-3.5" /> Reagendar
+                  </Button>
+                </>
+              )}
             </div>
 
-            <p className="mt-1 text-[11px] text-muted-foreground/70 sm:hidden">
-              Desliza → realizada · ← reagendar
-            </p>
+            {!realizada && (
+              <p className="mt-1 text-[11px] text-muted-foreground/70 sm:hidden">
+                Desliza → realizada · ← reagendar
+              </p>
+            )}
           </div>
         </div>
       </div>
