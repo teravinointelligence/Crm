@@ -20,7 +20,8 @@ import { isRepartoOnlyRole } from "@/lib/modules";
 const baseItems = [
   { href: "/", label: "Inicio", icon: LayoutDashboard },
   { href: "/cuentas", label: "Cuentas", icon: Building2 },
-  { href: "/actividades", label: "Visitas", icon: CalendarCheck2 },
+  // En celular el vendedor entra directo a su día (citas + tareas del CRM).
+  { href: "/actividades/hoy", label: "Mi día", icon: CalendarCheck2 },
   { href: "/pedidos", label: "Pedidos", icon: FileText },
   { href: "/cartera", label: "Cartera", icon: Wallet },
 ];
@@ -48,7 +49,10 @@ export function BottomNav({ isAdmin, role }: { isAdmin: boolean; role?: string |
             ? pathname === "/"
             : pathname === href ||
               pathname.startsWith(`${href}/`) ||
-              (href === "/reparto/pedidos" && pathname.startsWith("/reparto"));
+              (href === "/reparto/pedidos" && pathname.startsWith("/reparto")) ||
+              // "Mi día" entra a /actividades/hoy, pero se queda encendido en
+              // todo el módulo (bitácora, calendario, tareas…).
+              (href === "/actividades/hoy" && pathname.startsWith("/actividades"));
         return (
           <Link
             key={href}

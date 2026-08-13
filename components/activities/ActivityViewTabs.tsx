@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ListChecks, History, TrendingUp } from "lucide-react";
+import { CalendarDays, ListChecks, History, Sun, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
+  { href: "/actividades/hoy", label: "Mi día", icon: Sun },
   { href: "/actividades", label: "Bitácora", icon: History },
   { href: "/actividades/calendario", label: "Calendario", icon: CalendarDays },
   { href: "/actividades/tareas", label: "Tareas", icon: ListChecks },
@@ -15,7 +16,8 @@ const tabs = [
 export function ActivityViewTabs() {
   const pathname = usePathname();
   return (
-    <div className="inline-flex items-center gap-1 rounded-md bg-muted p-1">
+    // Scroll horizontal: con 5 pestañas ya no caben en un celular angosto.
+    <div className="-mx-1 flex items-center gap-1 overflow-x-auto rounded-md bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {tabs.map((t) => {
         const Icon = t.icon;
         const active = pathname === t.href || pathname.startsWith(t.href + "/") && t.href !== "/actividades";
@@ -24,7 +26,7 @@ export function ActivityViewTabs() {
             key={t.href}
             href={t.href}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
               active
                 ? "bg-background text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
