@@ -444,6 +444,58 @@ export type AcademyLeaderboardRow = {
   last_quiz_at: string;
 };
 
+// ---------------------------------------------------------------------
+// Tareas del vendedor ("Mi día"). Tabla creada en 0099; aún no está en los
+// tipos generados de Supabase, así que se declara a mano.
+// ---------------------------------------------------------------------
+export type RepTaskSource = "prospecto" | "cobranza" | "inactivo" | "manual";
+
+export type RepTaskStatus = "pendiente" | "hecha" | "descartada" | "resuelta";
+
+export type RepTaskOutcome =
+  | "contactado"
+  | "no_contesto"
+  | "agendo_cita"
+  | "promesa_pago"
+  | "pago_recibido"
+  | "sin_interes"
+  | "no_aplica";
+
+export type RepTask = {
+  id: string;
+  sales_rep_id: string;
+  account_id: string | null;
+  source: RepTaskSource;
+  title: string;
+  detail: string | null;
+  due_date: string;
+  priority: number;
+  status: RepTaskStatus;
+  outcome: RepTaskOutcome | null;
+  result_note: string | null;
+  completed_at: string | null;
+  completed_by: string | null;
+  created_by: string | null;
+  dedupe_key: string | null;
+  meta: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RepTaskInsert = {
+  sales_rep_id: string;
+  account_id?: string | null;
+  source: RepTaskSource;
+  title: string;
+  detail?: string | null;
+  due_date: string;
+  priority?: number;
+  status?: RepTaskStatus;
+  created_by?: string | null;
+  dedupe_key?: string | null;
+  meta?: Record<string, unknown>;
+};
+
 export type PriceTier = "base" | "+10";
 
 export type AccountType =
