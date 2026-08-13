@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Check, Loader2, Pencil } from "lucide-react";
+import { Building2, Check, Loader2, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { useSwipeAction } from "@/components/ui/use-swipe-action";
@@ -122,24 +122,30 @@ export function TaskRow({
               isDone ? "text-emerald-900/60" : "text-muted-foreground",
             )}
           >
-            <Link
-              href={`/cuentas/${accountId}`}
-              className="hover:text-brand-carmesi hover:underline"
-            >
-              {accountName ?? "—"}
-            </Link>
-            {activityType && <span>· {activityType}</span>}
+            {activityType && <span>{activityType}</span>}
             {nextStepDate && (
               <span className={cn(!isDone && overdue && "font-medium text-red-600")}>
-                · {formatDate(nextStepDate)}
+                {activityType ? "· " : ""}
+                {formatDate(nextStepDate)}
                 {!isDone && overdue ? " · vencida" : ""}
               </span>
             )}
+          </div>
+
+          {/* Accesos con área de toque de verdad. */}
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Link
+              href={`/cuentas/${accountId}`}
+              className="inline-flex items-center gap-1 rounded-full border border-brand-carmesi/30 bg-brand-carmesi/10 px-2.5 py-1 text-xs font-medium text-brand-carmesi transition-colors hover:bg-brand-carmesi/20"
+            >
+              <Building2 className="h-3 w-3" />
+              {accountName ?? "Ver cliente"}
+            </Link>
             <Link
               href={`/actividades/${id}/editar`}
-              className="inline-flex items-center gap-1 hover:text-brand-carmesi hover:underline"
+              className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
             >
-              · <Pencil className="h-3 w-3" /> Editar
+              <Pencil className="h-3 w-3" /> Editar
             </Link>
           </div>
           {swipeEnabled && (

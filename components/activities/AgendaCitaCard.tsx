@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   AlarmClock,
+  Building2,
   CalendarClock,
   Check,
   CheckCircle2,
@@ -183,14 +184,16 @@ export function AgendaCitaCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span
+              {/* El título ES el cliente: tocarlo debe llevar a su ficha. */}
+              <Link
+                href={`/cuentas/${cita.account_id}`}
                 className={cn(
-                  "text-sm font-medium",
+                  "text-sm font-medium underline-offset-2 hover:text-brand-carmesi hover:underline",
                   realizada && "text-emerald-900/70 line-through",
                 )}
               >
                 {cita.account_name ?? "Cita"}
-              </span>
+              </Link>
               <Badge variant={realizada ? "success" : "accent"} className="text-[11px]">
                 {realizada ? "Realizada" : (cita.activity_type ?? "cita")}
               </Badge>
@@ -211,23 +214,20 @@ export function AgendaCitaCard({
               {cita.notes ? ` · ${cita.notes}` : ""}
             </p>
 
-            <div
-              className={cn(
-                "mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs",
-                realizada ? "text-emerald-900/60" : "text-muted-foreground",
-              )}
-            >
+            {/* Accesos con área de toque de verdad, no enlaces de 11 px. */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <Link
                 href={`/cuentas/${cita.account_id}`}
-                className="hover:text-brand-carmesi hover:underline"
+                className="inline-flex items-center gap-1 rounded-full border border-brand-carmesi/30 bg-brand-carmesi/10 px-2.5 py-1 text-xs font-medium text-brand-carmesi transition-colors hover:bg-brand-carmesi/20"
               >
-                Ver cuenta
+                <Building2 className="h-3 w-3" />
+                {cita.account_name ?? "Ver cliente"}
               </Link>
               <Link
                 href={`/actividades/${cita.id}/editar`}
-                className="inline-flex items-center gap-1 hover:text-brand-carmesi hover:underline"
+                className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
               >
-                · <Pencil className="h-3 w-3" /> Editar
+                <Pencil className="h-3 w-3" /> Editar
               </Link>
             </div>
 
