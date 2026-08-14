@@ -58,6 +58,7 @@ function firstWord(name: string): string {
 
 function inferCategoryFromName(name: string): ProductRowParsed["category"] {
   const n = normalize(name);
+  if (/aceite|olive oil|aove/.test(n)) return "aceite";
   if (/champ|cava|prosec|espumo|brut|sparkl/.test(n)) return "espumoso";
   if (/blanc|chardonnay|sauvignon\s*blanc|riesling|albariño|viognier|gew[uü]rztraminer|chenin/.test(n))
     return "vino_blanco";

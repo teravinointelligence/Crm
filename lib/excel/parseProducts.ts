@@ -80,6 +80,7 @@ function coerceCategory(v: unknown): ProductCategory | null {
     return "destilado";
   if (/cerveza|beer/.test(k)) return "cerveza";
   if (/sake/.test(k)) return "sake";
+  if (/aceite|oliva|olive/.test(k)) return "aceite";
   return "otro";
 }
 
