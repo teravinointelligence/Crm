@@ -599,6 +599,7 @@ export type ProductCategory =
   | "destilado"
   | "cerveza"
   | "sake"
+  | "aceite"
   | "otro";
 
 export const PRODUCT_CATEGORIES: ProductCategory[] = [
@@ -610,6 +611,7 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
   "destilado",
   "cerveza",
   "sake",
+  "aceite",
   "otro",
 ];
 

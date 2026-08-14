@@ -33,6 +33,23 @@ test("detecta destilados por palabra clave", () => {
   }
 });
 
+test("clasifica el aceite de oliva en su propia categoría", () => {
+  // Estaba capturado como 'otro' y por eso caía en las reglas de muestras de vino.
+  let s = catSuggestion({
+    name: "Gomez Cruzado Aceite De Oliva Extra Virgen",
+    supplier: "Por confirmar",
+    category: "otro",
+  });
+  assert.equal(s.suggested, "aceite");
+  assert.equal(s.confidence, "alta");
+
+  s = catSuggestion({ name: "Marqués de Griñón Olive Oil", supplier: "X", category: "vino_tinto" });
+  assert.equal(s.suggested, "aceite");
+
+  // Ya clasificado: no se sugiere nada.
+  assert.equal(catSuggestion({ name: "AOVE Arbequina", supplier: "X", category: "aceite" }), null);
+});
+
 test("no sugiere cambio cuando la categoría ya es correcta", () => {
   const s = catSuggestion({ name: "Catena Malbec", supplier: "Catena", category: "vino_tinto" });
   assert.equal(s, null);

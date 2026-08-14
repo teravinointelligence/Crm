@@ -276,7 +276,7 @@ export async function suggestReconciliation(input: {
 
 const CATEGORY_VALUES = [
   "vino_tinto", "vino_blanco", "vino_rosado", "vino_naranja",
-  "espumoso", "destilado", "cerveza", "sake", "otro",
+  "espumoso", "destilado", "cerveza", "sake", "aceite", "otro",
 ] as const;
 
 const CATEGORY_SYSTEM =
@@ -286,7 +286,8 @@ const CATEGORY_SYSTEM =
   CATEGORY_VALUES.join(", ") +
   ". Usa 'destilado' para tequila/mezcal/whisky/ron/vodka/gin/brandy/licor, " +
   "'espumoso' para champagne/cava/prosecco/espumante, 'cerveza' para cervezas, " +
-  "'sake' para sake. Si no puedes determinarlo, usa 'otro' con confianza 'baja'. " +
+  "'sake' para sake, 'aceite' para aceite de oliva. " +
+  "Si no puedes determinarlo, usa 'otro' con confianza 'baja'. " +
   "Devuelve SOLO JSON, sin texto extra.";
 
 export type ProductForCategory = {
