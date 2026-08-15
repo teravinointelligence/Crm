@@ -1,5 +1,5 @@
 // Tipos y helpers puros del módulo Planogramas (app Base44 "Teravino Map",
-// publicada en teravino-planogramas.base44.app).
+// publicada en planogramas.teravino.com).
 //
 // Sin `server-only`: los componentes cliente (buscador, plano) importan de aquí
 // para no arrastrar la API key. El cliente HTTP vive en lib/base44-planogramas.ts.

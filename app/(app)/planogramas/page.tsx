@@ -1,5 +1,5 @@
 // Planogramas: mapa de acomodo de las bodegas de TERAVINO.
-// Los datos viven en la app Base44 "Teravino Map" (teravino-planogramas.base44.app);
+// Los datos viven en la app Base44 "Teravino Map" (planogramas.teravino.com);
 // el CRM los muestra en SOLO CONSULTA para que el equipo sepa dónde está cada
 // vino sin pedirle a nadie que abra otra app. La captura sigue en Base44.
 
