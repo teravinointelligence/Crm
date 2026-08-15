@@ -14,11 +14,13 @@ import {
   MessageCircle,
   Phone,
   FlaskConical,
+  Camera,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
-import { SELLER_ROLES } from "@/lib/modules";
+import { SELLER_ROLES, canManageReparto } from "@/lib/modules";
 import { getAtRiskProductIds } from "@/lib/restock-data";
+import { contarPendientesEvidencia } from "@/lib/reparto-auditoria-data";
 import { loadChurnRanking } from "@/lib/account-intel";
 import { CHURN_LABEL, type ChurnStatus } from "@/lib/churn";
 import { Card, CardContent } from "@/components/ui/card";
@@ -358,6 +360,13 @@ export default async function DashboardPage() {
     ? 0
     : filterByCriteria(await loadIncompleteAccounts(supabase, rep.id), ACCIONABLES).length;
 
+  // Auditoría de reparto: pedidos que siguen marcados como pendientes de entrega
+  // porque el chofer no subió la foto de la factura firmada y sellada. Solo lo ve
+  // quien opera el reparto (dirección y jefe de logística).
+  const auditoriaReparto = canManageReparto(rep.role)
+    ? await contarPendientesEvidencia()
+    : { total: 0, criticos: 0, diasMax: 0 };
+
   const churnVariant: Record<ChurnStatus, "danger" | "warning" | "muted"> = {
     sin_facturacion: "danger",
     cayo: "danger",
@@ -397,6 +406,40 @@ export default async function DashboardPage() {
       </div>
 
       <FraseDelDia />
+
+      {auditoriaReparto.total > 0 && (
+        <Link
+          href="/reparto/auditoria"
+          className={`flex items-center justify-between gap-3 rounded-xl border p-4 transition-colors ${
+            auditoriaReparto.criticos > 0
+              ? "border-red-300 bg-red-50 hover:bg-red-100"
+              : "border-amber-300 bg-amber-50 hover:bg-amber-100"
+          }`}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-white ${
+                auditoriaReparto.criticos > 0 ? "bg-red-600" : "bg-amber-500"
+              }`}
+            >
+              <Camera className="h-5 w-5" />
+            </span>
+            <div>
+              <div className="font-medium">
+                {auditoriaReparto.total === 1
+                  ? "1 pedido sigue como pendiente de entrega sin foto de la factura"
+                  : `${auditoriaReparto.total} pedidos siguen como pendientes de entrega sin foto de la factura`}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Falta subir la evidencia con firma y sello para poder cerrarlos
+                {auditoriaReparto.diasMax > 0 && ` · hasta ${auditoriaReparto.diasMax} días de atraso`}
+                {auditoriaReparto.criticos > 0 && ` · ${auditoriaReparto.criticos} crítico(s)`}
+              </div>
+            </div>
+          </div>
+          <Badge variant={auditoriaReparto.criticos > 0 ? "danger" : "warning"}>Auditar</Badge>
+        </Link>
+      )}
 
       {!isAdmin && datosFaltantesCount > 0 && (
         <DatosFaltantesBanner count={datosFaltantesCount} />
