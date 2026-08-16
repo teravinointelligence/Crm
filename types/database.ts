@@ -74,6 +74,7 @@ export type Database = {
         Row: {
           account_id: string;
           birthday: string | null;
+          cobranza_recipient: boolean | null;
           created_at: string | null;
           created_by: string | null;
           email: string | null;
