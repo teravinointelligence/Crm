@@ -1,14 +1,15 @@
 // Registro de entrega por el chofer: sube la foto de la factura firmada como
-// evidencia y marca el pedido como "entregado". El archivo se manda al endpoint
-// server-side (POST /api/reparto/pedidos/[id]/entregar), que lo sube con
-// service_role y crea el registro en reparto.entregas.
+// evidencia y marca el pedido como "entregado". La foto se puede tomar con la
+// cámara o elegir del álbum de fotos del celular. El archivo se manda al
+// endpoint server-side (POST /api/reparto/pedidos/[id]/entregar), que lo sube
+// con service_role y crea el registro en reparto.entregas.
 
 "use client";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Camera, CheckCircle2, X } from "lucide-react";
+import { Camera, CheckCircle2, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,9 +27,17 @@ function getPosicion(): Promise<{ lat: number; lng: number } | null> {
   });
 }
 
+// Algunos álbumes de Android/iOS entregan el archivo sin MIME type; en ese caso
+// nos apoyamos en la extensión para no rechazar una foto válida.
+const EXT_IMAGEN = /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i;
+function esImagen(f: File) {
+  return f.type ? f.type.startsWith("image/") : EXT_IMAGEN.test(f.name);
+}
+
 export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const camaraRef = useRef<HTMLInputElement>(null);
+  const galeriaRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [observaciones, setObservaciones] = useState("");
@@ -38,7 +47,7 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
     const f = e.target.files?.[0];
     e.target.value = "";
     if (!f) return;
-    if (!f.type.startsWith("image/")) {
+    if (!esImagen(f)) {
       toast.error("Sube una imagen (foto de la factura firmada).");
       return;
     }
@@ -97,19 +106,22 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
         <div className="space-y-1">
           <h3 className="font-display text-lg">Registrar entrega</h3>
           <p className="text-sm text-muted-foreground">
-            Toma una foto de la factura firmada por el cliente como evidencia. Al guardar, el pedido
-            queda marcado como <strong>entregado</strong>.
+            Toma una foto de la factura firmada por el cliente o elígela del álbum de fotos del
+            celular. Al guardar, el pedido queda marcado como <strong>entregado</strong>.
           </p>
         </div>
 
+        {/* Cámara: `capture` abre directo el visor del celular. */}
         <input
-          ref={inputRef}
+          ref={camaraRef}
           type="file"
           accept="image/*"
           capture="environment"
           className="hidden"
           onChange={onPick}
         />
+        {/* Galería: sin `capture`, el celular abre el álbum de fotos. */}
+        <input ref={galeriaRef} type="file" accept="image/*" className="hidden" onChange={onPick} />
 
         {preview ? (
           <div className="relative w-fit">
@@ -125,11 +137,28 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
               <X className="h-4 w-4" />
             </button>
           </div>
-        ) : (
-          <Button type="button" variant="outline" onClick={() => inputRef.current?.click()} disabled={pending}>
-            <Camera className="mr-2 h-4 w-4" /> Tomar foto de la factura firmada
+        ) : null}
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => camaraRef.current?.click()}
+            disabled={pending}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            {preview ? "Tomar otra foto" : "Tomar foto de la factura firmada"}
           </Button>
-        )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => galeriaRef.current?.click()}
+            disabled={pending}
+          >
+            <ImageIcon className="mr-2 h-4 w-4" />
+            {preview ? "Elegir otra de la galería" : "Elegir foto de la galería"}
+          </Button>
+        </div>
 
         <div className="space-y-1.5">
           <Textarea
