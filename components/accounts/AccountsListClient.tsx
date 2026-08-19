@@ -30,21 +30,46 @@ import {
 
 type AccountRow = Account & { sales_reps: { full_name: string | null } | null };
 
+type CarteraStatus = "al_corriente" | "vencido";
+
 type Props = {
   accounts: AccountRow[];
   reps: SalesRep[];
   isAdmin: boolean;
+  carteraStatusById?: Record<string, CarteraStatus>;
 };
 
 const ALL = "_all";
 
-export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
+function CarteraBadge({ status }: { status?: CarteraStatus }) {
+  if (status === "al_corriente")
+    return (
+      <Badge variant="success" title="Sin saldo vencido — elegible para promociones">
+        Al corriente
+      </Badge>
+    );
+  if (status === "vencido")
+    return (
+      <Badge variant="danger" title="Tiene saldo vencido">
+        Con vencido
+      </Badge>
+    );
+  return null;
+}
+
+export function AccountsListClient({
+  accounts,
+  reps,
+  isAdmin,
+  carteraStatusById = {},
+}: Props) {
   const [view, setView] = useState<"table" | "cards">("table");
   const [query, setQuery] = useState("");
   const [region, setRegion] = useState<string>(ALL);
   const [type, setType] = useState<string>(ALL);
   const [status, setStatus] = useState<string>(ALL);
   const [rep, setRep] = useState<string>(ALL);
+  const [cartera, setCartera] = useState<string>(ALL);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -53,6 +78,8 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
       if (type !== ALL && a.account_type !== type) return false;
       if (status !== ALL && a.status !== status) return false;
       if (rep !== ALL && a.assigned_rep_id !== rep) return false;
+      if (cartera !== ALL && (carteraStatusById[a.id] ?? "") !== cartera)
+        return false;
       if (
         q &&
         !a.business_name.toLowerCase().includes(q) &&
@@ -64,7 +91,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
         return false;
       return true;
     });
-  }, [accounts, query, region, type, status, rep]);
+  }, [accounts, query, region, type, status, rep, cartera, carteraStatusById]);
 
   const { paged, page, pageCount, setPage, total } = usePagedRows(filtered);
 
@@ -117,6 +144,16 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                 {s}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={cartera} onValueChange={setCartera}>
+          <SelectTrigger className="sm:w-44">
+            <SelectValue placeholder="Cartera" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Toda la cartera</SelectItem>
+            <SelectItem value="al_corriente">Al corriente</SelectItem>
+            <SelectItem value="vencido">Con saldo vencido</SelectItem>
           </SelectContent>
         </Select>
         {isAdmin && (
@@ -187,6 +224,7 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                 <th className="px-4 py-3">Región</th>
                 <th className="px-4 py-3">Tier</th>
                 <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Cartera</th>
                 <th className="px-4 py-3">Vendedor</th>
                 <th className={`px-4 py-3 ${STICKY_HEAD}`}></th>
               </tr>
@@ -233,6 +271,9 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                   <td className="px-4 py-3">
                     <AccountStatusBadge status={a.status} />
                   </td>
+                  <td className="px-4 py-3">
+                    <CarteraBadge status={carteraStatusById[a.id]} />
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">
                     {a.sales_reps?.full_name ?? "—"}
                   </td>
@@ -275,8 +316,11 @@ export function AccountsListClient({ accounts, reps, isAdmin }: Props) {
                       <Badge variant="accent">+10%</Badge>
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <AccountStatusBadge status={a.status} />
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <AccountStatusBadge status={a.status} />
+                      <CarteraBadge status={carteraStatusById[a.id]} />
+                    </div>
                     <span className="text-xs text-muted-foreground">
                       {a.sales_reps?.full_name ?? "—"}
                     </span>
