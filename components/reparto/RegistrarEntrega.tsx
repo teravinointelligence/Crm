@@ -1,8 +1,13 @@
 // Registro de entrega por el chofer: sube la foto de la factura firmada como
 // evidencia y marca el pedido como "entregado". La foto se puede tomar con la
-// cámara o elegir del álbum de fotos del celular. El archivo se manda al
-// endpoint server-side (POST /api/reparto/pedidos/[id]/entregar), que lo sube
-// con service_role y crea el registro en reparto.entregas.
+// cámara o elegir del álbum de fotos del celular.
+//
+// La subida va directa a Supabase Storage con una URL firmada que emite el
+// servidor: el cuerpo de una ruta API en Vercel no puede pasar de ~4.5 MB y una
+// foto de álbum a resolución completa lo supera (la petición se rechazaba en el
+// borde, sin llegar a la función). Aun así reescalamos la imagen antes de
+// mandarla, para que el chofer no gaste datos de más. Con la foto ya en storage,
+// POST /api/reparto/pedidos/[id]/entregar registra la entrega.
 
 "use client";
 
@@ -13,6 +18,8 @@ import { Camera, CheckCircle2, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { comprimirImagen } from "@/lib/imagen";
+import { createClient } from "@/lib/supabase/client";
 
 // Geolocalización best-effort: si el chofer la concede, deja constancia del
 // punto de entrega; si la rechaza o falla, igual se registra la entrega.
@@ -34,8 +41,11 @@ function esImagen(f: File) {
   return f.type ? f.type.startsWith("image/") : EXT_IMAGEN.test(f.name);
 }
 
+const MAX_SUBIDA = 25 * 1024 * 1024;
+
 export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
   const router = useRouter();
+  const supabase = createClient();
   const camaraRef = useRef<HTMLInputElement>(null);
   const galeriaRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -51,8 +61,8 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
       toast.error("Sube una imagen (foto de la factura firmada).");
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
-      toast.error("La imagen supera 10 MB.");
+    if (f.size > MAX_SUBIDA) {
+      toast.error("La imagen supera 25 MB.");
       return;
     }
     setFile(f);
@@ -76,21 +86,50 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
       return;
     }
     startTransition(async () => {
-      const pos = await getPosicion();
-      const fd = new FormData();
-      fd.append("foto", file);
-      if (observaciones.trim()) fd.append("observaciones", observaciones.trim());
-      if (pos) {
-        fd.append("lat", String(pos.lat));
-        fd.append("lng", String(pos.lng));
+      // Reescalado en el navegador: una foto de álbum a resolución completa son
+      // varios MB que el chofer subiría con datos móviles sin necesidad.
+      const foto = await comprimirImagen(file);
+
+      // 1. URL firmada para subir directo a storage (sin pasar por la ruta API).
+      const resUrl = await fetch(`/api/reparto/pedidos/${pedidoId}/entregar/upload-url`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tipo: foto.type }),
+      });
+      const firma = (await resUrl.json().catch(() => ({}))) as {
+        path?: string;
+        token?: string;
+        error?: string;
+      };
+      if (!resUrl.ok || !firma.path || !firma.token) {
+        toast.error(firma.error ?? `No se pudo preparar la subida (error ${resUrl.status}).`);
+        return;
       }
+
+      // 2. Subida de la foto.
+      const { error: upErr } = await supabase.storage
+        .from("evidencias")
+        .uploadToSignedUrl(firma.path, firma.token, foto, { contentType: foto.type });
+      if (upErr) {
+        toast.error(`No se pudo subir la foto: ${upErr.message}`);
+        return;
+      }
+
+      // 3. Registro de la entrega con la ruta de la foto ya subida.
+      const pos = await getPosicion();
       const res = await fetch(`/api/reparto/pedidos/${pedidoId}/entregar`, {
         method: "POST",
-        body: fd,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          foto_path: firma.path,
+          observaciones: observaciones.trim() || undefined,
+          lat: pos?.lat,
+          lng: pos?.lng,
+        }),
       });
-      const json = await res.json().catch(() => ({}));
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        toast.error(json.error ?? "No se pudo registrar la entrega.");
+        toast.error(json.error ?? `No se pudo registrar la entrega (error ${res.status}).`);
         return;
       }
       toast.success("Entrega registrada con evidencia.");
