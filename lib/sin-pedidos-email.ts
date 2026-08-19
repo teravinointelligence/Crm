@@ -13,6 +13,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
+import { loadActiveBlockByAccount } from "@/lib/account-seguimiento";
+import { BLOCK_REASON_LABEL, type PurchaseBlockReason } from "@/lib/purchase-blocks";
+import { SIN_FACTURAR_DAYS } from "@/lib/rep-tasks";
+import { dateKeyTz } from "@/lib/utils";
 
 // Acepta el cliente con cookies (admin vía RLS) o el service-role (cron).
 type DbClient = ReturnType<typeof createClient> | SupabaseClient;
@@ -24,8 +28,12 @@ const ESTADOS = ["activo", "prospecto"];
 // cuentas, cruzarlos mezclaría pedidos de otros clientes.
 const RFC_GENERICOS = ["XAXX010101000", "XEXX010101000"];
 
-/** Umbral por defecto: 21 días sin facturar. */
-export const DEFAULT_SIN_PEDIDOS_DAYS = 21;
+/** Umbral por defecto: un mes sin facturar.
+ *  Es el periodo que pidió la dirección para avisarle al vendedor: por debajo
+ *  de un mes hay cuentas que simplemente compran quincenal y el aviso sería
+ *  ruido. Se comparte con la tarea de "Mi día" (lib/rep-tasks) para que el
+ *  correo y la agenda no se contradigan. */
+export const DEFAULT_SIN_PEDIDOS_DAYS = SIN_FACTURAR_DAYS;
 
 /** URL base de la app para los enlaces del correo (sin slash final). */
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://crm-steel-tau.vercel.app").replace(/\/+$/, "");
@@ -40,6 +48,10 @@ export type ChurnedAccount = {
   last_order_date: string;
   /** Días transcurridos desde la última factura. */
   days_since_order: number;
+  /** Pausa de compras vigente hoy, si la hay. Una cuenta en pausa NO entra a
+   *  los recordatorios: en temporada baja hay hoteles a los que corporativo no
+   *  les autoriza compras, y regañar al vendedor por eso es ruido. */
+  block_reason: PurchaseBlockReason | null;
 };
 
 function daysSince(ymd: string, now: number): number {
@@ -111,7 +123,10 @@ export async function loadChurnedAccounts(
     .select("id, business_name, rfc, assigned_rep_id, status")
     .in("status", ESTADOS);
   if (repId) q = q.eq("assigned_rep_id", repId);
-  const { data: accounts } = await q;
+  const [{ data: accounts }, blocks] = await Promise.all([
+    q,
+    loadActiveBlockByAccount(supabase, dateKeyTz(new Date())),
+  ]);
 
   const now = Date.now();
   const out: ChurnedAccount[] = [];
@@ -139,6 +154,7 @@ export async function loadChurnedAccounts(
       assigned_rep_id: a.assigned_rep_id,
       last_order_date: lastDate,
       days_since_order: daysSince(lastDate, now),
+      block_reason: blocks.get(a.id)?.reason ?? null,
     });
   }
 
@@ -154,6 +170,29 @@ export function sortByChurn(a: ChurnedAccount, b: ChurnedAccount): number {
 /** Filtra a las cuentas que llevan >= `days` sin facturar. */
 export function filterByDays(accounts: ChurnedAccount[], days: number): ChurnedAccount[] {
   return accounts.filter((a) => a.days_since_order >= days);
+}
+
+/** Quita las cuentas con una pausa de compras vigente (temporada baja,
+ *  remodelación, crédito suspendido). No se les manda recordatorio: el vendedor
+ *  ya sabe que no pueden comprar y el aviso solo le quita credibilidad al
+ *  correo. Siguen visibles en el tablero, marcadas como en pausa. */
+export function excludeBlocked(accounts: ChurnedAccount[]): ChurnedAccount[] {
+  return accounts.filter((a) => a.block_reason === null);
+}
+
+/** Motivo de la pausa en texto, o null si la cuenta sí puede comprar. */
+export function blockReasonLabel(a: ChurnedAccount): string | null {
+  return a.block_reason ? BLOCK_REASON_LABEL[a.block_reason] : null;
+}
+
+/** El umbral en palabras: 30 días es "un mes", que es como lo pide y lo lee la
+ *  dirección. Evita correos con asuntos tipo "30 días sin pedir". */
+export function periodLabel(days: number): string {
+  if (days % 30 === 0 && days >= 30) {
+    const meses = days / 30;
+    return meses === 1 ? "un mes" : `${meses} meses`;
+  }
+  return days === 1 ? "1 día" : `${days} días`;
 }
 
 /** Texto legible de la última factura. */
@@ -187,7 +226,7 @@ export async function buildSinPedidosDigest(
   if (!rep) return { ok: false, status: 404, error: "Vendedor no encontrado" };
   if (!rep.email) return { ok: false, status: 400, error: "El vendedor no tiene email registrado" };
 
-  const accounts = filterByDays(await loadChurnedAccounts(supabase, repId), days);
+  const accounts = excludeBlocked(filterByDays(await loadChurnedAccounts(supabase, repId), days));
   if (!accounts.length) {
     return { ok: false, status: 400, error: `Este vendedor no tiene clientes con ${days}+ días sin pedir.` };
   }
@@ -203,7 +242,7 @@ export async function buildSinPedidosDigest(
   const html = `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
     <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Clientes que dejaron de pedir</h2>
-    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(rep.full_name ?? "")}, estos clientes que tienes asignados llevan ${days} días o más sin facturar un pedido:</p>
+    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(rep.full_name ?? "")}, estos clientes que tienes asignados llevan ${periodLabel(days)} o más sin facturar un pedido:</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead>
         <tr style="background:#f6f1ee;text-align:left;">
@@ -214,6 +253,7 @@ export async function buildSinPedidosDigest(
       <tbody>${rows}</tbody>
     </table>
     <p style="margin-top:16px;">Contáctalos para reactivar el pedido: una llamada o visita a tiempo evita perder al cliente. Registra el seguimiento en el CRM.</p>
+    <p style="margin-top:8px;color:#666;font-size:13px;">Si alguno no puede comprar por temporada baja, remodelación o crédito suspendido, márcalo en su ficha (Cuenta → Seguimiento → “No puede comprar”) y dejará de aparecer en este correo mientras dure la pausa.</p>
     <p style="margin:24px 0;">
       <a href="${APP_URL}/cuentas" style="display:inline-block;background:#7a1220;color:#fff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px;">Abrir el CRM</a>
     </p>
@@ -223,7 +263,7 @@ export async function buildSinPedidosDigest(
   return {
     ok: true,
     to: rep.email,
-    subject: `Clientes que dejaron de pedir — ${accounts.length} ${accounts.length === 1 ? "cliente" : "clientes"}`,
+    subject: `Clientes con ${periodLabel(days)} sin facturar — ${accounts.length} ${accounts.length === 1 ? "cliente" : "clientes"}`,
     html,
     count: accounts.length,
     repName: rep.full_name ?? rep.email,

@@ -3,9 +3,17 @@
 // Corre a diario (ver app/api/cron/agenda-tareas). NO inventa nada: arma las
 // tareas a partir de datos que el CRM ya tiene.
 //
-//   prospecto  → cuentas en estado 'prospecto' sin actividad en 14 días
-//   cobranza   → cuentas con saldo vencido, priorizadas con el score de cobranza
-//   inactivo   → clientes activos sin actividad en 15 días
+//   prospecto     → cuentas en estado 'prospecto' sin actividad en 14 días
+//   cobranza      → cuentas con saldo vencido, priorizadas con el score de cobranza
+//   inactivo      → clientes activos sin actividad en 15 días
+//   sin_facturar  → clientes que llevan un mes sin facturar un pedido
+//
+// Las cuentas con una pausa de compras vigente (temporada baja, remodelación,
+// crédito suspendido) NO generan la tarea de 'sin_facturar': mandar al vendedor
+// a rescatar la venta de un hotel al que corporativo no le autoriza compras
+// hasta noviembre es hacerle perder el día. Las demás reglas sí siguen: la
+// pausa impide COMPRAR, no impide visitar ('inactivo', 'prospecto') ni borra lo
+// que ya deben ('cobranza').
 //
 // Reglas de convivencia, para que la agenda no se vuelva un basurero:
 //  · Si ya hay una tarea PENDIENTE de esa regla para esa cuenta, se refresca
@@ -20,13 +28,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase/server";
 import { SELLER_ROLES } from "@/lib/modules";
 import { buildCobranzaRanking, type CobranzaInput } from "@/lib/cobranza-score";
+import { loadBlockedAccountIds } from "@/lib/account-seguimiento";
+import { filterByDays, loadChurnedAccounts } from "@/lib/sin-pedidos-email";
 import {
   INACTIVE_STALE_DAYS,
   PROSPECT_STALE_DAYS,
+  SIN_FACTURAR_DAYS,
   cobranzaPriority,
   dedupeKey,
   inactivePriority,
   prospectPriority,
+  sinFacturarPriority,
 } from "@/lib/rep-tasks";
 import { dateKeyTz } from "@/lib/utils";
 import type { RepTaskSource } from "@/types/database";
@@ -276,6 +288,41 @@ async function candidatesFromCartera(
   }));
 }
 
+/**
+ * Clientes que llevan un mes o más sin facturar. Se apoya en el mismo cálculo
+ * que el correo de "clientes que dejaron de pedir" (última factura real del
+ * módulo Reparto, cruzada por RFC/nombre), para que la tarea de la agenda y el
+ * recordatorio por correo nunca digan cosas distintas.
+ */
+async function candidatesFromFacturacion(
+  supabase: DbClient,
+  repIds: Set<string>,
+): Promise<Candidate[]> {
+  // loadChurnedAccounts ya devuelve [] si Reparto no está disponible.
+  const churned = filterByDays(await loadChurnedAccounts(supabase), SIN_FACTURAR_DAYS);
+
+  const out: Candidate[] = [];
+  for (const a of churned) {
+    if (!a.assigned_rep_id || !repIds.has(a.assigned_rep_id)) continue;
+    // Las cuentas en pausa vienen marcadas: en temporada baja no hay nada que
+    // reactivar y la tarea solo estorbaría en el día del vendedor.
+    if (a.block_reason) continue;
+    out.push({
+      sales_rep_id: a.assigned_rep_id,
+      account_id: a.account_id,
+      source: "sin_facturar",
+      title: `Sin comprar: ${a.business_name}`,
+      detail: `Lleva ${a.days_since_order} días sin facturar (última: ${a.last_order_date})`,
+      priority: sinFacturarPriority(a.days_since_order),
+      meta: {
+        dias_sin_facturar: a.days_since_order,
+        last_order_date: a.last_order_date,
+      },
+    });
+  }
+  return out;
+}
+
 // --- Orquestación ----------------------------------------------------------
 
 /**
@@ -293,7 +340,7 @@ export async function generateRepTasks(
     refrescadas: 0,
     resueltas: 0,
     omitidas: 0,
-    porRegla: { prospecto: 0, cobranza: 0, inactivo: 0, manual: 0 },
+    porRegla: { prospecto: 0, cobranza: 0, inactivo: 0, sin_facturar: 0, manual: 0 },
     errores: [],
   };
 
@@ -305,10 +352,16 @@ export async function generateRepTasks(
   const repIds = new Set(((repsData ?? []) as { id: string }[]).map((r) => r.id));
   if (!repIds.size) return result;
 
+  // Cuentas que hoy tienen prohibido comprar (temporada baja, remodelación…).
+  // Solo silencian la regla de facturación: seguir visitando y seguir cobrando
+  // sigue siendo trabajo del vendedor aunque el cliente no pueda comprar.
+  const blocked = await loadBlockedAccountIds(supabase, today);
+
   const candidates = [
     ...(await candidatesFromActivity(supabase, repIds, nowMs)),
     ...(await candidatesFromCartera(supabase, repIds)),
-  ];
+    ...(await candidatesFromFacturacion(supabase, repIds)),
+  ].filter((c) => !(c.source === "sin_facturar" && blocked.has(c.account_id)));
 
   // Tareas automáticas todavía abiertas, para decidir refrescar vs crear.
   const openTasks = await fetchAllRows<{

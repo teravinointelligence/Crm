@@ -17,11 +17,14 @@ export type ChurnRepGroup = {
     business_name: string;
     last_order_date: string;
     days_since_order: number;
+    /** Motivo de la pausa de compras vigente, o null si sí puede comprar. */
+    block_label: string | null;
   }[];
 };
 
 const DAY_OPTIONS = [14, 21, 30, 45, 60];
-const DEFAULT_DAYS = 21;
+/** Un mes: el periodo que la dirección quiere vigilar. */
+const DEFAULT_DAYS = 30;
 
 function lastOrderLabel(days: number, iso: string): string {
   const fecha = new Date(iso).toLocaleDateString("es-MX", {
@@ -40,14 +43,20 @@ export function SinPedidosBoard({ groups }: { groups: ChurnRepGroup[] }) {
   const [sending, setSending] = useState<string | null>(null);
   const [bulk, setBulk] = useState(false);
 
-  // Filtra cada grupo al umbral elegido.
+  // Filtra cada grupo al umbral elegido. Las cuentas en pausa se apartan: se
+  // siguen viendo (para poder revisar que la pausa siga teniendo sentido) pero
+  // no cuentan para el recordatorio, igual que en el correo.
   const filtered = useMemo(() => {
     return groups
-      .map((g) => ({
-        ...g,
-        accounts: g.accounts.filter((a) => a.days_since_order >= days),
-      }))
-      .filter((g) => g.accounts.length > 0)
+      .map((g) => {
+        const enPeriodo = g.accounts.filter((a) => a.days_since_order >= days);
+        return {
+          ...g,
+          accounts: enPeriodo.filter((a) => !a.block_label),
+          pausadas: enPeriodo.filter((a) => a.block_label),
+        };
+      })
+      .filter((g) => g.accounts.length > 0 || g.pausadas.length > 0)
       .sort((x, y) => {
         if (!x.rep_id) return 1;
         if (!y.rep_id) return -1;
@@ -57,6 +66,7 @@ export function SinPedidosBoard({ groups }: { groups: ChurnRepGroup[] }) {
 
   const enviables = filtered.filter((g) => g.rep_id && g.rep_email && g.accounts.length);
   const totalCuentas = filtered.reduce((s, g) => s + g.accounts.length, 0);
+  const totalPausadas = filtered.reduce((s, g) => s + g.pausadas.length, 0);
 
   const toggle = (key: string) =>
     setOpen((prev) => {
@@ -126,6 +136,12 @@ export function SinPedidosBoard({ groups }: { groups: ChurnRepGroup[] }) {
         <div className="text-sm">
           <span className="font-medium">{totalCuentas}</span> clientes que dejaron de pedir ·{" "}
           <span className="font-medium">{enviables.length}</span> vendedores con recordatorios
+          {totalPausadas > 0 && (
+            <span className="text-muted-foreground">
+              {" "}
+              · {totalPausadas} en pausa (no se les manda)
+            </span>
+          )}
         </div>
         <Button onClick={enviarTodos} disabled={bulk || enviables.length === 0}>
           {bulk ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
@@ -150,16 +166,23 @@ export function SinPedidosBoard({ groups }: { groups: ChurnRepGroup[] }) {
                     {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                     <span className="font-medium">{g.rep_name}</span>
                     <Badge variant="warning">{g.accounts.length}</Badge>
+                    {g.pausadas.length > 0 && (
+                      <Badge variant="muted">{g.pausadas.length} en pausa</Badge>
+                    )}
                     {g.rep_email && <span className="text-xs text-muted-foreground">{g.rep_email}</span>}
                   </button>
-                  {canSend ? (
+                  {canSend && g.accounts.length > 0 ? (
                     <Button size="sm" variant="outline" onClick={() => enviar(g.rep_id!)} disabled={sending === g.rep_id || bulk}>
                       {sending === g.rep_id ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Mail className="mr-1 h-3.5 w-3.5" />}
                       Enviar recordatorio
                     </Button>
                   ) : (
                     <span className="text-xs text-muted-foreground">
-                      {g.rep_id ? "Vendedor sin email" : "Asigna un vendedor a estas cuentas"}
+                      {!g.rep_id
+                        ? "Asigna un vendedor a estas cuentas"
+                        : !g.rep_email
+                          ? "Vendedor sin email"
+                          : "Solo cuentas en pausa"}
                     </span>
                   )}
                 </div>
@@ -168,12 +191,17 @@ export function SinPedidosBoard({ groups }: { groups: ChurnRepGroup[] }) {
                   <div className="border-t">
                     <table className="min-w-full text-sm">
                       <tbody>
-                        {g.accounts.map((a) => (
+                        {[...g.accounts, ...g.pausadas].map((a) => (
                           <tr key={a.account_id} className="border-b last:border-b-0">
                             <td className="px-4 py-2">
                               <Link href={`/cuentas/${a.account_id}`} className="font-medium text-brand-carmesi hover:underline">
                                 {a.business_name}
                               </Link>
+                              {a.block_label && (
+                                <Badge variant="muted" className="ml-2">
+                                  {a.block_label}
+                                </Badge>
+                              )}
                             </td>
                             <td className="px-4 py-2 text-muted-foreground">
                               {lastOrderLabel(a.days_since_order, a.last_order_date)}
