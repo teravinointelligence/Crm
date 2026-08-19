@@ -223,9 +223,9 @@ export default async function ConsumoMuestrasPage({
           <h1 className="font-display text-3xl">Consumo de muestras</h1>
           <p className="text-sm text-muted-foreground">
             Botellas por vendedor, valor a precio de lista y costo de adquisición por encarte ·
-            últimos {dias} días · candado vigente: máx {SAMPLE_CAP.botellasPorCliente} botellas por
-            cliente cada {SAMPLE_CAP.ventanaDias} días (capacitaciones solo de vinos que el cliente
-            ya compra).
+            últimos {dias} días · candado vigente: máx {SAMPLE_CAP.botellasPorCliente} de vino y
+            {" "}{SAMPLE_CAP.botellasPorCliente} de cerveza por cliente cada {SAMPLE_CAP.ventanaDias}
+            {" "}días (por separado; capacitaciones solo de vinos que el cliente ya compra).
           </p>
         </div>
         <div className="flex flex-wrap gap-1.5 rounded-lg border bg-card p-1">
@@ -331,8 +331,10 @@ export default async function ConsumoMuestrasPage({
           <div className="border-b px-4 py-3">
             <h3 className="font-display text-lg">Botellas por cliente</h3>
             <p className="text-xs text-muted-foreground">
-              Top vendedor × cliente del periodo — aquí se ven los excesos (en rojo los que superan
-              {" "}{capEscalado} botellas{dias !== SAMPLE_CAP.ventanaDias ? ` ≈ tope escalado a ${dias} días` : " (el tope del candado)"}).
+              Top vendedor × cliente del periodo — volumen combinado (vino + cerveza). El candado
+              real es por categoría (máx {SAMPLE_CAP.botellasPorCliente} de vino y {SAMPLE_CAP.botellasPorCliente}
+              {" "}de cerveza por separado); aquí en rojo los que superan {" "}{capEscalado} botellas combinadas
+              {dias !== SAMPLE_CAP.ventanaDias ? ` ≈ tope escalado a ${dias} días` : ""} como señal de volumen alto.
             </p>
           </div>
           {clienteRows.length === 0 ? (
