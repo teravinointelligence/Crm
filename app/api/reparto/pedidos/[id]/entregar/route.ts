@@ -22,6 +22,21 @@ const EXT_BY_TYPE: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
   "image/heic": "heic",
+  "image/heif": "heic",
+};
+
+// Fotos elegidas del álbum del celular a veces llegan sin MIME type; en ese caso
+// validamos por extensión para no rechazar una imagen válida.
+const EXT_IMAGEN = /\.(jpe?g|png|webp|heic|heif|gif|bmp)$/i;
+const TIPO_POR_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  heic: "image/heic",
+  heif: "image/heic",
+  gif: "image/gif",
+  bmp: "image/bmp",
 };
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -70,9 +85,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!(foto instanceof File) || foto.size === 0) {
     return NextResponse.json({ error: "Sube la foto de la factura firmada." }, { status: 400 });
   }
-  if (!foto.type.startsWith("image/")) {
+  const extArchivo = foto.name.match(EXT_IMAGEN)?.[1]?.toLowerCase() ?? null;
+  if (!(foto.type ? foto.type.startsWith("image/") : Boolean(extArchivo))) {
     return NextResponse.json({ error: "El archivo debe ser una imagen." }, { status: 400 });
   }
+  const tipoFoto = foto.type || (extArchivo ? TIPO_POR_EXT[extArchivo] : null) || "image/jpeg";
   if (foto.size > MAX_BYTES) {
     return NextResponse.json({ error: "La imagen supera 10 MB." }, { status: 400 });
   }
@@ -85,12 +102,12 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   // Subida al bucket público `evidencias` bajo `entregas/` (mismo lugar que el
   // histórico migrado). foto_url se guarda como URL pública directa.
-  const ext = EXT_BY_TYPE[foto.type] ?? "jpg";
+  const ext = EXT_BY_TYPE[tipoFoto] ?? "jpg";
   const path = `entregas/${params.id}_${Date.now()}.${ext}`;
   const buffer = Buffer.from(await foto.arrayBuffer());
   const storage = supabaseAdmin().storage.from("evidencias");
   const { error: upErr } = await storage.upload(path, buffer, {
-    contentType: foto.type,
+    contentType: tipoFoto,
     upsert: true,
   });
   if (upErr) {
