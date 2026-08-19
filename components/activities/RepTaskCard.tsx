@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Loader2,
   RotateCcw,
+  ShoppingCart,
   Sparkles,
   UserPlus,
   X,
@@ -44,6 +45,7 @@ const SOURCE_ICON: Record<RepTaskSource, typeof Check> = {
   prospecto: UserPlus,
   cobranza: Banknote,
   inactivo: Sparkles,
+  sin_facturar: ShoppingCart,
   manual: ClipboardList,
 };
 
@@ -51,6 +53,7 @@ const SOURCE_VARIANT: Record<RepTaskSource, "accent" | "warning" | "danger" | "m
   prospecto: "accent",
   cobranza: "danger",
   inactivo: "warning",
+  sin_facturar: "danger",
   manual: "muted",
 };
 

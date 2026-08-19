@@ -26,6 +26,7 @@ CRM operativo del equipo TERAVINO, S.A. de C.V. para gestión de clientes HORECA
 | Restock (vendedor pide → admin aprueba/ajusta) | ✅ |
 | Tránsito (qué viene en camino, OCs, factura proveedor, recepción) | ✅ |
 | Cuentas por Pagar (saldos por proveedor, registro de pagos, admin-only) | ✅ |
+| Seguimiento de cuenta (notas del cliente, pausas de compra, alerta de un mes sin facturar) | ✅ |
 | Notificaciones email (Resend) | ⏳ siguiente |
 
 ### Datos reales
@@ -68,6 +69,28 @@ Cada vendedor solo ve las cuentas y contactos que tiene asignados (heredados del
 | felix@teravino.com | rep | `Teravino-Felix-2026` |
 
 > Son contraseñas temporales — cada uno debe cambiarla en su primer ingreso (Perfil / o vía "enlace mágico" para resetear).
+
+## Seguimiento de cuentas
+
+Pestaña **Seguimiento** en la ficha del cliente (`/cuentas/[id]?tab=seguimiento`):
+
+- **Notas de la cuenta** (`account_notes`) — bitácora del cliente: acuerdos,
+  preferencias, incidencias. Cuelgan de la cuenta, no del vendedor, así que al
+  reasignarla el historial viaja con el cliente. Son distintas de las notas de
+  "Mi día" (`rep_notes`), que son la libreta personal de cada vendedor.
+- **Pausas de compra** (`account_purchase_blocks`) — periodos en que la cuenta
+  no puede comprar: temporada baja, remodelación, cambio de administración,
+  crédito suspendido, cierre temporal. Sin fecha de término = sigue vigente
+  hasta que alguien la cierre. Reglas puras y probadas en `lib/purchase-blocks.ts`.
+- **Alerta de un mes sin facturar** — el umbral vive en `SIN_FACTURAR_DAYS`
+  (`lib/rep-tasks.ts`) y lo reusan el correo semanal (`lib/sin-pedidos-email.ts`,
+  cron `/api/cron/clientes-inactivos`) y la tarea `sin_facturar` de "Mi día"
+  (`lib/rep-tasks-generate.ts`, cron `/api/cron/agenda-tareas`, dedupe mensual).
+
+Una pausa vigente silencia **solo** lo relacionado con comprar (el recordatorio
+de "dejaron de pedir" y la tarea `sin_facturar`). Visitas, prospección y
+cobranza siguen igual: que no puedan comprar no impide visitarlos ni borra lo
+que ya deben.
 
 ## Reglas de precio por región
 

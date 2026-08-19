@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { loadChurnedAccounts } from "@/lib/sin-pedidos-email";
+import { blockReasonLabel, loadChurnedAccounts } from "@/lib/sin-pedidos-email";
 import { SinPedidosBoard, type ChurnRepGroup } from "@/components/accounts/SinPedidosBoard";
 
 export const metadata = { title: "Clientes que dejaron de pedir — TERAVINO CRM" };
@@ -41,6 +41,7 @@ export default async function SinPedidosPage() {
       business_name: a.business_name,
       last_order_date: a.last_order_date,
       days_since_order: a.days_since_order,
+      block_label: blockReasonLabel(a),
     });
   }
 
@@ -64,7 +65,9 @@ export default async function SinPedidosPage() {
         <h1 className="font-display text-3xl">Clientes que dejaron de pedir</h1>
         <p className="text-sm text-muted-foreground">
           Cuentas activas/prospecto que ya facturaron antes pero llevan el periodo elegido sin un nuevo
-          pedido (factura) en Reparto. Manda a cada vendedor un recordatorio para reactivarlas.
+          pedido (factura) en Reparto. Manda a cada vendedor un recordatorio para reactivarlas. Las
+          cuentas marcadas como “no puede comprar” (temporada baja, remodelación, crédito suspendido)
+          se listan aparte y no entran en el recordatorio.
         </p>
       </div>
 
