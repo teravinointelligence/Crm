@@ -2,7 +2,9 @@
 // evidencia y marca el pedido como "entregado". La foto se puede tomar con la
 // cámara o elegir del álbum de fotos del celular. El archivo se manda al
 // endpoint server-side (POST /api/reparto/pedidos/[id]/entregar), que lo sube
-// con service_role y crea el registro en reparto.entregas.
+// con service_role y crea el registro en reparto.entregas. Antes de mandarla se
+// reescala en el navegador: las rutas API de Vercel rechazan cuerpos de más de
+// ~4.5 MB y una foto de álbum a resolución completa los supera fácil.
 
 "use client";
 
@@ -13,6 +15,7 @@ import { Camera, CheckCircle2, ImageIcon, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
+import { comprimirImagen } from "@/lib/imagen";
 
 // Geolocalización best-effort: si el chofer la concede, deja constancia del
 // punto de entrega; si la rechaza o falla, igual se registra la entrega.
@@ -34,6 +37,9 @@ function esImagen(f: File) {
   return f.type ? f.type.startsWith("image/") : EXT_IMAGEN.test(f.name);
 }
 
+// Tope del cuerpo de una ruta API en Vercel (~4.5 MB); dejamos margen.
+const MAX_SUBIDA = 4 * 1024 * 1024;
+
 export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
   const router = useRouter();
   const camaraRef = useRef<HTMLInputElement>(null);
@@ -51,8 +57,8 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
       toast.error("Sube una imagen (foto de la factura firmada).");
       return;
     }
-    if (f.size > 10 * 1024 * 1024) {
-      toast.error("La imagen supera 10 MB.");
+    if (f.size > 25 * 1024 * 1024) {
+      toast.error("La imagen supera 25 MB.");
       return;
     }
     setFile(f);
@@ -76,9 +82,16 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
       return;
     }
     startTransition(async () => {
+      // Reescalado en el navegador: sin esto, una foto de álbum a resolución
+      // completa se pasa del límite de la ruta API y vuelve un 413 sin JSON.
+      const foto = await comprimirImagen(file);
+      if (foto.size > MAX_SUBIDA) {
+        toast.error("La foto es muy pesada. Tómala de nuevo o elige una más liviana.");
+        return;
+      }
       const pos = await getPosicion();
       const fd = new FormData();
-      fd.append("foto", file);
+      fd.append("foto", foto);
       if (observaciones.trim()) fd.append("observaciones", observaciones.trim());
       if (pos) {
         fd.append("lat", String(pos.lat));
@@ -88,9 +101,16 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
         method: "POST",
         body: fd,
       });
-      const json = await res.json().catch(() => ({}));
+      // Un 413/504 de la plataforma no trae JSON: mostramos el código para no
+      // dejar al chofer con un error genérico sin pista de qué pasó.
+      const json = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        toast.error(json.error ?? "No se pudo registrar la entrega.");
+        toast.error(
+          json.error ??
+            (res.status === 413
+              ? "La foto es demasiado pesada para subirla."
+              : `No se pudo registrar la entrega (error ${res.status}).`),
+        );
         return;
       }
       toast.success("Entrega registrada con evidencia.");
