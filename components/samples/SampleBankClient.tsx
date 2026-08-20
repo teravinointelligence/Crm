@@ -55,6 +55,7 @@ const UNSET = "__unset";
 export function SampleBankClient({
   rows,
   isAdmin,
+  readOnly = false,
   accounts,
   metricsByRegion,
   lastUse = {},
@@ -62,6 +63,8 @@ export function SampleBankClient({
 }: {
   rows: BankRow[];
   isAdmin: boolean;
+  /** Solo consulta (jefe de logística): sin Tomar/Liberar. */
+  readOnly?: boolean;
   accounts: AccountOption[];
   metricsByRegion: Record<string, RegionMetrics>;
   // key `${product_id}|${region ?? "Sin zona"}` → último uso
@@ -269,9 +272,11 @@ export function SampleBankClient({
                             <PackagePlus className="mr-1 h-4 w-4" /> Liberar
                           </Button>
                         )}
-                        <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
-                          <PackageCheck className="mr-1 h-4 w-4" /> Tomar
-                        </Button>
+                        {!readOnly && (
+                          <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
+                            <PackageCheck className="mr-1 h-4 w-4" /> Tomar
+                          </Button>
+                        )}
                       </div>
                     </td>
                   </tr>
