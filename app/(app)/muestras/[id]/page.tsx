@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileDown, Truck } from "lucide-react";
+import { ArrowLeft, Download, FileDown, Files, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,24 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const items = (req.sample_request_items ?? []) as Array<{
     id: string; product_id: string | null; product_name: string; supplier: string | null; quantity: number; notes: string | null;
   }>;
+  const sampleProductIds = Array.from(
+    new Set(items.map((item) => item.product_id).filter((id): id is string => Boolean(id))),
+  );
+  let productSheets: Array<{
+    id: string;
+    technical_sheet_path: string | null;
+  }> = [];
+  if (sampleProductIds.length > 0) {
+    const { data } = await supabase
+      .from("products")
+      .select("id, technical_sheet_path")
+      .in("id", sampleProductIds);
+    productSheets = (data ?? []) as typeof productSheets;
+  }
+  const productsWithSheet = new Set(
+    productSheets.filter((product) => Boolean(product.technical_sheet_path)).map((product) => product.id),
+  );
+  const sheetCount = productsWithSheet.size;
   const citas = ((req.sample_request_activities ?? []) as Array<{
     id: string;
     evidence_path: string | null;
@@ -182,6 +200,13 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                 <SendSampleEmail sampleId={r.id} />
               </>
             )}
+            {sheetCount > 0 && (
+              <Button asChild size="sm" variant="accent">
+                <a href={`/api/samples/${r.id}/fichas-tecnicas`}>
+                  <Files className="mr-1 h-4 w-4" /> Fichas técnicas ({sheetCount})
+                </a>
+              </Button>
+            )}
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
@@ -204,7 +229,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       <Card><CardContent className="p-0">
         <table className="min-w-full text-sm">
           <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-            <tr><th className="px-4 py-3">Vino</th><th className="px-4 py-3">Bodega</th><th className="px-4 py-3 text-right">Botellas</th><th className="px-4 py-3">Nota</th></tr>
+            <tr><th className="px-4 py-3">Vino</th><th className="px-4 py-3">Bodega</th><th className="px-4 py-3 text-right">Botellas</th><th className="px-4 py-3">Nota</th><th className="px-4 py-3">Ficha</th></tr>
           </thead>
           <tbody>
             {items.map((i) => (
@@ -213,6 +238,18 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                 <td className="px-4 py-3 text-muted-foreground">{i.supplier ?? "—"}</td>
                 <td className="px-4 py-3 text-right">{i.quantity}</td>
                 <td className="px-4 py-3 text-muted-foreground">{i.notes ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {i.product_id && productsWithSheet.has(i.product_id) ? (
+                    <a
+                      href={`/api/catalogo/${i.product_id}/ficha-tecnica`}
+                      className="inline-flex items-center text-brand-carmesi hover:underline"
+                    >
+                      <Download className="mr-1 h-3.5 w-3.5" /> Descargar
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Pendiente</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -306,11 +343,10 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       {isAdmin && (
         <SampleReviewActions
           requestId={r.id}
-          repId={rep.id}
           status={r.status ?? "borrador"}
-          accountId={r.account_id}
-          accountIds={distinctAccountIds}
-          items={items.map((i) => ({ product_id: i.product_id, product_name: i.product_name }))}
+          hasAccounts={distinctAccountIds.length > 0 || Boolean(r.account_id)}
+          driveUrl={(r.technical_sheets_drive_url as string | null) ?? null}
+          driveError={(r.technical_sheets_drive_error as string | null) ?? null}
         />
       )}
     </div>

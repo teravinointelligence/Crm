@@ -9,6 +9,7 @@ import { PriceBadge } from "@/components/products/PriceBadge";
 import { StockBadge } from "@/components/products/StockBadge";
 import { DiscontinueButton } from "@/components/products/DiscontinueButton";
 import { ProductCustomersPanel } from "@/components/products/ProductCustomersPanel";
+import { ProductTechnicalSheet } from "@/components/products/ProductTechnicalSheet";
 import { loadProductCustomers } from "@/lib/product-customers";
 import { canSeeFinance } from "@/lib/modules";
 import { formatDateTime } from "@/lib/utils";
@@ -81,6 +82,14 @@ export default async function ProductDetailPage({
       </div>
 
       <PriceBadge basePrice={product.base_price} />
+
+      <ProductTechnicalSheet
+        productId={product.id}
+        available={Boolean(product.technical_sheet_path)}
+        fileName={product.technical_sheet_file_name}
+        updatedAt={product.technical_sheet_updated_at}
+        isAdmin={isAdmin}
+      />
 
       <Card>
         <CardContent className="grid gap-3 p-6 sm:grid-cols-3">

@@ -227,6 +227,10 @@ export type Database = {
           stock_min_alert: number | null;
           stock_quantity: number | null;
           supplier: string;
+          technical_sheet_file_name: string | null;
+          technical_sheet_path: string | null;
+          technical_sheet_updated_at: string | null;
+          technical_sheet_updated_by: string | null;
           updated_at: string | null;
           varietal: string | null;
           vintage: string | null;
