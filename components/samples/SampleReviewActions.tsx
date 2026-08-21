@@ -4,64 +4,65 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 
-type Item = { product_id: string | null; product_name: string };
+type ReviewState = "aprobada" | "rechazada" | "entregada";
 
 export function SampleReviewActions({
   requestId,
-  repId,
   status,
-  accountId,
-  accountIds = [],
-  items,
+  hasAccounts,
+  driveUrl,
+  driveError,
 }: {
   requestId: string;
-  repId: string;
   status: string;
-  accountId: string | null;
-  accountIds?: string[];
-  items: Item[];
+  hasAccounts: boolean;
+  driveUrl: string | null;
+  driveError: string | null;
 }) {
   const router = useRouter();
-  const supabase = createClient();
   const [pending, startTransition] = useTransition();
   const [addToAccount, setAddToAccount] = useState(true);
 
-  const setState = (next: string, reviewNotes?: string) => {
+  const setState = (next?: ReviewState, reviewNotes?: string, retryDrive = false) => {
     startTransition(async () => {
-      const { error } = await supabase
-        .from("sample_requests")
-        .update({
-          status: next,
-          reviewed_by: repId,
-          reviewed_at: new Date().toISOString(),
-          ...(reviewNotes != null ? { review_notes: reviewNotes || null } : {}),
-        })
-        .eq("id", requestId);
-      if (error) { toast.error("No se pudo actualizar", { description: error.message }); return; }
-
-      if (next === "entregada" && addToAccount) {
-        const targets = accountIds.length ? accountIds : accountId ? [accountId] : [];
-        const rows = targets.flatMap((acc) =>
-          items
-            .filter((i) => i.product_id)
-            .map((i) => ({ account_id: acc, product_id: i.product_id, status: "muestra", added_by: repId })),
-        );
-        if (rows.length) {
-          await supabase.from("account_products").upsert(rows, { onConflict: "account_id,product_id", ignoreDuplicates: true });
+      try {
+        const response = await fetch(`/api/samples/${requestId}/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ next, reviewNotes, addToAccount, retryDrive }),
+        });
+        const result = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          warning?: string;
+        };
+        if (!response.ok) {
+          toast.error("No se pudo actualizar", { description: result.error });
+          return;
         }
+        if (result.warning) {
+          toast.warning(
+            retryDrive ? "La muestra sigue aprobada, pero no se pudo enviar el enlace" : "Solicitud aprobada",
+            { description: result.warning },
+          );
+          router.refresh();
+          return;
+        }
+        toast.success(
+          retryDrive ? "Enlace de Drive enviado al vendedor" :
+          next === "aprobada" ? "Solicitud aprobada" :
+          next === "rechazada" ? "Solicitud rechazada" :
+          next === "entregada" ? "Marcada como entregada" : "Actualizada",
+        );
+        router.refresh();
+      } catch (error) {
+        toast.error("No se pudo conectar con el CRM", {
+          description: error instanceof Error ? error.message : undefined,
+        });
       }
-      toast.success(
-        next === "aprobada" ? "Solicitud aprobada" :
-        next === "rechazada" ? "Solicitud rechazada" :
-        next === "entregada" ? "Marcada como entregada" : "Actualizada",
-      );
-      router.refresh();
     });
   };
 
@@ -83,13 +84,25 @@ export function SampleReviewActions({
       )}
       {status === "aprobada" && (
         <div className="space-y-3">
-          {(accountIds.length > 0 || accountId) && (
+          {hasAccounts && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={addToAccount} onChange={(e) => setAddToAccount(e.target.checked)} className="h-4 w-4 rounded border-input" />
-              Al entregar, registrar estos vinos como «muestra» en {accountIds.length > 1 ? `las ${accountIds.length} cuentas de las citas` : "la cuenta"}
+              Al entregar, registrar estos vinos como «muestra» en las cuentas relacionadas
             </label>
           )}
-          <Button disabled={pending} onClick={() => setState("entregada")}>Marcar como entregada</Button>
+          <div className="flex flex-wrap gap-2">
+            <Button disabled={pending} onClick={() => setState("entregada")}>Marcar como entregada</Button>
+            {driveUrl ? (
+              <Button asChild variant="outline">
+                <a href={driveUrl} target="_blank" rel="noreferrer">Abrir paquete en Drive</a>
+              </Button>
+            ) : (
+              <Button variant="outline" disabled={pending} onClick={() => setState(undefined, undefined, true)}>
+                Reintentar envío de fichas
+              </Button>
+            )}
+          </div>
+          {driveError && <p className="text-xs text-amber-700">Drive: {driveError}</p>}
         </div>
       )}
       {(status === "entregada" || status === "rechazada" || status === "cancelada") && (
