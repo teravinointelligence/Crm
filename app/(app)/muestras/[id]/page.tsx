@@ -343,11 +343,10 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       {isAdmin && (
         <SampleReviewActions
           requestId={r.id}
-          repId={rep.id}
           status={r.status ?? "borrador"}
-          accountId={r.account_id}
-          accountIds={distinctAccountIds}
-          items={items.map((i) => ({ product_id: i.product_id, product_name: i.product_name }))}
+          hasAccounts={distinctAccountIds.length > 0 || Boolean(r.account_id)}
+          driveUrl={(r.technical_sheets_drive_url as string | null) ?? null}
+          driveError={(r.technical_sheets_drive_error as string | null) ?? null}
         />
       )}
     </div>
