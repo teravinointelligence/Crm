@@ -88,6 +88,7 @@ export default async function ProductDetailPage({
         available={Boolean(product.technical_sheet_path)}
         fileName={product.technical_sheet_file_name}
         updatedAt={product.technical_sheet_updated_at}
+        driveUrl={product.technical_sheet_drive_url}
         isAdmin={isAdmin}
       />
 
