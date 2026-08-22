@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FlaskConical, PackageCheck, PackagePlus } from "lucide-react";
+import { FlaskConical, PackageCheck, PackageMinus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,7 +39,7 @@ export type RegionMetrics = { usadas: number; encartadas: number };
 export type LastUse = { rep: string | null; account: string | null; date: string | null; note: string | null; via?: "toma" | "solicitud" };
 export type HistoryEntry = {
   id: string;
-  kind: "toma" | "devolucion" | "solicitud";
+  kind: "toma" | "devolucion" | "liberacion" | "solicitud";
   qty: number;
   date: string | null;
   rep: string | null;
@@ -96,7 +96,7 @@ export function SampleBankClient({
 
   const confirmRelease = () => {
     if (!release) return;
-    if (relQty <= 0) {
+    if (relQty <= 0 || relQty > release.available) {
       toast.error("Cantidad inválida");
       return;
     }
@@ -112,7 +112,7 @@ export function SampleBankClient({
         toast.error("No se pudo liberar", { description: error.message });
         return;
       }
-      toast.success(`Liberaste ${relQty} × ${release.product_name}`);
+      toast.success(`Retiraste ${relQty} × ${release.product_name} del banco`);
       setRelease(null);
       router.refresh();
     });
@@ -266,7 +266,7 @@ export function SampleBankClient({
                       <div className="flex justify-end gap-2">
                         {isAdmin && (
                           <Button size="sm" variant="ghost" onClick={() => openRelease(r)} disabled={pending}>
-                            <PackagePlus className="mr-1 h-4 w-4" /> Liberar
+                            <PackageMinus className="mr-1 h-4 w-4" /> Liberar
                           </Button>
                         )}
                         <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
@@ -376,10 +376,10 @@ export function SampleBankClient({
                           </div>
                         </div>
                         <Badge
-                          variant={e.kind === "toma" ? "muted" : e.kind === "devolucion" ? "success" : "accent"}
+                          variant={e.kind === "toma" ? "muted" : e.kind === "devolucion" ? "success" : e.kind === "liberacion" ? "warning" : "accent"}
                           className="shrink-0"
                         >
-                          {e.kind === "toma" ? `Tomó ${e.qty}` : e.kind === "devolucion" ? `Devolvió ${e.qty}` : `Solicitó ${e.qty}`}
+                          {e.kind === "toma" ? `Tomó ${e.qty}` : e.kind === "devolucion" ? `Devolvió ${e.qty}` : e.kind === "liberacion" ? `Liberó ${e.qty}` : `Solicitó ${e.qty}`}
                         </Badge>
                       </li>
                     ))}
@@ -405,7 +405,7 @@ export function SampleBankClient({
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Repone botellas a este vino en su zona y bodega para que los vendedores puedan volver a tomarlas.
+                Retira del banco las botellas que el cliente se quedó. Al liberarlas dejarán de aparecer como disponibles y el vino podrá volver a solicitarse.
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor="rel_qty">Cantidad a liberar</Label>
@@ -413,6 +413,7 @@ export function SampleBankClient({
                   id="rel_qty"
                   type="number"
                   min={1}
+                  max={release.available}
                   value={relQty}
                   onChange={(e) => setRelQty(Number(e.target.value) || 0)}
                 />
@@ -423,7 +424,7 @@ export function SampleBankClient({
                   id="rel_note"
                   value={relNote}
                   onChange={(e) => setRelNote(e.target.value)}
-                  placeholder="Reposición / botellas devueltas…"
+                  placeholder="El cliente se quedó con la botella…"
                 />
               </div>
               <div className="flex justify-end gap-2">

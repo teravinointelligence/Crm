@@ -26,7 +26,7 @@ export default async function BancoMuestrasPage() {
     supabase
       .from("sample_bank_movements")
       .select("id, reverts_id, product_id, region, quantity, kind, account_id, created_at, notes, rep:taken_by(full_name), account:account_id(business_name), request:source_request_id(request_number, reason, rep:sales_rep_id(full_name), account:account_id(business_name))")
-      .in("kind", ["toma", "devolucion", "ingreso"])
+      .in("kind", ["toma", "devolucion", "liberacion", "ingreso"])
       .order("created_at", { ascending: false }),
     supabase.from("account_products").select("account_id, product_id").eq("status", "encartado"),
     supabase.from("accounts").select("id, business_name, region").order("business_name"),
@@ -101,7 +101,7 @@ export default async function BancoMuestrasPage() {
   }
 
   // Historial completo por (producto|zona): se muestra al hacer clic en el vino.
-  // Incluye tomas, devoluciones y las solicitudes que ingresaron botellas.
+  // Incluye tomas, devoluciones, liberaciones y las solicitudes que ingresaron botellas.
   // movAll ya viene ordenado por created_at desc.
   const historyByKey: Record<string, HistoryEntry[]> = {};
   for (const m of movAll) {
@@ -111,7 +111,13 @@ export default async function BancoMuestrasPage() {
     const key = `${m.product_id}|${m.region ?? "Sin zona"}`;
     (historyByKey[key] ??= []).push({
       id: m.id,
-      kind: m.kind === "toma" ? "toma" : m.kind === "devolucion" ? "devolucion" : "solicitud",
+      kind: m.kind === "toma"
+        ? "toma"
+        : m.kind === "devolucion"
+          ? "devolucion"
+          : m.kind === "liberacion"
+            ? "liberacion"
+            : "solicitud",
       qty: Math.abs(Number(m.quantity ?? 0)),
       date: m.created_at,
       rep: m.kind === "ingreso" ? m.request?.rep?.full_name ?? null : m.rep?.full_name ?? null,
