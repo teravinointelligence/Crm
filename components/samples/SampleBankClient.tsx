@@ -124,6 +124,12 @@ export function SampleBankClient({
       toast.error("Cantidad inválida");
       return;
     }
+    if (accountId === NONE) {
+      toast.error("Selecciona el cliente", {
+        description: "Es necesario para medir la conversión y aplicar el límite correcto.",
+      });
+      return;
+    }
     startTransition(async () => {
       const { error } = await supabase.rpc("sample_bank_take", {
         p_product: take.product_id,
@@ -131,7 +137,7 @@ export function SampleBankClient({
         p_qty: qty,
         p_note: note || null,
         p_location: take.location,
-        p_account: accountId === NONE ? null : accountId,
+        p_account: accountId,
       });
       if (error) {
         toast.error("No se pudo tomar la muestra", { description: error.message });
@@ -308,16 +314,18 @@ export function SampleBankClient({
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Cliente (para medir encartes)</Label>
+                <Label>Cliente *</Label>
                 <AccountCombobox
                   accounts={accounts}
                   value={accountId}
                   onChange={setAccountId}
                   placeholder="¿Para qué cliente?"
                   noneValue={NONE}
-                  noneLabel="— Sin cliente específico —"
+                  noneLabel="— Selecciona un cliente —"
                 />
-                <p className="text-xs text-muted-foreground">Si luego encartas el vino en su lista, contará como encarte.</p>
+                <p className="text-xs text-muted-foreground">
+                  Obligatorio para medir encarte, venta, retorno y tu límite de muestras.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bank_note">Nota (cata / cita)</Label>
