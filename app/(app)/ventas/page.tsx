@@ -6,7 +6,7 @@
 // Admin ve todo; vendedor ve solo lo suyo (RLS de monthly_sales).
 
 import Link from "next/link";
-import { Upload, TrendingUp, Scale } from "lucide-react";
+import { Clock3, Upload, TrendingUp, Scale } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { SELLER_ROLES } from "@/lib/modules";
@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { VentasViewTabs } from "@/components/ventas/VentasViewTabs";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDateTime } from "@/lib/utils";
 import { MonthlySalesDetail } from "@/components/ventas/MonthlySalesDetail";
 import type { MonthlySale } from "@/types/database";
 
@@ -41,11 +41,19 @@ export default async function VentasPage({
   const isAdmin = rep?.role === "admin";
 
   // Periodos disponibles (distinct period). Si no hay filtro, usa el más reciente.
-  const { data: periodsRaw } = await supabase
-    .from("monthly_sales")
-    .select("period")
-    .order("period", { ascending: false })
-    .limit(2000);
+  const [{ data: periodsRaw }, { data: lastImport }] = await Promise.all([
+    supabase
+      .from("monthly_sales")
+      .select("period")
+      .order("period", { ascending: false })
+      .limit(2000),
+    supabase
+      .from("sales_imports")
+      .select("imported_at, period, source_file_name")
+      .order("imported_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   const periods = Array.from(new Set((periodsRaw ?? []).map((r) => r.period as string)));
   const selected = searchParams.period && periods.includes(`${searchParams.period}-01`)
     ? `${searchParams.period}-01`
@@ -132,6 +140,16 @@ export default async function VentasPage({
           <p className="text-sm text-muted-foreground">
             {isAdmin ? "Ventas por vendedor, distribuidas por cliente." : "Tus ventas del periodo."}
           </p>
+          {lastImport && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Clock3 className="h-3.5 w-3.5" />
+              <span>
+                Última actualización del reporte: {" "}
+                <strong className="text-foreground">{formatDateTime(lastImport.imported_at)}</strong>
+                {lastImport.period ? ` · ventas de ${labelPeriod(lastImport.period)}` : ""}
+              </span>
+            </div>
+          )}
         </div>
         {isAdmin && (
           <Button asChild variant="outline">
