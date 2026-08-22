@@ -4,6 +4,7 @@
 
 import type { createClient } from "@/lib/supabase/server";
 import { semaforoCobranza, type EstadoCobranza } from "@/lib/cobranza";
+import { statementRecipientEmails } from "@/lib/statement-recipients";
 import type { Invoice } from "@/types/database";
 
 type DbClient = ReturnType<typeof createClient>;
@@ -32,8 +33,9 @@ export async function buildRecordatorio(
   const [{ data: contacts }, { data: invoices }, { data: balance }] = await Promise.all([
     supabase
       .from("contacts")
-      .select("full_name, email, is_primary")
+      .select("full_name, email, is_primary, receives_statement")
       .eq("account_id", accountId)
+      .eq("receives_statement", true)
       .not("email", "is", null)
       .order("is_primary", { ascending: false }),
     supabase
@@ -50,23 +52,13 @@ export async function buildRecordatorio(
       .maybeSingle(),
   ]);
 
-  // Todos los correos registrados de la cuenta (contacto principal primero),
-  // deduplicados sin distinguir mayúsculas.
-  const seen = new Set<string>();
-  const to: string[] = [];
-  for (const c of (contacts ?? []) as { email: string | null }[]) {
-    const email = c.email?.trim();
-    if (!email || !email.includes("@")) continue;
-    const key = email.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    to.push(email);
-  }
+  const to = statementRecipientEmails(contacts ?? []);
   if (!to.length) {
     return {
       ok: false,
       status: 400,
-      error: "El cliente no tiene un contacto con email. Agrégalo en la ficha de la cuenta.",
+      error:
+        "Selecciona al menos un contacto con email para recibir el estado de cuenta en la pestaña Contactos.",
     };
   }
 

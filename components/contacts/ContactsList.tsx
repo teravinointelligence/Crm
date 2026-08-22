@@ -12,6 +12,7 @@ import {
   Trash2,
   Pencil,
   Cake,
+  ReceiptText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -69,10 +70,15 @@ export function ContactsList({ accountId, contacts }: Props) {
       whatsapp: String(fd.get("whatsapp") ?? "") || null,
       birthday: String(fd.get("birthday") ?? "") || null,
       is_primary: fd.get("is_primary") === "on",
+      receives_statement: fd.get("receives_statement") === "on",
       notes: String(fd.get("notes") ?? "") || null,
     };
     if (!payload.full_name) {
       toast.error("Nombre obligatorio");
+      return;
+    }
+    if (payload.receives_statement && !payload.email) {
+      toast.error("Agrega un email para enviarle el estado de cuenta");
       return;
     }
 
@@ -97,6 +103,29 @@ export function ContactsList({ accountId, contacts }: Props) {
       }
       toast.success(editing ? "Contacto actualizado" : "Contacto creado");
       setOpen(false);
+      router.refresh();
+    });
+  };
+
+  const toggleStatementRecipient = (contact: Contact) => {
+    const next = !contact.receives_statement;
+    if (next && !contact.email?.trim()) {
+      toast.error("Este contacto necesita un email", {
+        description: "Edita el contacto y agrega su correo antes de seleccionarlo.",
+      });
+      return;
+    }
+    startTransition(async () => {
+      const { error } = await supabase
+        .from("contacts")
+        .update({ receives_statement: next })
+        .eq("id", contact.id)
+        .eq("account_id", accountId);
+      if (error) {
+        toast.error("No pudimos actualizar el destinatario", { description: error.message });
+        return;
+      }
+      toast.success(next ? "Recibirá el estado de cuenta" : "Ya no recibirá el estado de cuenta");
       router.refresh();
     });
   };
@@ -199,6 +228,15 @@ export function ContactsList({ accountId, contacts }: Props) {
                   className="h-4 w-4 rounded border-input text-brand-carmesi focus:ring-brand-carmesi"
                 />
                 Contacto principal
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="receives_statement"
+                  defaultChecked={editing?.receives_statement ?? false}
+                  className="h-4 w-4 rounded border-input text-brand-carmesi focus:ring-brand-carmesi"
+                />
+                Recibe estados de cuenta
               </label>
               <div className="space-y-1.5">
                 <Label htmlFor="notes">Notas</Label>
@@ -309,6 +347,23 @@ export function ContactsList({ accountId, contacts }: Props) {
                     </a>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => toggleStatementRecipient(c)}
+                  disabled={pending}
+                  aria-pressed={c.receives_statement}
+                  className={`flex w-full items-center justify-between rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                    c.receives_statement
+                      ? "border-brand-carmesi/30 bg-brand-carmesi/5 text-brand-carmesi"
+                      : "text-muted-foreground hover:bg-muted"
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <ReceiptText className="h-4 w-4" />
+                    Recibe estado de cuenta
+                  </span>
+                  <span aria-hidden="true">{c.receives_statement ? "Sí" : "No"}</span>
+                </button>
                 {c.birthday && (() => {
                   const info = birthdayInfo(c.birthday);
                   return (

@@ -80,6 +80,7 @@ export type Database = {
           full_name: string;
           id: string;
           is_primary: boolean | null;
+          receives_statement: boolean;
           notes: string | null;
           phone: string | null;
           role: string | null;
