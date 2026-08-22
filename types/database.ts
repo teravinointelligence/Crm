@@ -223,6 +223,7 @@ export type Database = {
           proposed_at: string | null;
           proposed_by: string | null;
           region_origin: string | null;
+          sample_unit_cost: number | null;
           sku: string | null;
           stock_min_alert: number | null;
           stock_quantity: number | null;

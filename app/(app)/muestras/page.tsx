@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, FlaskConical, Boxes, Gauge, FileText } from "lucide-react";
+import { Plus, FlaskConical, Boxes, Gauge, FileText, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -47,6 +47,9 @@ export default async function MuestrasPage() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/muestras/retorno"><TrendingUp className="mr-1 h-4 w-4" /> Conversión y retorno</Link>
+          </Button>
           {isAdmin && (
             <Button asChild variant="outline">
               <Link href="/muestras/consumo"><Gauge className="mr-1 h-4 w-4" /> Consumo por vendedor</Link>
