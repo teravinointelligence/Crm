@@ -52,6 +52,7 @@ export type Database = {
           activity_date: string;
           activity_type: string | null;
           contact_id: string | null;
+          completed_at: string | null;
           created_at: string | null;
           duration_minutes: number | null;
           id: string;
@@ -68,6 +69,23 @@ export type Database = {
           activity_date: string;
         };
         Update: Partial<Database["public"]["Tables"]["activities"]["Row"]>;
+        Relationships: [];
+      };
+      seller_weekly_activity_goals: {
+        Row: {
+          created_at: string;
+          effective_from: string;
+          effective_to: string | null;
+          sales_rep_id: string;
+          updated_at: string;
+          weekly_goal: number;
+        };
+        Insert: Partial<Database["public"]["Tables"]["seller_weekly_activity_goals"]["Row"]> & {
+          effective_from: string;
+          sales_rep_id: string;
+          weekly_goal: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["seller_weekly_activity_goals"]["Row"]>;
         Relationships: [];
       };
       contacts: {
