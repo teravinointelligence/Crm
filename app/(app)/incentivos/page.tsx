@@ -7,6 +7,8 @@ import { VendorIncentives } from "@/components/incentivos/VendorIncentives";
 import { TeamIncentives } from "@/components/incentivos/TeamIncentives";
 import { BogleVendor } from "@/components/incentivos/BogleVendor";
 import { BogleAdmin } from "@/components/incentivos/BogleAdmin";
+import { FelixIncentiveMeter } from "@/components/incentivos/FelixIncentiveMeter";
+import { loadFelixIncentiveSnapshot } from "@/lib/felix-incentive-server";
 import type {
   IncentiveDetailRow,
   IncentiveLevel,
@@ -29,16 +31,19 @@ export default async function IncentivosPage({
 
   // Pueden convivir varios programas activos con mecánicas distintas:
   // 'puntos' (Gerard Bertrand, niveles) y 'encartes' (Bogle, carrera).
-  const { data: programsData } = await supabase
-    .from("incentive_programs")
-    .select("*")
-    .eq("active", true)
-    .order("start_date", { ascending: false });
+  const [{ data: programsData }, felixIncentive] = await Promise.all([
+    supabase
+      .from("incentive_programs")
+      .select("*")
+      .eq("active", true)
+      .order("start_date", { ascending: false }),
+    loadFelixIncentiveSnapshot(rep),
+  ]);
   const programs = (programsData ?? []) as IncentiveProgram[];
   const puntosProg = programs.find((p) => p.tipo === "puntos") ?? null;
   const encartesProg = programs.find((p) => p.tipo === "encartes") ?? null;
 
-  if (!puntosProg && !encartesProg) {
+  if (!puntosProg && !encartesProg && !felixIncentive) {
     return (
       <div className="space-y-2">
         <h1 className="font-display text-3xl">Incentivos</h1>
@@ -143,7 +148,7 @@ export default async function IncentivosPage({
   // --- Vendedor ---
   const enGB = puntosProg && gbParticipantIds.has(rep.id);
   const enBogle = encartesProg && bogleParticipantIds.has(rep.id);
-  if (!enGB && !enBogle) {
+  if (!enGB && !enBogle && !felixIncentive) {
     return (
       <div className="space-y-2">
         <h1 className="font-display text-3xl">Incentivos</h1>
@@ -167,8 +172,18 @@ export default async function IncentivosPage({
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl">Mis Incentivos</h1>
-        <p className="text-sm text-muted-foreground">{programs.map((p) => p.name).join(" · ")}</p>
+        <p className="text-sm text-muted-foreground">
+          {[
+            felixIncentive ? "Incentivo Vallarta 2026–2027" : null,
+            ...programs.map((p) => p.name),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
       </div>
+      {felixIncentive && (
+        <FelixIncentiveMeter snapshot={felixIncentive} variant="full" />
+      )}
       {enBogle && (
         <BogleVendor
           program={encartesProg}
