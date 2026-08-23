@@ -7,8 +7,8 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Fab } from "@/components/layout/Fab";
 import { PresenceHeartbeat } from "@/components/layout/PresenceHeartbeat";
-import { FelixIncentiveAnnouncement } from "@/components/incentivos/FelixIncentiveAnnouncement";
-import { isFelixIncentiveUser } from "@/lib/felix-incentive";
+import { PersonalIncentiveAnnouncement } from "@/components/incentivos/PersonalIncentiveAnnouncement";
+import { getPersonalIncentiveConfig } from "@/lib/personal-incentives";
 
 export default async function AppLayout({
   children,
@@ -21,6 +21,7 @@ export default async function AppLayout({
   const isAdmin = rep.role === "admin";
   const repartoOnly = isRepartoOnlyRole(rep.role);
   const modules = isAdmin ? [] : effectiveModules(rep.modules);
+  const personalIncentive = getPersonalIncentiveConfig(rep.email);
 
   // Indicador de "muestras por revisar" (solicitudes enviadas) para admins.
   let badges: Record<string, number> = {};
@@ -36,7 +37,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen">
       <PresenceHeartbeat />
-      {isFelixIncentiveUser(rep.email) && <FelixIncentiveAnnouncement />}
+      {personalIncentive && <PersonalIncentiveAnnouncement config={personalIncentive} />}
       <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} isAdmin={isAdmin} modules={modules} badges={badges} />

@@ -19,6 +19,8 @@ import { compareTasks } from "@/lib/rep-tasks";
 import { isFelixIncentiveUser } from "@/lib/felix-incentive";
 import { loadFelixIncentiveSnapshot } from "@/lib/felix-incentive-server";
 import { FelixIncentiveMeter } from "@/components/incentivos/FelixIncentiveMeter";
+import { loadPersonalIncentiveSnapshot } from "@/lib/personal-incentives-server";
+import { PersonalIncentiveMeter } from "@/components/incentivos/PersonalIncentiveMeter";
 import type { RepTask } from "@/types/database";
 
 export const metadata = { title: "Mi día — TERAVINO CRM" };
@@ -86,8 +88,12 @@ export default async function MiDiaPage({
     repId === me.id && isFelixIncentiveUser(me.email)
       ? loadFelixIncentiveSnapshot(me, now)
       : Promise.resolve(null);
+  const personalIncentivePromise =
+    repId === me.id
+      ? loadPersonalIncentiveSnapshot(me, now, supabase)
+      : Promise.resolve(null);
 
-  const [citasRes, tareasRes, pasosRes, notas, felixIncentive] = await Promise.all([
+  const [citasRes, tareasRes, pasosRes, notas, felixIncentive, personalIncentive] = await Promise.all([
     supabase
       .from("activities")
       .select(
@@ -120,6 +126,7 @@ export default async function MiDiaPage({
       .order("next_step_date", { ascending: true }),
     loadNotes(supabase, repId),
     felixIncentivePromise,
+    personalIncentivePromise,
   ]);
 
   const citasAll = (citasRes.data ?? []) as unknown as ActivityRow[];
@@ -219,6 +226,10 @@ export default async function MiDiaPage({
 
       {felixIncentive && (
         <FelixIncentiveMeter snapshot={felixIncentive} variant="compact" />
+      )}
+
+      {personalIncentive && (
+        <PersonalIncentiveMeter snapshot={personalIncentive} variant="compact" />
       )}
 
       {/* El admin puede revisar el día de cada vendedor */}
