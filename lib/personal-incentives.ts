@@ -120,7 +120,7 @@ const CONFIGS: PersonalIncentiveConfig[] = [
       "Como reconocimiento a tu desempeño, Teravino cubrirá tu pasaporte, los derechos de visa y el apoyo para realizar el trámite. La autorización depende de la autoridad consular.",
     recognition: "Apoyo para pasaporte y visa de futuros viajes 2027",
     salesTargets: {
-      "2026-09-01": 400_000,
+      "2026-09-01": 550_000,
       "2026-10-01": 750_000,
       "2026-11-01": 900_000,
     },
@@ -154,7 +154,7 @@ const CONFIGS: PersonalIncentiveConfig[] = [
       "Tu crecimiento está tomando fuerza. Convierte degustaciones en clientes recurrentes, recupera cartera y desbloquea nuevos incentivos.",
     recognition: "Consolidación del crecimiento de Tijuana",
     salesTargets: {
-      "2026-09-01": 225_000,
+      "2026-09-01": 260_000,
       "2026-10-01": 275_000,
       "2026-11-01": 300_000,
     },
