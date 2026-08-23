@@ -22,6 +22,7 @@ export type PersonalIncentiveConfig = {
   announcementBody: string;
   recognition: string;
   salesTargets: Record<string, number>;
+  salesFloors: Record<string, number>;
   actionChallenge: boolean;
   collectionGoal: number;
 };
@@ -37,6 +38,7 @@ export type PersonalAccountMilestone = {
 export type PersonalIncentiveMonth = {
   period: string;
   salesTarget: number | null;
+  salesTargetStatus: import("@/lib/sales-targets").SalesTargetStatus | null;
   netSales: number;
   salesProgress: number;
   salesBonusRate: number;
@@ -61,6 +63,15 @@ export type PersonalSalesHistoryMonth = {
   period: string;
   netSales: number;
   target: number | null;
+  targetId: string | null;
+  targetStatus: import("@/lib/sales-targets").SalesTargetStatus | null;
+  minimumFloor: number | null;
+  recentAverage: number | null;
+  priorYearSales: number | null;
+  ytdFactor: number | null;
+  recentStretch: number | null;
+  seasonalStretch: number | null;
+  selectedBasis: import("@/lib/sales-targets").SalesTargetBasis | null;
   progress: number | null;
   status: "closed" | "current" | "upcoming";
 };
@@ -89,7 +100,16 @@ const CONFIGS: PersonalIncentiveConfig[] = [
     announcementBody:
       "Además de tus ventas y aperturas, podrás desbloquear hasta $3,000 al mes recuperando cartera vencida y liberando clientes suspendidos.",
     recognition: "Crecimiento, aperturas pagadas y recuperación de cartera",
-    salesTargets: {},
+    salesTargets: {
+      "2026-09-01": 400_000,
+      "2026-10-01": 475_000,
+      "2026-11-01": 425_000,
+    },
+    salesFloors: {
+      "2026-09-01": 400_000,
+      "2026-10-01": 400_000,
+      "2026-11-01": 400_000,
+    },
     actionChallenge: false,
     collectionGoal: 15_000,
   },
@@ -103,6 +123,11 @@ const CONFIGS: PersonalIncentiveConfig[] = [
       "Tu constancia y tus resultados hicieron posible este reconocimiento. También estrenas metas personales de ventas, cuentas pagadas y cobranza.",
     recognition: "Viaje a California confirmado",
     salesTargets: {
+      "2026-09-01": 300_000,
+      "2026-10-01": 550_000,
+      "2026-11-01": 525_000,
+    },
+    salesFloors: {
       "2026-09-01": 275_000,
       "2026-10-01": 325_000,
       "2026-11-01": 350_000,
@@ -121,6 +146,11 @@ const CONFIGS: PersonalIncentiveConfig[] = [
     recognition: "Apoyo para pasaporte y visa de futuros viajes 2027",
     salesTargets: {
       "2026-09-01": 550_000,
+      "2026-10-01": 950_000,
+      "2026-11-01": 1_250_000,
+    },
+    salesFloors: {
+      "2026-09-01": 550_000,
       "2026-10-01": 750_000,
       "2026-11-01": 900_000,
     },
@@ -138,6 +168,11 @@ const CONFIGS: PersonalIncentiveConfig[] = [
     recognition: "Lugar confirmado en el viaje a California",
     salesTargets: {
       "2026-09-01": 500_000,
+      "2026-10-01": 725_000,
+      "2026-11-01": 825_000,
+    },
+    salesFloors: {
+      "2026-09-01": 500_000,
       "2026-10-01": 600_000,
       "2026-11-01": 700_000,
     },
@@ -154,6 +189,11 @@ const CONFIGS: PersonalIncentiveConfig[] = [
       "Tu crecimiento está tomando fuerza. Convierte degustaciones en clientes recurrentes, recupera cartera y desbloquea nuevos incentivos.",
     recognition: "Consolidación del crecimiento de Tijuana",
     salesTargets: {
+      "2026-09-01": 275_000,
+      "2026-10-01": 400_000,
+      "2026-11-01": 300_000,
+    },
+    salesFloors: {
       "2026-09-01": 260_000,
       "2026-10-01": 275_000,
       "2026-11-01": 300_000,

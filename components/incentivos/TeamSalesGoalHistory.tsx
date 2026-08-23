@@ -1,4 +1,5 @@
-import { BarChart3, CalendarClock, Target } from "lucide-react";
+import { BarChart3, CalendarClock, LockKeyhole, Pencil, Sparkles, Target } from "lucide-react";
+import { overrideSalesTarget } from "@/app/(app)/incentivos/actions";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -6,6 +7,7 @@ import type {
   PersonalIncentiveSnapshot,
   PersonalSalesHistoryMonth,
 } from "@/lib/personal-incentives";
+import { salesTargetStatusLabel } from "@/lib/sales-targets";
 
 const MONTHS = [
   "Ene",
@@ -58,7 +60,21 @@ function targetComparison(target: number, average: number): string {
     : `${Math.abs(change)}% debajo del promedio reciente`;
 }
 
-function SalesCell({ month }: { month: PersonalSalesHistoryMonth }) {
+function basisLabel(month: PersonalSalesHistoryMonth): string {
+  if (month.selectedBasis === "floor") return "mínimo aprobado";
+  if (month.selectedBasis === "recent_average") return "promedio reciente +15%";
+  if (month.selectedBasis === "seasonality") return "temporada y desempeño +15%";
+  if (month.selectedBasis === "direction_override") return "ajuste de Dirección";
+  return "regla dinámica";
+}
+
+function SalesCell({
+  month,
+  canEdit,
+}: {
+  month: PersonalSalesHistoryMonth;
+  canEdit: boolean;
+}) {
   const futureWithoutSales = month.status === "upcoming" && month.netSales === 0;
   const reached = month.target !== null && month.netSales >= month.target;
   const missed =
@@ -74,23 +90,34 @@ function SalesCell({ month }: { month: PersonalSalesHistoryMonth }) {
           missed && "border-red-200 bg-red-50",
           month.status === "upcoming" && month.target && "border-brand-carmesi/20 bg-brand-marfil/40",
         )}
-        title={futureWithoutSales ? `Meta: ${money(month.target ?? 0)}` : `Ventas: ${money(month.netSales)}`}
+        title={
+          month.target
+            ? `${salesTargetStatusLabel(month.targetStatus)} · ${basisLabel(month)}`
+            : `Ventas: ${money(month.netSales)}`
+        }
       >
         <p className="font-semibold text-brand-tinta">
           {futureWithoutSales ? "—" : compactMoney(month.netSales)}
         </p>
         {month.target !== null ? (
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Meta {compactMoney(month.target)}
-          </p>
+          <>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Meta {compactMoney(month.target)}
+            </p>
+            <p className="mt-0.5 text-[10px] text-muted-foreground">Por {basisLabel(month)}</p>
+          </>
         ) : (
           <p className="mt-1 text-[11px] text-muted-foreground">Venta neta</p>
         )}
         <div className="mt-2">
-          {month.status === "current" ? (
-            <Badge variant="warning">En curso</Badge>
+          {month.targetStatus === "overridden" ? (
+            <Badge variant="accent">Ajustada</Badge>
+          ) : month.targetStatus === "locked" ? (
+            <Badge variant="warning"><LockKeyhole className="mr-1 h-3 w-3" /> Meta bloqueada</Badge>
           ) : month.status === "upcoming" ? (
-            month.target !== null ? <Badge variant="muted">Próxima meta</Badge> : null
+            month.target !== null ? <Badge variant="muted"><Sparkles className="mr-1 h-3 w-3" /> Proyección</Badge> : null
+          ) : month.status === "current" ? (
+            <Badge variant="warning">En curso</Badge>
           ) : month.target !== null ? (
             <Badge variant={reached ? "success" : "danger"}>
               {Math.round(month.progress ?? 0)}% de meta
@@ -99,6 +126,49 @@ function SalesCell({ month }: { month: PersonalSalesHistoryMonth }) {
             <Badge variant="outline">Cerrado</Badge>
           )}
         </div>
+        {month.target !== null && month.recentAverage !== null ? (
+          <details className="mt-2 text-[10px] text-muted-foreground">
+            <summary className="cursor-pointer select-none">Ver cálculo</summary>
+            <div className="mt-1 space-y-0.5 border-l pl-2">
+              <p>Mínimo: {compactMoney(month.minimumFloor ?? 0)}</p>
+              <p>Promedio 3 cierres: {compactMoney(month.recentAverage)}</p>
+              <p>Mismo mes 2025: {compactMoney(month.priorYearSales ?? 0)}</p>
+              <p>Factor desempeño: {(month.ytdFactor ?? 1).toLocaleString("es-MX", { maximumFractionDigits: 2 })}×</p>
+            </div>
+          </details>
+        ) : null}
+        {canEdit && month.targetId && month.status !== "closed" ? (
+          <details className="mt-2 text-[10px]">
+            <summary className="flex cursor-pointer list-none items-center gap-1 text-brand-carmesi">
+              <Pencil className="h-3 w-3" /> Ajustar
+            </summary>
+            <form action={overrideSalesTarget} className="mt-2 space-y-1.5">
+              <input type="hidden" name="targetId" value={month.targetId} />
+              <input
+                name="targetAmount"
+                type="number"
+                min="25000"
+                step="25000"
+                defaultValue={month.target ?? undefined}
+                aria-label="Nueva meta"
+                className="w-full rounded border px-2 py-1 text-xs"
+                required
+              />
+              <input
+                name="reason"
+                type="text"
+                minLength={5}
+                placeholder="Motivo del ajuste"
+                aria-label="Motivo del ajuste"
+                className="w-full rounded border px-2 py-1 text-xs"
+                required
+              />
+              <button className="w-full rounded bg-brand-carmesi px-2 py-1 font-medium text-white">
+                Guardar ajuste
+              </button>
+            </form>
+          </details>
+        ) : null}
       </div>
     </td>
   );
@@ -106,8 +176,10 @@ function SalesCell({ month }: { month: PersonalSalesHistoryMonth }) {
 
 export function TeamSalesGoalHistory({
   snapshots,
+  canEdit = false,
 }: {
   snapshots: PersonalIncentiveSnapshot[];
+  canEdit?: boolean;
 }) {
   if (!snapshots.length) return null;
   const periods = snapshots[0].salesHistory.map((month) => month.period);
@@ -121,7 +193,7 @@ export function TeamSalesGoalHistory({
               <BarChart3 className="h-5 w-5 text-brand-carmesi" /> Ventas mensuales contra metas
             </CardTitle>
             <p className="mt-1 text-sm text-muted-foreground">
-              Historial de ventas netas 2026 · los meses en curso no se consideran cierres definitivos
+              Historial 2026 · meta = el mayor entre mínimo, promedio de 3 cierres +15% y temporada ajustada +15%
             </p>
           </div>
           <Badge variant="accent">
@@ -167,7 +239,7 @@ export function TeamSalesGoalHistory({
                       <p className="mt-1 text-[11px] text-muted-foreground">Meses ya cerrados</p>
                     </td>
                     {snapshot.salesHistory.map((month) => (
-                      <SalesCell key={month.period} month={month} />
+                      <SalesCell key={month.period} month={month} canEdit={canEdit} />
                     ))}
                   </tr>
                 );
@@ -179,6 +251,8 @@ export function TeamSalesGoalHistory({
           <span><strong className="text-foreground">Venta neta:</strong> venta registrada después de descuentos.</span>
           <span><strong className="text-foreground">En curso:</strong> puede aumentar con la siguiente importación.</span>
           <span><strong className="text-foreground">Meta:</strong> objetivo mensual del incentivo, independiente de reactivaciones.</span>
+          <span><strong className="text-foreground">Bloqueada:</strong> no cambia durante el mes.</span>
+          <span><strong className="text-foreground">Proyección:</strong> referencia para un mes futuro.</span>
         </div>
       </CardContent>
     </Card>

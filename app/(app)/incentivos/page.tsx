@@ -152,7 +152,7 @@ export default async function IncentivosPage({
           </p>
         </div>
         <TeamPersonalIncentives snapshots={personalTeam} />
-        <TeamSalesGoalHistory snapshots={personalTeam} />
+        <TeamSalesGoalHistory snapshots={personalTeam} canEdit={rep.role === "admin"} />
         {encartesProg && <BogleAdmin program={encartesProg} placements={placements} race={race} />}
         {puntosProg && (
           <TeamIncentives program={puntosProg} levels={lvls} rows={rows} participantNames={participantNames} />
