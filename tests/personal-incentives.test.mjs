@@ -6,6 +6,7 @@ import {
   calculatePersonalSalesBonus,
   getPersonalIncentiveConfig,
   listPersonalIncentivePeriods,
+  listPersonalSalesHistoryPeriods,
   personalIncentiveStatus,
 } from "../lib/personal-incentives.ts";
 
@@ -80,4 +81,21 @@ test("el piloto corre de septiembre a noviembre de 2026", () => {
     "2026-10-01",
     "2026-11-01",
   ]);
+});
+
+test("dirección compara el historial 2026 con las metas del piloto", () => {
+  assert.deepEqual(listPersonalSalesHistoryPeriods(), [
+    "2026-01-01",
+    "2026-02-01",
+    "2026-03-01",
+    "2026-04-01",
+    "2026-05-01",
+    "2026-06-01",
+    "2026-07-01",
+    "2026-08-01",
+    "2026-09-01",
+    "2026-10-01",
+    "2026-11-01",
+  ]);
+  assert.equal(getPersonalIncentiveConfig("andra@teravino.com")?.salesTargets["2026-09-01"], 500_000);
 });

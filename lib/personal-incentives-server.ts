@@ -2,10 +2,12 @@ import "server-only";
 import type { SalesRep } from "@/types/database";
 import { createClient } from "@/lib/supabase/server";
 import { dateKeyTz } from "@/lib/utils";
+import { FELIX_INCENTIVE_MINIMUM } from "@/lib/felix-incentive";
 import {
   PERSONAL_INCENTIVE_EMAILS,
   PERSONAL_INCENTIVE_END,
   PERSONAL_INCENTIVE_START,
+  PERSONAL_SALES_HISTORY_START,
   addMonth,
   calculatePersonalActionBonus,
   calculatePersonalCollectionBonus,
@@ -13,6 +15,7 @@ import {
   daysBetween,
   getPersonalIncentiveConfig,
   listPersonalIncentivePeriods,
+  listPersonalSalesHistoryPeriods,
   monthStart,
   personalIncentiveStatus,
   type PersonalAccountMilestone,
@@ -303,15 +306,13 @@ export async function loadPersonalIncentiveSnapshot(
       : todayKey;
 
   const [salesResult, accountsResult] = await Promise.all([
-    Object.keys(config.salesTargets).length
-      ? db
-          .from("monthly_sales")
-          .select("period, neto_desc")
-          .eq("sales_rep_id", rep.id)
-          .gte("period", PERSONAL_INCENTIVE_START)
-          .lte("period", PERSONAL_INCENTIVE_END)
-          .limit(5_000)
-      : Promise.resolve({ data: [] as SaleRow[], error: null }),
+    db
+      .from("monthly_sales")
+      .select("period, neto_desc")
+      .eq("sales_rep_id", rep.id)
+      .gte("period", PERSONAL_SALES_HISTORY_START)
+      .lte("period", PERSONAL_INCENTIVE_END)
+      .limit(5_000),
     db
       .from("accounts")
       .select("id, business_name, is_legacy, es_socio")
@@ -411,6 +412,23 @@ export async function loadPersonalIncentiveSnapshot(
     };
   });
 
+  const todayPeriod = monthStart(todayKey);
+  const salesHistory = listPersonalSalesHistoryPeriods().map((period) => {
+    const target =
+      config.key === "felix" && period >= PERSONAL_INCENTIVE_START
+        ? FELIX_INCENTIVE_MINIMUM
+        : config.salesTargets[period] ?? null;
+    const netSales = salesByPeriod[period] ?? 0;
+    return {
+      period,
+      netSales,
+      target,
+      progress: target ? calculatePersonalSalesBonus(netSales, target).progress : null,
+      status:
+        period < todayPeriod ? "closed" as const : period === todayPeriod ? "current" as const : "upcoming" as const,
+    };
+  });
+
   const warnings = [
     salesResult.error ? "ventas" : null,
     accountsResult.error ? "cartera" : null,
@@ -430,6 +448,7 @@ export async function loadPersonalIncentiveSnapshot(
       status === "upcoming" ? daysBetween(todayKey, PERSONAL_INCENTIVE_START) : 0,
     current: months[months.length - 1] ?? emptyMonth(currentPeriod, config.collectionGoal),
     months,
+    salesHistory,
     dataWarning: warnings.length
       ? `No pudimos actualizar ${warnings.join(", ")}. El resto del medidor sigue disponible.`
       : null,

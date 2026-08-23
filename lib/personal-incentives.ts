@@ -1,5 +1,6 @@
 export const PERSONAL_INCENTIVE_START = "2026-09-01";
 export const PERSONAL_INCENTIVE_END = "2026-11-30";
+export const PERSONAL_SALES_HISTORY_START = "2026-01-01";
 export const PERSONAL_ACTION_BONUS = 1_500;
 export const PERSONAL_COLLECTION_RELEASE_BONUS = 1_000;
 
@@ -56,6 +57,14 @@ export type PersonalIncentiveMonth = {
   totalAdditional: number;
 };
 
+export type PersonalSalesHistoryMonth = {
+  period: string;
+  netSales: number;
+  target: number | null;
+  progress: number | null;
+  status: "closed" | "current" | "upcoming";
+};
+
 export type PersonalIncentiveSnapshot = {
   repId: string;
   repName: string;
@@ -66,6 +75,7 @@ export type PersonalIncentiveSnapshot = {
   daysUntilStart: number;
   current: PersonalIncentiveMonth;
   months: PersonalIncentiveMonth[];
+  salesHistory: PersonalSalesHistoryMonth[];
   dataWarning: string | null;
 };
 
@@ -127,7 +137,7 @@ const CONFIGS: PersonalIncentiveConfig[] = [
       "Tu desempeño comercial acumulado te ha hecho merecedora de representar a Teravino. Ahora tienes nuevas metas de recuperación y crecimiento.",
     recognition: "Lugar confirmado en el viaje a California",
     salesTargets: {
-      "2026-09-01": 350_000,
+      "2026-09-01": 500_000,
       "2026-10-01": 600_000,
       "2026-11-01": 700_000,
     },
@@ -235,6 +245,18 @@ export function addMonth(period: string): string {
 export function listPersonalIncentivePeriods(currentPeriod: string): string[] {
   const periods: string[] = [];
   for (let period = PERSONAL_INCENTIVE_START; period <= currentPeriod; period = addMonth(period)) {
+    periods.push(period);
+  }
+  return periods;
+}
+
+export function listPersonalSalesHistoryPeriods(): string[] {
+  const periods: string[] = [];
+  for (
+    let period = PERSONAL_SALES_HISTORY_START;
+    period <= monthStart(PERSONAL_INCENTIVE_END);
+    period = addMonth(period)
+  ) {
     periods.push(period);
   }
   return periods;
