@@ -251,6 +251,13 @@ export type Database = {
           technical_sheet_path: string | null;
           technical_sheet_updated_at: string | null;
           technical_sheet_updated_by: string | null;
+          technical_sheet_drive_file_id: string | null;
+          technical_sheet_drive_file_name: string | null;
+          technical_sheet_drive_url: string | null;
+          technical_sheet_drive_modified_at: string | null;
+          technical_sheet_drive_md5: string | null;
+          technical_sheet_drive_synced_at: string | null;
+          technical_sheet_drive_sync_error: string | null;
           updated_at: string | null;
           varietal: string | null;
           vintage: string | null;

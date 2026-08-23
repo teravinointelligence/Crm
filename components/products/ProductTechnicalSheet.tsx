@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Download, FileText, Loader2, Trash2, Upload } from "lucide-react";
+import { Download, ExternalLink, FileText, LibraryBig, Loader2, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ type ProductTechnicalSheetProps = {
   available: boolean;
   fileName: string | null;
   updatedAt: string | null;
+  driveUrl: string | null;
   isAdmin: boolean;
 };
 
@@ -21,6 +23,7 @@ export function ProductTechnicalSheet({
   available,
   fileName,
   updatedAt,
+  driveUrl,
   isAdmin,
 }: ProductTechnicalSheetProps) {
   const router = useRouter();
@@ -96,8 +99,20 @@ export function ProductTechnicalSheet({
               </a>
             </Button>
           )}
+          {driveUrl && (
+            <Button asChild size="sm" variant="outline">
+              <a href={driveUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-1 h-4 w-4" /> Ver en Drive
+              </a>
+            </Button>
+          )}
           {isAdmin && (
             <>
+              <Button asChild size="sm" variant="outline">
+                <Link href="/fichas-tecnicas">
+                  <LibraryBig className="mr-1 h-4 w-4" /> Biblioteca
+                </Link>
+              </Button>
               <input
                 ref={inputRef}
                 type="file"

@@ -32,6 +32,7 @@ import {
   Wrench,
   CalendarClock,
   Grid3x3,
+  LibraryBig,
 } from "lucide-react";
 import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPlanogramas, canViewPortafolios, canViewReparto, canViewReportes, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
 
@@ -65,6 +66,7 @@ export const navItems: Item[] = [
   { href: "/contactos", label: "Contactos", icon: Users, moduleKey: "contactos" },
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
+  { href: "/fichas-tecnicas", label: "Fichas técnicas", icon: LibraryBig, adminOnly: true },
   // Planogramas de bodega (app Base44 "Teravino Map"), solo consulta.
   { href: "/planogramas", label: "Planogramas", icon: Grid3x3, planogramas: true },
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
