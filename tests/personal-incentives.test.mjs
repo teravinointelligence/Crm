@@ -9,6 +9,10 @@ import {
   listPersonalSalesHistoryPeriods,
   personalIncentiveStatus,
 } from "../lib/personal-incentives.ts";
+import {
+  calculateSeasonalSalesTarget,
+  roundSalesTarget,
+} from "../lib/sales-targets.ts";
 
 test("solo configura a los cinco vendedores aprobados", () => {
   assert.equal(getPersonalIncentiveConfig(" FELIX@TERAVINO.COM ")?.key, "felix");
@@ -97,7 +101,45 @@ test("dirección compara el historial 2026 con las metas del piloto", () => {
     "2026-10-01",
     "2026-11-01",
   ]);
-  assert.equal(getPersonalIncentiveConfig("andra@teravino.com")?.salesTargets["2026-09-01"], 500_000);
+  assert.equal(getPersonalIncentiveConfig("andra@teravino.com")?.salesTargets["2026-10-01"], 725_000);
+  assert.equal(getPersonalIncentiveConfig("citlali@teravino.com")?.salesTargets["2026-11-01"], 525_000);
   assert.equal(getPersonalIncentiveConfig("yamile@teravino.com")?.salesTargets["2026-09-01"], 550_000);
-  assert.equal(getPersonalIncentiveConfig("emmanuel@teravino.com")?.salesTargets["2026-09-01"], 260_000);
+  assert.equal(getPersonalIncentiveConfig("emmanuel@teravino.com")?.salesTargets["2026-09-01"], 275_000);
+});
+
+test("la meta dinámica toma el mayor escenario y redondea hacia arriba a 25 mil", () => {
+  assert.equal(roundSalesTarget(500_001), 525_000);
+  const target = calculateSeasonalSalesTarget({
+    minimumFloor: 325_000,
+    recentClosedSales: [212_600.39, 183_923.48, 284_839.07],
+    priorYearSales: 221_562.92,
+    currentYtdSales: 1_888_226.17,
+    priorYtdSales: 877_779.73,
+  });
+  assert.equal(target.target, 550_000);
+  assert.equal(target.selectedBasis, "seasonality");
+  assert.equal(Math.round(target.recentAverage), 227_121);
+  assert.equal(Math.round(target.ytdFactor * 10_000) / 10_000, 2.1511);
+});
+
+test("el mínimo protege la temporada baja y el promedio reciente conserva el reto de 15%", () => {
+  const lowSeason = calculateSeasonalSalesTarget({
+    minimumFloor: 550_000,
+    recentClosedSales: [439_491.67, 522_864.46, 365_673.10],
+    priorYearSales: 262_860.42,
+    currentYtdSales: 5_056_364.16,
+    priorYtdSales: 4_681_960.08,
+  });
+  assert.equal(lowSeason.target, 550_000);
+  assert.equal(lowSeason.selectedBasis, "floor");
+
+  const recent = calculateSeasonalSalesTarget({
+    minimumFloor: 260_000,
+    recentClosedSales: [186_855.81, 270_979.06, 229_981.98],
+    priorYearSales: 41_710.09,
+    currentYtdSales: 1_020_158.07,
+    priorYtdSales: 603_050.63,
+  });
+  assert.equal(recent.target, 275_000);
+  assert.equal(recent.selectedBasis, "recent_average");
 });

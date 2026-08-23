@@ -22,6 +22,8 @@ import {
   type PersonalIncentiveMonth,
   type PersonalIncentiveSnapshot,
 } from "@/lib/personal-incentives";
+import type { SalesTargetBasis, SalesTargetStatus } from "@/lib/sales-targets";
+import { calculateSeasonalSalesTarget } from "@/lib/sales-targets";
 
 type DbClient = ReturnType<typeof createClient>;
 
@@ -36,6 +38,120 @@ type SaleRow = {
   period: string;
   neto_desc: number | string | null;
 };
+
+type SalesTargetRow = {
+  id: string;
+  period: string;
+  target_amount: number | string;
+  minimum_floor: number | string;
+  recent_average: number | string;
+  prior_year_sales: number | string;
+  ytd_factor: number | string;
+  recent_stretch: number | string;
+  seasonal_stretch: number | string;
+  selected_basis: SalesTargetBasis;
+  status: SalesTargetStatus;
+};
+
+type ResolvedSalesTarget = {
+  id: string | null;
+  target: number;
+  status: SalesTargetStatus;
+  minimumFloor: number;
+  recentAverage: number | null;
+  priorYearSales: number | null;
+  ytdFactor: number | null;
+  recentStretch: number | null;
+  seasonalStretch: number | null;
+  selectedBasis: SalesTargetBasis | null;
+};
+
+function previousMonth(period: string): string {
+  const year = Number(period.slice(0, 4));
+  const month = Number(period.slice(5, 7));
+  return new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10);
+}
+
+function previousYear(period: string): string {
+  return `${Number(period.slice(0, 4)) - 1}${period.slice(4)}`;
+}
+
+function resolveSalesTarget(params: {
+  period: string;
+  todayPeriod: string;
+  floor: number;
+  fallbackTarget: number | null;
+  row: SalesTargetRow | undefined;
+  salesByPeriod: Record<string, number>;
+}): ResolvedSalesTarget | null {
+  const { period, todayPeriod, row, salesByPeriod } = params;
+  if (row?.status === "locked" || row?.status === "overridden") {
+    return {
+      id: row.id,
+      target: Number(row.target_amount),
+      status: row.status,
+      minimumFloor: Number(row.minimum_floor),
+      recentAverage: Number(row.recent_average),
+      priorYearSales: Number(row.prior_year_sales),
+      ytdFactor: Number(row.ytd_factor),
+      recentStretch: Number(row.recent_stretch),
+      seasonalStretch: Number(row.seasonal_stretch),
+      selectedBasis: row.selected_basis,
+    };
+  }
+
+  const targetYear = period.slice(0, 4);
+  const lastAllowedClosed = previousMonth(period < todayPeriod ? period : todayPeriod);
+  const closedPeriods = Object.keys(salesByPeriod)
+    .filter((salePeriod) => salePeriod.startsWith(targetYear) && salePeriod <= lastAllowedClosed)
+    .sort();
+  const calculationAsOf = closedPeriods.at(-1);
+  if (!calculationAsOf) {
+    const fallbackTarget = Number(row?.target_amount ?? params.fallbackTarget ?? 0);
+    return fallbackTarget
+      ? {
+          id: row?.id ?? null,
+          target: fallbackTarget,
+          status: period <= todayPeriod ? "locked" : "projection",
+          minimumFloor: params.floor,
+          recentAverage: null,
+          priorYearSales: null,
+          ytdFactor: null,
+          recentStretch: null,
+          seasonalStretch: null,
+          selectedBasis: null,
+        }
+      : null;
+  }
+
+  const cutoffMonth = calculationAsOf.slice(5, 7);
+  const priorYear = String(Number(targetYear) - 1);
+  const currentYtdSales = Object.entries(salesByPeriod)
+    .filter(([salePeriod]) => salePeriod >= `${targetYear}-01-01` && salePeriod <= `${targetYear}-${cutoffMonth}-01`)
+    .reduce((total, [, amount]) => total + amount, 0);
+  const priorYtdSales = Object.entries(salesByPeriod)
+    .filter(([salePeriod]) => salePeriod >= `${priorYear}-01-01` && salePeriod <= `${priorYear}-${cutoffMonth}-01`)
+    .reduce((total, [, amount]) => total + amount, 0);
+  const calculation = calculateSeasonalSalesTarget({
+    minimumFloor: params.floor,
+    recentClosedSales: closedPeriods.slice(-3).map((salePeriod) => salesByPeriod[salePeriod] ?? 0),
+    priorYearSales: salesByPeriod[previousYear(period)] ?? 0,
+    currentYtdSales,
+    priorYtdSales,
+  });
+  return {
+    id: row?.id ?? null,
+    target: calculation.target,
+    status: period <= todayPeriod ? "locked" : "projection",
+    minimumFloor: calculation.minimumFloor,
+    recentAverage: calculation.recentAverage,
+    priorYearSales: calculation.priorYearSales,
+    ytdFactor: calculation.ytdFactor,
+    recentStretch: calculation.recentStretch,
+    seasonalStretch: calculation.seasonalStretch,
+    selectedBasis: calculation.selectedBasis,
+  };
+}
 
 type InvoiceRow = {
   id: string;
@@ -261,6 +377,7 @@ function emptyMonth(period: string, collectionGoal: number): PersonalIncentiveMo
   return {
     period,
     salesTarget: null,
+    salesTargetStatus: null,
     netSales: 0,
     salesProgress: 0,
     salesBonusRate: 0,
@@ -305,12 +422,12 @@ export async function loadPersonalIncentiveSnapshot(
       ? PERSONAL_INCENTIVE_END
       : todayKey;
 
-  const [salesResult, accountsResult] = await Promise.all([
+  const [salesResult, accountsResult, targetsResult] = await Promise.all([
     db
       .from("monthly_sales")
       .select("period, neto_desc")
       .eq("sales_rep_id", rep.id)
-      .gte("period", PERSONAL_SALES_HISTORY_START)
+      .gte("period", `${Number(PERSONAL_SALES_HISTORY_START.slice(0, 4)) - 1}-01-01`)
       .lte("period", PERSONAL_INCENTIVE_END)
       .limit(5_000),
     db
@@ -318,6 +435,15 @@ export async function loadPersonalIncentiveSnapshot(
       .select("id, business_name, is_legacy, es_socio")
       .eq("assigned_rep_id", rep.id)
       .limit(5_000),
+    db
+      .from("seller_monthly_targets")
+      .select(
+        "id, period, target_amount, minimum_floor, recent_average, prior_year_sales, ytd_factor, recent_stretch, seasonal_stretch, selected_basis, status",
+      )
+      .eq("sales_rep_id", rep.id)
+      .gte("period", PERSONAL_INCENTIVE_START)
+      .lte("period", PERSONAL_INCENTIVE_END)
+      .order("period"),
   ]);
 
   const accounts = ((accountsResult.data ?? []) as AccountRow[]).filter(
@@ -357,6 +483,10 @@ export async function loadPersonalIncentiveSnapshot(
     salesByPeriod[row.period] =
       (salesByPeriod[row.period] ?? 0) + Number(row.neto_desc ?? 0);
   }
+  const targetByPeriod = new Map(
+    ((targetsResult.data ?? []) as SalesTargetRow[]).map((row) => [row.period, row]),
+  );
+  const todayPeriod = monthStart(todayKey);
 
   const invoices = (invoicesResult.data ?? []) as InvoiceRow[];
   const applications = paymentApplications(
@@ -365,7 +495,20 @@ export async function loadPersonalIncentiveSnapshot(
   const balances = (balancesResult.data ?? []) as BalanceRow[];
   const months = periods.map((period) => {
     const month = emptyMonth(period, config.collectionGoal);
-    const salesTarget = config.salesTargets[period] ?? null;
+    const targetRow = targetByPeriod.get(period);
+    const resolvedTarget = resolveSalesTarget({
+      period,
+      todayPeriod,
+      floor: config.salesFloors[period] ?? 0,
+      fallbackTarget: config.salesTargets[period] ?? null,
+      row: targetRow,
+      salesByPeriod,
+    });
+    // Félix conserva su esquema anual Vallarta separado para no duplicar el
+    // bono de ventas. La meta dinámica sí aparece en la vista de Dirección.
+    const salesTarget = config.key === "felix"
+      ? null
+      : resolvedTarget?.target ?? null;
     const netSales = salesByPeriod[period] ?? 0;
     const sales = calculatePersonalSalesBonus(netSales, salesTarget);
     const actions = config.actionChallenge
@@ -392,6 +535,7 @@ export async function loadPersonalIncentiveSnapshot(
     return {
       ...month,
       salesTarget,
+      salesTargetStatus: salesTarget ? resolvedTarget?.status ?? null : null,
       netSales,
       salesProgress: sales.progress,
       salesBonusRate: sales.rate,
@@ -412,17 +556,35 @@ export async function loadPersonalIncentiveSnapshot(
     };
   });
 
-  const todayPeriod = monthStart(todayKey);
   const salesHistory = listPersonalSalesHistoryPeriods().map((period) => {
-    const target =
+    const targetRow = targetByPeriod.get(period);
+    const fallbackTarget =
       config.key === "felix" && period >= PERSONAL_INCENTIVE_START
-        ? FELIX_INCENTIVE_MINIMUM
+        ? config.salesTargets[period] ?? FELIX_INCENTIVE_MINIMUM
         : config.salesTargets[period] ?? null;
+    const resolvedTarget = resolveSalesTarget({
+      period,
+      todayPeriod,
+      floor: config.salesFloors[period] ?? 0,
+      fallbackTarget,
+      row: targetRow,
+      salesByPeriod,
+    });
+    const target = resolvedTarget?.target ?? null;
     const netSales = salesByPeriod[period] ?? 0;
     return {
       period,
       netSales,
       target,
+      targetId: resolvedTarget?.id ?? null,
+      targetStatus: resolvedTarget?.status ?? null,
+      minimumFloor: resolvedTarget?.minimumFloor ?? null,
+      recentAverage: resolvedTarget?.recentAverage ?? null,
+      priorYearSales: resolvedTarget?.priorYearSales ?? null,
+      ytdFactor: resolvedTarget?.ytdFactor ?? null,
+      recentStretch: resolvedTarget?.recentStretch ?? null,
+      seasonalStretch: resolvedTarget?.seasonalStretch ?? null,
+      selectedBasis: resolvedTarget?.selectedBasis ?? null,
       progress: target ? calculatePersonalSalesBonus(netSales, target).progress : null,
       status:
         period < todayPeriod ? "closed" as const : period === todayPeriod ? "current" as const : "upcoming" as const,
@@ -435,6 +597,7 @@ export async function loadPersonalIncentiveSnapshot(
     invoicesResult.error ? "facturas" : null,
     paymentsResult.error ? "pagos" : null,
     balancesResult.error ? "saldos" : null,
+    targetsResult.error ? "metas dinámicas" : null,
   ].filter(Boolean);
 
   return {

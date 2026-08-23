@@ -20,6 +20,7 @@ import type {
   PersonalIncentiveMonth,
   PersonalIncentiveSnapshot,
 } from "@/lib/personal-incentives";
+import { salesTargetStatusLabel } from "@/lib/sales-targets";
 
 function money(value: number): string {
   return new Intl.NumberFormat("es-MX", {
@@ -90,7 +91,7 @@ function SalesSection({ month }: { month: PersonalIncentiveMonth }) {
           <p className="font-display text-3xl text-brand-tinta">{money(month.netSales)}</p>
         </div>
         <div className="text-right text-xs text-muted-foreground">
-          Meta<br />
+          {salesTargetStatusLabel(month.salesTargetStatus)}<br />
           <span className="font-semibold text-foreground">{money(month.salesTarget)}</span>
         </div>
       </div>
@@ -349,7 +350,8 @@ function FullDetail({ snapshot }: { snapshot: PersonalIncentiveSnapshot }) {
               <CircleDollarSign className="mb-2 h-5 w-5 text-brand-carmesi" />
               <p className="font-semibold">Meta de ventas</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                0.5% adicional al 100%, 0.75% al 110% y 1% al 120% de la meta personal.
+                Se calcula por temporada, historial y un reto mínimo de 15%. Al iniciar el mes
+                queda bloqueada. El bono paga 0.5% al 100%, 0.75% al 110% y 1% al 120%.
               </p>
             </div>
           ) : null}
