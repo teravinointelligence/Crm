@@ -7,6 +7,8 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { Header } from "@/components/layout/Header";
 import { Fab } from "@/components/layout/Fab";
 import { PresenceHeartbeat } from "@/components/layout/PresenceHeartbeat";
+import { FelixIncentiveAnnouncement } from "@/components/incentivos/FelixIncentiveAnnouncement";
+import { isFelixIncentiveUser } from "@/lib/felix-incentive";
 
 export default async function AppLayout({
   children,
@@ -34,6 +36,7 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-screen">
       <PresenceHeartbeat />
+      {isFelixIncentiveUser(rep.email) && <FelixIncentiveAnnouncement />}
       <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} isAdmin={isAdmin} modules={modules} badges={badges} />

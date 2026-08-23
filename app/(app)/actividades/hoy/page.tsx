@@ -16,6 +16,9 @@ import { NoteCard } from "@/components/activities/NoteCard";
 import { loadNotes } from "@/lib/notes";
 import { dateKeyTz } from "@/lib/utils";
 import { compareTasks } from "@/lib/rep-tasks";
+import { isFelixIncentiveUser } from "@/lib/felix-incentive";
+import { loadFelixIncentiveSnapshot } from "@/lib/felix-incentive-server";
+import { FelixIncentiveMeter } from "@/components/incentivos/FelixIncentiveMeter";
 import type { RepTask } from "@/types/database";
 
 export const metadata = { title: "Mi día — TERAVINO CRM" };
@@ -78,7 +81,13 @@ export default async function MiDiaPage({
   const doneFrom = new Date(`${today}T00:00:00Z`);
   doneFrom.setUTCDate(doneFrom.getUTCDate() - 1);
 
-  const [citasRes, tareasRes, pasosRes, notas] = await Promise.all([
+  // El medidor es personal: ni siquiera se carga cuando un admin revisa la agenda de Félix.
+  const felixIncentivePromise =
+    repId === me.id && isFelixIncentiveUser(me.email)
+      ? loadFelixIncentiveSnapshot(me, now)
+      : Promise.resolve(null);
+
+  const [citasRes, tareasRes, pasosRes, notas, felixIncentive] = await Promise.all([
     supabase
       .from("activities")
       .select(
@@ -110,6 +119,7 @@ export default async function MiDiaPage({
       .lte("next_step_date", today)
       .order("next_step_date", { ascending: true }),
     loadNotes(supabase, repId),
+    felixIncentivePromise,
   ]);
 
   const citasAll = (citasRes.data ?? []) as unknown as ActivityRow[];
@@ -206,6 +216,10 @@ export default async function MiDiaPage({
       </div>
 
       <ActivityViewTabs />
+
+      {felixIncentive && (
+        <FelixIncentiveMeter snapshot={felixIncentive} variant="compact" />
+      )}
 
       {/* El admin puede revisar el día de cada vendedor */}
       {isAdmin && reps.length > 0 && (
