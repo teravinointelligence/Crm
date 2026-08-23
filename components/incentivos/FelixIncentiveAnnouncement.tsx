@@ -13,7 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const STORAGE_KEY = "teravino:felix-incentive:2026-2027:announcement:v1";
+// v2 rearma el aviso después de la prueba administrativa del lanzamiento.
+const STORAGE_KEY = "teravino:felix-incentive:2026-2027:announcement:v2";
 
 export function FelixIncentiveAnnouncement() {
   const [open, setOpen] = useState(false);
