@@ -98,4 +98,6 @@ test("dirección compara el historial 2026 con las metas del piloto", () => {
     "2026-11-01",
   ]);
   assert.equal(getPersonalIncentiveConfig("andra@teravino.com")?.salesTargets["2026-09-01"], 500_000);
+  assert.equal(getPersonalIncentiveConfig("yamile@teravino.com")?.salesTargets["2026-09-01"], 550_000);
+  assert.equal(getPersonalIncentiveConfig("emmanuel@teravino.com")?.salesTargets["2026-09-01"], 260_000);
 });
