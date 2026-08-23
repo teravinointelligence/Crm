@@ -11,6 +11,7 @@ import { FelixIncentiveMeter } from "@/components/incentivos/FelixIncentiveMeter
 import { loadFelixIncentiveSnapshot } from "@/lib/felix-incentive-server";
 import { PersonalIncentiveMeter } from "@/components/incentivos/PersonalIncentiveMeter";
 import { TeamPersonalIncentives } from "@/components/incentivos/TeamPersonalIncentives";
+import { TeamSalesGoalHistory } from "@/components/incentivos/TeamSalesGoalHistory";
 import {
   loadPersonalIncentiveSnapshot,
   loadTeamPersonalIncentives,
@@ -151,6 +152,7 @@ export default async function IncentivosPage({
           </p>
         </div>
         <TeamPersonalIncentives snapshots={personalTeam} />
+        <TeamSalesGoalHistory snapshots={personalTeam} />
         {encartesProg && <BogleAdmin program={encartesProg} placements={placements} race={race} />}
         {puntosProg && (
           <TeamIncentives program={puntosProg} levels={lvls} rows={rows} participantNames={participantNames} />
