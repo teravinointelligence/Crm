@@ -94,29 +94,46 @@ export function ActivityForm({
     successMsg?: string,
   ) => {
     const effectiveStatus = overrideStatus ?? status;
+    const outcome = String(fd.get("outcome") ?? "").trim();
+    const nextStep = String(fd.get("next_step") ?? "").trim();
     // El select de contacto solo se renderiza si la cuenta tiene contactos; si no
     // está en el form, conservamos el contacto previo en vez de borrarlo.
     const rawContact = fd.get("contact_id");
     const contactId =
       rawContact !== null ? (String(rawContact) || null) : (activity?.contact_id ?? null);
+    const activityDate = localInputToISO(String(fd.get("activity_date")));
     const payload = {
       account_id: accountId,
       contact_id: contactId,
       status: effectiveStatus,
       activity_type: (fd.get("activity_type") as string) || "visita",
-      activity_date: localInputToISO(String(fd.get("activity_date"))),
+      activity_date: activityDate,
       duration_minutes: fd.get("duration_minutes")
         ? Number(fd.get("duration_minutes"))
         : null,
-      outcome: (fd.get("outcome") as string) || null,
-      next_step: (fd.get("next_step") as string) || null,
+      outcome: outcome || null,
+      next_step: nextStep || null,
       next_step_date: (fd.get("next_step_date") as string) || null,
       next_step_done: stepDone,
       notes: (fd.get("notes") as string) || null,
+      completed_at:
+        effectiveStatus === "realizada"
+          ? isEdit && activity?.status === "realizada"
+            ? (activity.completed_at ?? activity.activity_date)
+            : isEdit
+              ? new Date().toISOString()
+              : activityDate
+          : null,
       ...(isEdit ? {} : { sales_rep_id: repId }),
     };
     if (!payload.account_id) {
       toast.error("Selecciona la cuenta");
+      return;
+    }
+    if (effectiveStatus === "realizada" && !outcome && !nextStep) {
+      toast.error("Documenta el resultado", {
+        description: "Escribe qué pasó o cuál es el siguiente paso para que la actividad cuente.",
+      });
       return;
     }
     startTransition(async () => {
@@ -254,7 +271,7 @@ export function ActivityForm({
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="outcome">
-            {agendada ? "¿Qué planeas? (opcional)" : "¿Qué pasó?"}
+            {agendada ? "¿Qué planeas? (opcional)" : "¿Qué pasó? (o registra un siguiente paso)"}
           </Label>
           <Textarea
             id="outcome"
