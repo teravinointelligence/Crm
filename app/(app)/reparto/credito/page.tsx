@@ -43,7 +43,7 @@ export default async function CreditoClientesPage() {
     db
       .from("v_account_balance")
       .select(
-        "account_id, business_name, region, assigned_rep_id, total_facturado, saldo_vencido, dias_vencido, es_socio",
+        "account_id, business_name, region, assigned_rep_id, total_facturado, total_pagado, saldo_vencido, dias_vencido, es_socio",
       ),
     db
       .from("accounts")
@@ -66,6 +66,7 @@ export default async function CreditoClientesPage() {
     .map((b) => {
       const meta = acctMeta.get(b.account_id);
       const riesgo = clasificarRiesgo({
+        totalPagado: b.total_pagado,
         diasVencido: b.dias_vencido,
         saldoVencido: b.saldo_vencido,
         isLegacy: meta?.is_legacy,
@@ -90,8 +91,8 @@ export default async function CreditoClientesPage() {
       <div>
         <h1 className="font-display text-3xl">Crédito de clientes</h1>
         <p className="text-sm text-muted-foreground">
-          Estatus de crédito por cliente para decidir entregas. No muestra montos:
-          solo la clasificación de riesgo y los días vencidos.
+          El crédito se libera automáticamente cuando la cuenta registra cualquier pago.
+          Las cuentas sin pagos permanecen sin crédito.
         </p>
       </div>
 

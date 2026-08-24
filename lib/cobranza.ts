@@ -19,9 +19,19 @@ export type SemaforoInfo = {
 export function semaforoCobranza(
   diasVencido: number | null | undefined,
   saldoPendiente: number | null | undefined,
+  totalPagado?: number | null,
 ): SemaforoInfo {
   const dv = Number(diasVencido ?? 0);
   const pend = Number(saldoPendiente ?? 0);
+
+  if (totalPagado != null) {
+    if (Number(totalPagado) > 0) {
+      return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
+    }
+    if (pend > 0) {
+      return { estado: "suspendido", label: "Sin crédito · ningún pago", variant: "danger", bloquea: true };
+    }
+  }
 
   if (dv >= 45) return { estado: "suspendido", label: "Suspendido", variant: "danger", bloquea: true };
   if (dv >= 7) return { estado: "vencido", label: `Vencido (${dv} días)`, variant: "danger", bloquea: true };
@@ -31,18 +41,11 @@ export function semaforoCobranza(
 }
 
 // =====================================================================
-// Clasificación de riesgo de cartera (Flujo 3 — estado de cuenta).
-//
-//   Cartera Legacy  → cuenta legacy/estratégica; se excluye de métricas
-//                     operativas y NO entra a la lógica de suspensión.
-//   Crédito Liberado→ al corriente o sin saldo vencido material.
-//   Por Revisar     → saldo vencido dentro de la ventana de revisión
-//                     [ventanaRevision, ventanaSuspension]. NO se suspende
-//                     (regla 13).
-//   Suspender Crédito → saldo vencido más allá de la ventana de revisión.
-//
-// El umbral de "Por Revisar" es configurable por cliente (default 45 días)
-// para resolver la pregunta abierta 45 (regla) vs 32 (bucket) sin cablearla.
+// Política vigente de crédito:
+//   cualquier pago acumulado > 0 → crédito liberado
+//   ningún pago acumulado         → crédito no liberado
+// La evaluación es dinámica: el primer abono cambia la clasificación sin que
+// alguien tenga que editar manualmente la cuenta.
 // =====================================================================
 
 export type ClaseRiesgo =
@@ -62,41 +65,24 @@ export const VENTANA_REVISION_DEFAULT = 45;
 export const VENTANA_SUSPENSION_DEFAULT = 62;
 
 export function clasificarRiesgo(params: {
+  totalPagado?: number | null;
   diasVencido: number | null | undefined;
   saldoVencido: number | null | undefined;
   isLegacy?: boolean | null;
   ventanaRevision?: number | null;
   ventanaSuspension?: number | null;
 }): RiesgoInfo {
-  const dv = Number(params.diasVencido ?? 0);
-  const vencido = Number(params.saldoVencido ?? 0);
-  const inicio = Number(params.ventanaRevision ?? VENTANA_REVISION_DEFAULT);
-  const fin = Number(params.ventanaSuspension ?? VENTANA_SUSPENSION_DEFAULT);
-
-  if (params.isLegacy) {
-    return {
-      clase: "Cartera Legacy",
-      variant: "muted",
-      detalle: "Cuenta legacy/estratégica · excluida de métricas operativas",
-    };
-  }
-  if (vencido <= 0 || dv < inicio) {
+  const pagado = Number(params.totalPagado ?? 0);
+  if (pagado > 0) {
     return {
       clase: "Crédito Liberado",
       variant: "success",
-      detalle: vencido > 0 ? `Vencido ${dv} días (dentro de tolerancia)` : "Sin saldo vencido material",
-    };
-  }
-  if (dv <= fin) {
-    return {
-      clase: "Por Revisar",
-      variant: "warning",
-      detalle: `Vencido ${dv} días · en ventana de revisión (${inicio}–${fin})`,
+      detalle: "Crédito liberado · la cuenta ya registró al menos un pago",
     };
   }
   return {
     clase: "Suspender Crédito",
     variant: "danger",
-    detalle: `Vencido ${dv} días · más allá de la ventana de revisión (${fin})`,
+    detalle: "Crédito no liberado · la cuenta no ha registrado ningún pago",
   };
 }

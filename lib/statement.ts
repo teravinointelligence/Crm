@@ -71,6 +71,7 @@ export async function buildStatementData(
   );
 
   const riesgo = clasificarRiesgo({
+    totalPagado: balance?.total_pagado,
     diasVencido: maxDiasVencido,
     saldoVencido,
     isLegacy: account.is_legacy as boolean | null,

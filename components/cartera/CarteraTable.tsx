@@ -213,6 +213,7 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                       <SemaforoBadge
                         saldoPendiente={b.saldoPendiente ?? 0}
                         saldoVencido={b.saldoVencido ?? 0}
+                        totalPagado={b.totalPagado}
                         diasVencido={b.diasVencido}
                       />
                     </div>

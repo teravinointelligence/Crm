@@ -47,7 +47,7 @@ export async function buildRecordatorio(
       .order("due_date", { ascending: true }),
     supabase
       .from("v_account_balance")
-      .select("saldo_pendiente, saldo_vencido, dias_vencido")
+      .select("saldo_pendiente, saldo_vencido, dias_vencido, total_pagado")
       .eq("account_id", accountId)
       .maybeSingle(),
   ]);
@@ -70,7 +70,11 @@ export async function buildRecordatorio(
     return { ok: false, status: 400, error: "Este cliente no tiene facturas con saldo pendiente." };
   }
 
-  const semaforo = semaforoCobranza(balance?.dias_vencido, balance?.saldo_pendiente);
+  const semaforo = semaforoCobranza(
+    balance?.dias_vencido,
+    balance?.saldo_pendiente,
+    balance?.total_pagado,
+  );
   const today = new Date();
   const rows = open
     .map((i) => {

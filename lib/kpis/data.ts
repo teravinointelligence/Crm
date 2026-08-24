@@ -561,7 +561,7 @@ export async function loadTablero(
     const myBalances = balances.filter((b) => b.assigned_rep_id === r.id);
     const vencidasList = myBalances.filter((b) => Number(b.saldo_vencido ?? 0) > 0);
     const suspendidas = myBalances.filter(
-      (b) => semaforoCobranza(b.dias_vencido, b.saldo_pendiente).estado === "suspendido",
+      (b) => semaforoCobranza(b.dias_vencido, b.saldo_pendiente, b.total_pagado).estado === "suspendido",
     ).length;
     const montoVencido = vencidasList.reduce((s, b) => s + Number(b.saldo_vencido ?? 0), 0);
 

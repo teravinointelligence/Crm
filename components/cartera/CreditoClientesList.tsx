@@ -6,7 +6,7 @@
 // resultado del filtro. No muestra montos $ (solo clasificación y días vencidos).
 
 import { useMemo, useState } from "react";
-import { Search, ShieldCheck, AlertTriangle, CheckCircle2, Archive } from "lucide-react";
+import { Search, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -44,9 +44,7 @@ export function CreditoClientesList({ rows }: { rows: CreditoRow[] }) {
       .sort((a, b) => (b.diasVencido ?? 0) - (a.diasVencido ?? 0));
 
   const suspender = byClass("Suspender Crédito");
-  const porRevisar = byClass("Por Revisar");
   const liberado = byClass("Crédito Liberado");
-  const legacy = byClass("Cartera Legacy");
 
   return (
     <div className="space-y-6">
@@ -62,11 +60,9 @@ export function CreditoClientesList({ rows }: { rows: CreditoRow[] }) {
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Suspender crédito" value={suspender.length} tone="danger" />
-        <Kpi label="Por revisar" value={porRevisar.length} tone="warning" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Kpi label="Sin crédito · ningún pago" value={suspender.length} tone="danger" />
         <Kpi label="Crédito liberado" value={liberado.length} tone="ok" />
-        <Kpi label="Cartera legacy" value={legacy.length} tone="muted" />
       </div>
 
       {rows.length === 0 ? (
@@ -82,35 +78,19 @@ export function CreditoClientesList({ rows }: { rows: CreditoRow[] }) {
       ) : (
         <div className="space-y-6">
           <Section
-            title="Suspender crédito — NO entregar"
-            description="Saldo vencido más allá de la ventana de revisión. Confirmar con dirección antes de entregar."
+            title="Sin crédito — ningún pago registrado"
+            description="No entregar a crédito hasta que la cuenta registre su primer pago."
             icon={<ShieldCheck className="h-5 w-5 text-red-700" />}
             rows={suspender}
             variant="danger"
           />
           <Section
-            title="Por revisar"
-            description="Saldo vencido dentro de la ventana de revisión. Entregar con precaución."
-            icon={<AlertTriangle className="h-5 w-5 text-amber-700" />}
-            rows={porRevisar}
-            variant="warning"
-          />
-          <Section
             title="Crédito liberado — OK entregar"
-            description="Al corriente o sin saldo vencido material."
+            description="La cuenta ya registró al menos un pago, sin importar el monto."
             icon={<CheckCircle2 className="h-5 w-5 text-emerald-700" />}
             rows={liberado}
             variant="success"
           />
-          {legacy.length > 0 && (
-            <Section
-              title="Cartera legacy"
-              description="Cuentas legacy/estratégicas, excluidas de la lógica de suspensión."
-              icon={<Archive className="h-5 w-5 text-muted-foreground" />}
-              rows={legacy}
-              variant="muted"
-            />
-          )}
         </div>
       )}
     </div>

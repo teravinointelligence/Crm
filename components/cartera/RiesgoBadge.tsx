@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { clasificarRiesgo } from "@/lib/cobranza";
 
 type Props = {
+  totalPagado?: number | null;
   diasVencido: number | null | undefined;
   saldoVencido: number | null | undefined;
   isLegacy?: boolean | null;

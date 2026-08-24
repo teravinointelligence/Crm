@@ -162,6 +162,7 @@ export default async function EstadoCuentaPage({
             <SemaforoBadge
               saldoPendiente={saldoPendiente}
               saldoVencido={saldoVencido}
+              totalPagado={balance?.total_pagado}
               diasVencido={maxDiasVencido}
             />
           </div>
@@ -255,6 +256,7 @@ export default async function EstadoCuentaPage({
             </div>
             <RiesgoBadge
               withDetail
+              totalPagado={balance?.total_pagado}
               diasVencido={maxDiasVencido}
               saldoVencido={saldoVencido}
               isLegacy={account.is_legacy}
