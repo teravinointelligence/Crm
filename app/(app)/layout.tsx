@@ -9,6 +9,9 @@ import { Fab } from "@/components/layout/Fab";
 import { PresenceHeartbeat } from "@/components/layout/PresenceHeartbeat";
 import { PersonalIncentiveAnnouncement } from "@/components/incentivos/PersonalIncentiveAnnouncement";
 import { getPersonalIncentiveConfig } from "@/lib/personal-incentives";
+import { TomasPendientesPopup } from "@/components/consignaciones/TomasPendientesPopup";
+import { loadTomasGroups, type VendedorTomasGroup } from "@/lib/tomas-inventario-email";
+import { selectTomasGroupsForRep } from "@/lib/tomas-inventario-popup";
 
 export default async function AppLayout({
   children,
@@ -22,6 +25,18 @@ export default async function AppLayout({
   const repartoOnly = isRepartoOnlyRole(rep.role);
   const modules = isAdmin ? [] : effectiveModules(rep.modules);
   const personalIncentive = getPersonalIncentiveConfig(rep.email);
+
+  // Base44 es la fuente de verdad de consignaciones y tomas. Si la integración
+  // está temporalmente indisponible, el CRM sigue cargando sin bloquear al usuario.
+  let tomaGroups: VendedorTomasGroup[] = [];
+  if (!repartoOnly) {
+    try {
+      const allGroups = await loadTomasGroups();
+      tomaGroups = selectTomasGroupsForRep(allGroups, rep.email, isAdmin);
+    } catch (error) {
+      console.error("No se pudieron cargar las tomas pendientes desde Base44", error);
+    }
+  }
 
   // Indicador de "muestras por revisar" (solicitudes enviadas) para admins.
   let badges: Record<string, number> = {};
@@ -38,6 +53,12 @@ export default async function AppLayout({
     <div className="flex min-h-screen">
       <PresenceHeartbeat />
       {personalIncentive && <PersonalIncentiveAnnouncement config={personalIncentive} />}
+      <TomasPendientesPopup
+        groups={tomaGroups}
+        isAdmin={isAdmin}
+        repName={rep.full_name ?? rep.email}
+        repKey={rep.id}
+      />
       <Sidebar isAdmin={isAdmin} modules={modules} badges={badges} role={rep.role} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header rep={rep} isAdmin={isAdmin} modules={modules} badges={badges} />
