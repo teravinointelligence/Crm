@@ -86,8 +86,8 @@ export function CreditosLiberadosPopup({
                 </DialogTitle>
                 <DialogDescription className="mt-1 leading-relaxed">
                   {facturista
-                    ? `${items.length} cuentas ya registraron un pago y pueden facturarse a crédito.`
-                    : `${items.length} de tus cuentas ya registraron un pago y tienen el crédito liberado.`}
+                    ? `${items.length} cuentas pagaron una factura vencida y pueden facturarse a crédito.`
+                    : `${items.length} de tus cuentas pagaron una factura vencida y tienen el crédito liberado.`}
                 </DialogDescription>
               </div>
             </div>
@@ -96,8 +96,8 @@ export function CreditosLiberadosPopup({
 
         <div className="space-y-3 px-6 py-5">
           <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            Nueva regla: cualquier pago mayor a $0 libera el crédito. Sin pagos registrados,
-            la cuenta permanece sin crédito.
+            Nueva regla: el crédito se libera al pagar una factura vencida durante los
+            últimos 30 días. Otros abonos no liberan el crédito.
           </p>
           <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
             {items.map((item) => (

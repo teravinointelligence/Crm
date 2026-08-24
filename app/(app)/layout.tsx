@@ -35,16 +35,12 @@ export default async function AppLayout({
   let creditosLiberados: CreditoLiberadoPopupItem[] = [];
   if (isSellerRole(rep.role) || isIsai) {
     const db = isIsai ? supabaseAdmin() : createClient();
-    const [{ data: balances }, { data: reps }, { data: creditAccounts }] = await Promise.all([
-      db
-        .from("v_account_balance")
-        .select("account_id, business_name, assigned_rep_id, total_pagado")
-        .gt("total_pagado", 0)
-        .order("business_name"),
+    const [{ data: releases }, { data: reps }, { data: creditAccounts }] = await Promise.all([
+      db.from("v_account_credit_release").select("account_id"),
       isIsai
         ? db.from("sales_reps").select("id, full_name")
         : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
-      db.from("accounts").select("id, client_number"),
+      db.from("accounts").select("id, business_name, assigned_rep_id, client_number"),
     ]);
     const repNames = new Map(
       ((reps ?? []) as { id: string; full_name: string | null }[]).map((seller) => [
@@ -52,17 +48,19 @@ export default async function AppLayout({
         seller.full_name,
       ]),
     );
-    const clientNumbers = new Map(
-      (creditAccounts ?? []).map((account) => [account.id, account.client_number]),
-    );
-    creditosLiberados = (balances ?? [])
-      .filter((balance) => isIsai || balance.assigned_rep_id === rep.id)
-      .map((balance) => ({
-        accountId: balance.account_id,
-        nombre: balance.business_name ?? "Cuenta sin nombre",
-        clientNumber: clientNumbers.get(balance.account_id) ?? null,
-        vendedor: balance.assigned_rep_id
-          ? repNames.get(balance.assigned_rep_id) ?? null
+    const releaseIds = new Set((releases ?? []).map((release) => release.account_id));
+    creditosLiberados = (creditAccounts ?? [])
+      .filter(
+        (account) =>
+          releaseIds.has(account.id) && (isIsai || account.assigned_rep_id === rep.id),
+      )
+      .sort((a, b) => (a.business_name ?? "").localeCompare(b.business_name ?? "", "es"))
+      .map((account) => ({
+        accountId: account.id,
+        nombre: account.business_name ?? "Cuenta sin nombre",
+        clientNumber: account.client_number ?? null,
+        vendedor: account.assigned_rep_id
+          ? repNames.get(account.assigned_rep_id) ?? null
           : null,
       }));
   }

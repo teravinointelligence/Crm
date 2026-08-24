@@ -56,6 +56,7 @@ export type CarteraRow = {
   facturasAbiertas: number | null;
   ultimoPagoMonto: number | null;
   ultimoPagoFecha: string | null;
+  ultimoPagoVencidoFecha: string | null;
 };
 
 export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
@@ -214,7 +215,7 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                         saldoPendiente={b.saldoPendiente ?? 0}
                         saldoVencido={b.saldoVencido ?? 0}
                         totalPagado={b.totalPagado}
-                        ultimoPagoFecha={b.ultimoPagoFecha}
+                        ultimoPagoVencidoFecha={b.ultimoPagoVencidoFecha}
                         diasVencido={b.diasVencido}
                       />
                     </div>

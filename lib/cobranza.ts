@@ -20,14 +20,21 @@ export function semaforoCobranza(
   diasVencido: number | null | undefined,
   saldoPendiente: number | null | undefined,
   totalPagado?: number | null,
-  ultimoPagoFecha?: string | null,
+  ultimoPagoVencidoFecha?: string | null,
   now = new Date(),
 ): SemaforoInfo {
   const dv = Number(diasVencido ?? 0);
   const pend = Number(saldoPendiente ?? 0);
 
-  if (totalPagado != null || ultimoPagoFecha) {
-    if (Number(totalPagado ?? 0) > 0 || pagoEnUltimos30Dias(ultimoPagoFecha, now)) {
+  if (ultimoPagoVencidoFecha !== undefined) {
+    if (pagoEnUltimos30Dias(ultimoPagoVencidoFecha, now)) {
+      return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
+    }
+    if (pend > 0) {
+      return { estado: "suspendido", label: "Crédito suspendido", variant: "danger", bloquea: true };
+    }
+  } else if (totalPagado != null) {
+    if (Number(totalPagado) > 0) {
       return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
     }
     if (pend > 0) {
@@ -80,7 +87,7 @@ export const VENTANA_SUSPENSION_DEFAULT = 62;
 
 export function clasificarRiesgo(params: {
   totalPagado?: number | null;
-  ultimoPagoFecha?: string | null;
+  ultimoPagoVencidoFecha?: string | null;
   now?: Date;
   diasVencido: number | null | undefined;
   saldoVencido: number | null | undefined;
@@ -89,19 +96,22 @@ export function clasificarRiesgo(params: {
   ventanaSuspension?: number | null;
 }): RiesgoInfo {
   const pagado = Number(params.totalPagado ?? 0);
-  const pagoReciente = pagoEnUltimos30Dias(params.ultimoPagoFecha, params.now);
-  if (pagado > 0 || pagoReciente) {
+  const usaReglaFacturaVencida = params.ultimoPagoVencidoFecha !== undefined;
+  const pagoReciente = pagoEnUltimos30Dias(params.ultimoPagoVencidoFecha, params.now);
+  if (pagoReciente || (!usaReglaFacturaVencida && pagado > 0)) {
     return {
       clase: "Crédito Liberado",
       variant: "success",
       detalle: pagoReciente
-        ? "Crédito liberado · registró un pago en los últimos 30 días"
+        ? "Crédito liberado · pagó una factura vencida en los últimos 30 días"
         : "Crédito liberado · la cuenta ya registró al menos un pago",
     };
   }
   return {
     clase: "Suspender Crédito",
     variant: "danger",
-    detalle: "Crédito no liberado · la cuenta no ha registrado ningún pago",
+    detalle: usaReglaFacturaVencida
+      ? "Crédito suspendido · no ha pagado una factura vencida en los últimos 30 días"
+      : "Crédito no liberado · la cuenta no ha registrado ningún pago",
   };
 }

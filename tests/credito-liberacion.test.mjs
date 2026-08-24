@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { clasificarRiesgo, semaforoCobranza } from "../lib/cobranza.ts";
 
-test("cualquier pago positivo libera el crédito", () => {
+test("la compatibilidad histórica conserva pagos positivos cuando no se consulta la regla nueva", () => {
   for (const totalPagado of [0.01, 1, 25000]) {
     const result = clasificarRiesgo({
       totalPagado,
@@ -30,11 +30,11 @@ test("sin pagos el crédito no se libera", () => {
   }
 });
 
-test("un pago en los últimos 30 días libera aunque el consolidado siga en cero", () => {
+test("el pago de una factura vencida en los últimos 30 días libera el crédito", () => {
   const now = new Date("2026-08-24T12:00:00Z");
   const result = clasificarRiesgo({
     totalPagado: 0,
-    ultimoPagoFecha: "2026-08-01",
+    ultimoPagoVencidoFecha: "2026-08-01",
     now,
     diasVencido: 70,
     saldoVencido: 50000,
@@ -43,7 +43,19 @@ test("un pago en los últimos 30 días libera aunque el consolidado siga en cero
   assert.equal(semaforoCobranza(70, 50000, 0, "2026-08-01", now).label, "Crédito liberado");
 });
 
-test("un pago de más de 30 días no libera por la regla de pago reciente", () => {
+test("un pago de factura vencida de más de 30 días no libera el crédito", () => {
   const now = new Date("2026-08-24T12:00:00Z");
   assert.equal(semaforoCobranza(70, 50000, 0, "2026-07-24", now).bloquea, true);
+});
+
+test("un pago reciente que no corresponde a una factura vencida no libera", () => {
+  const now = new Date("2026-08-24T12:00:00Z");
+  const result = clasificarRiesgo({
+    totalPagado: 5000,
+    ultimoPagoVencidoFecha: null,
+    now,
+    diasVencido: 70,
+    saldoVencido: 50000,
+  });
+  assert.equal(result.clase, "Suspender Crédito");
 });

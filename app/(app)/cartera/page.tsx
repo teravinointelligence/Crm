@@ -46,7 +46,7 @@ export default async function CarteraPage() {
   const isAdmin = rep?.role === "admin";
   const finance = canSeeFinance(rep?.role);
 
-  const [{ data: balances }, { data: reps }, { data: accts }, ultimoPagoPorCuenta] =
+  const [{ data: balances }, { data: reps }, { data: accts }, { data: creditReleases }, ultimoPagoPorCuenta] =
     await Promise.all([
       supabase
         .from("v_account_balance")
@@ -55,6 +55,7 @@ export default async function CarteraPage() {
         .order("saldo_pendiente", { ascending: false }),
       supabase.from("sales_reps").select("id, full_name"),
       supabase.from("accounts").select("id, client_number"),
+      supabase.from("v_account_credit_release").select("account_id, last_qualifying_payment_date"),
       loadUltimoPagoPorCuenta(supabase),
     ]);
 
@@ -64,6 +65,9 @@ export default async function CarteraPage() {
       a.id,
       a.client_number,
     ]),
+  );
+  const creditReleaseDate = new Map(
+    (creditReleases ?? []).map((row) => [row.account_id, row.last_qualifying_payment_date]),
   );
   const rows = ((balances ?? []) as AccountBalance[]).filter(
     (b) => (b.total_facturado ?? 0) > 0,
@@ -96,6 +100,7 @@ export default async function CarteraPage() {
     facturasAbiertas: b.facturas_abiertas,
     ultimoPagoMonto: ultimoPagoPorCuenta.get(b.account_id)?.amount ?? null,
     ultimoPagoFecha: ultimoPagoPorCuenta.get(b.account_id)?.payment_date ?? null,
+    ultimoPagoVencidoFecha: creditReleaseDate.get(b.account_id) ?? null,
   }));
 
   return (

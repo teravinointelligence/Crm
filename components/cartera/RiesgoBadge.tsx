@@ -3,7 +3,7 @@ import { clasificarRiesgo } from "@/lib/cobranza";
 
 type Props = {
   totalPagado?: number | null;
-  ultimoPagoFecha?: string | null;
+  ultimoPagoVencidoFecha?: string | null;
   diasVencido: number | null | undefined;
   saldoVencido: number | null | undefined;
   isLegacy?: boolean | null;
