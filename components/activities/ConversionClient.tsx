@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 
 const TIPO_LABEL: Record<string, string> = {
   visita: "Visita",
+  visita_cobranza: "Visita de cobranza",
   llamada: "Llamada",
   email: "Email",
   whatsapp: "WhatsApp",

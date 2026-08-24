@@ -35,6 +35,9 @@ export async function GET(req: Request) {
     .from("activities")
     .select("id, account_id, sales_rep_id, activity_date, activity_type")
     .eq("status", "realizada")
+    // La cobranza sí cuenta como actividad, pero no como visita comercial para
+    // la métrica de conversión a pedido.
+    .neq("activity_type", "visita_cobranza")
     .gte("activity_date", desdeStr);
   if (repFilter) actQ = actQ.eq("sales_rep_id", repFilter);
 

@@ -97,6 +97,7 @@ export function isQualifiedActivity(activity: ActivityGoalSourceRow): boolean {
 
 const TYPE_LABELS: Record<string, string> = {
   visita: "Visitas",
+  visita_cobranza: "Visitas de cobranza",
   reunion: "Reuniones",
   degustacion: "Degustaciones",
   evento: "Eventos",
@@ -121,7 +122,8 @@ function dedupeKey(activity: ActivityGoalSourceRow, mode: "completed" | "schedul
     mode === "completed" ? activity.completed_at ?? activity.activity_date : activity.activity_date,
   );
   // Un correo, WhatsApp y llamada rutinarios a la misma cuenta el mismo día
-  // forman un solo seguimiento. Las visitas y reuniones siguen siendo eventos separados.
+  // forman un solo seguimiento. Las visitas comerciales, de cobranza y reuniones
+  // siguen siendo eventos separados.
   if (["llamada", "email", "whatsapp"].includes(type)) {
     return `${activity.account_id}:${day}:seguimiento`;
   }

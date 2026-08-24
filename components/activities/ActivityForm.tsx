@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/client";
 import { AccountCombobox } from "@/components/accounts/AccountCombobox";
 import { cn, isoToLocalInput, localInputToISO } from "@/lib/utils";
 import {
+  ACTIVITY_TYPE_LABELS,
   ACTIVITY_TYPES,
   type Account,
   type Activity,
@@ -239,7 +240,7 @@ export function ActivityForm({
             <SelectContent>
               {ACTIVITY_TYPES.map((t) => (
                 <SelectItem key={t} value={t}>
-                  {t}
+                  {ACTIVITY_TYPE_LABELS[t]}
                 </SelectItem>
               ))}
             </SelectContent>

@@ -64,6 +64,26 @@ test("separa realizadas de agendadas y no duplica contactos rutinarios", () => {
   assert.equal(snapshot.remaining, 13);
 });
 
+test("una visita de cobranza documentada cuenta como actividad independiente", () => {
+  const snapshot = buildWeeklyActivityGoalSnapshot({
+    repId: "rep-1",
+    repName: "Andra",
+    goal: 15,
+    effectiveFrom: "2026-09-07",
+    effectiveTo: "2026-10-04",
+    todayKey: "2026-09-10",
+    activities: [
+      row({ id: "collection-1", activity_type: "visita_cobranza", outcome: "Promesa de pago" }),
+      row({ id: "collection-2", activity_type: "visita_cobranza", outcome: "Entregó comprobante" }),
+    ],
+  });
+
+  assert.equal(snapshot.completed, 2);
+  assert.deepEqual(snapshot.breakdown, [
+    { type: "visita_cobranza", label: "Visitas de cobranza", count: 2 },
+  ]);
+});
+
 test("antes del piloto el círculo prepara la primera semana", () => {
   const snapshot = buildWeeklyActivityGoalSnapshot({
     repId: "rep-1",

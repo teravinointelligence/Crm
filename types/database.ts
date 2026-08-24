@@ -589,6 +589,7 @@ export const ACCOUNT_STATUSES: AccountStatus[] = [
 
 export type ActivityType =
   | "visita"
+  | "visita_cobranza"
   | "llamada"
   | "email"
   | "whatsapp"
@@ -598,6 +599,7 @@ export type ActivityType =
 
 export const ACTIVITY_TYPES: ActivityType[] = [
   "visita",
+  "visita_cobranza",
   "llamada",
   "email",
   "whatsapp",
@@ -605,6 +607,17 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   "reunion",
   "evento",
 ];
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  visita: "Visita",
+  visita_cobranza: "Visita de cobranza",
+  llamada: "Llamada",
+  email: "Email",
+  whatsapp: "WhatsApp",
+  degustacion: "Degustación",
+  reunion: "Reunión",
+  evento: "Evento",
+};
 
 export type ActivityStatus = "agendada" | "realizada" | "cancelada";
 

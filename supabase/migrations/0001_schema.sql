@@ -74,7 +74,7 @@ create table if not exists public.activities (
   contact_id uuid references public.contacts(id) on delete set null,
   sales_rep_id uuid references public.sales_reps(id) on delete set null,
   activity_type text check (activity_type in
-    ('visita','llamada','email','whatsapp','degustacion','reunion','evento')),
+    ('visita','visita_cobranza','llamada','email','whatsapp','degustacion','reunion','evento')),
   activity_date timestamptz not null,
   duration_minutes int,
   outcome text,
