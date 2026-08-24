@@ -142,13 +142,15 @@ function ActionSection({ month }: { month: PersonalIncentiveMonth }) {
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <ActionTile
-          title="Nueva apertura"
+          title="Abrir una cuenta nueva"
+          description="Cliente sin compras anteriores registradas en el CRM. Para contar, su primera compra del mes debe ser de $10,000 o más y quedar totalmente pagada."
           amount={month.openingBonus}
           paid={openings.paid}
           pending={openings.pending}
         />
         <ActionTile
-          title="Cuenta reactivada"
+          title="Reactivar una cuenta"
+          description="Cliente que llevaba al menos 90 días sin comprar. Para contar, su primera compra al volver debe ser de $10,000 o más y quedar totalmente pagada."
           amount={month.reactivationBonus}
           paid={reactivations.paid}
           pending={reactivations.pending}
@@ -156,8 +158,9 @@ function ActionSection({ month }: { month: PersonalIncentiveMonth }) {
       </div>
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <LockKeyhole className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        $1,500 por cada categoría. La compra mínima es de $10,000 y debe estar
-        completamente pagada; una factura pendiente todavía no libera el bono.
+        Puedes obtener hasta $3,000 al mes: $1,500 por abrir una cuenta nueva y
+        $1,500 por reactivar una cuenta. Cada bono se paga una sola vez al mes,
+        aunque logres más de un cliente; las compras pendientes de pago no cuentan.
       </p>
     </section>
   );
@@ -165,11 +168,13 @@ function ActionSection({ month }: { month: PersonalIncentiveMonth }) {
 
 function ActionTile({
   title,
+  description,
   amount,
   paid,
   pending,
 }: {
   title: string;
+  description: string;
   amount: number;
   paid: number;
   pending: number;
@@ -183,6 +188,13 @@ function ActionTile({
         </Badge>
       </div>
       <p className="text-sm font-medium">{title}</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
+      <p className="mt-3 text-xs font-semibold text-brand-carmesi">
+        Bono: $1,500 al cumplir este objetivo
+      </p>
+      <p className="mt-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        Desbloqueado
+      </p>
       <p className="font-display text-xl">{money(amount)}</p>
       <p className="text-[11px] text-muted-foreground">
         {paid} pagada{paid === 1 ? "" : "s"} · {pending} pendiente{pending === 1 ? "" : "s"}
@@ -333,7 +345,9 @@ function FullDetail({ snapshot }: { snapshot: PersonalIncentiveSnapshot }) {
               <Store className="mb-2 h-5 w-5 text-brand-carmesi" />
               <p className="font-semibold">Apertura y reactivación</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                $1,500 por cada categoría, con compra mínima de $10,000 completamente pagada.
+                $1,500 por lograr al menos una apertura pagada y otros $1,500 por
+                reactivar una cuenta con 90 días o más sin compras. En ambos casos, la
+                primera compra debe ser de al menos $10,000 y quedar totalmente pagada.
               </p>
             </div>
           ) : null}
