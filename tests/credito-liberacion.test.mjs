@@ -29,3 +29,21 @@ test("sin pagos el crédito no se libera", () => {
     assert.equal(result.clase, "Suspender Crédito");
   }
 });
+
+test("un pago en los últimos 30 días libera aunque el consolidado siga en cero", () => {
+  const now = new Date("2026-08-24T12:00:00Z");
+  const result = clasificarRiesgo({
+    totalPagado: 0,
+    ultimoPagoFecha: "2026-08-01",
+    now,
+    diasVencido: 70,
+    saldoVencido: 50000,
+  });
+  assert.equal(result.clase, "Crédito Liberado");
+  assert.equal(semaforoCobranza(70, 50000, 0, "2026-08-01", now).label, "Crédito liberado");
+});
+
+test("un pago de más de 30 días no libera por la regla de pago reciente", () => {
+  const now = new Date("2026-08-24T12:00:00Z");
+  assert.equal(semaforoCobranza(70, 50000, 0, "2026-07-24", now).bloquea, true);
+});

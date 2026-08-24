@@ -214,6 +214,7 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                         saldoPendiente={b.saldoPendiente ?? 0}
                         saldoVencido={b.saldoVencido ?? 0}
                         totalPagado={b.totalPagado}
+                        ultimoPagoFecha={b.ultimoPagoFecha}
                         diasVencido={b.diasVencido}
                       />
                     </div>

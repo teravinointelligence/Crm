@@ -20,12 +20,14 @@ export function semaforoCobranza(
   diasVencido: number | null | undefined,
   saldoPendiente: number | null | undefined,
   totalPagado?: number | null,
+  ultimoPagoFecha?: string | null,
+  now = new Date(),
 ): SemaforoInfo {
   const dv = Number(diasVencido ?? 0);
   const pend = Number(saldoPendiente ?? 0);
 
-  if (totalPagado != null) {
-    if (Number(totalPagado) > 0) {
+  if (totalPagado != null || ultimoPagoFecha) {
+    if (Number(totalPagado ?? 0) > 0 || pagoEnUltimos30Dias(ultimoPagoFecha, now)) {
       return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
     }
     if (pend > 0) {
@@ -38,6 +40,18 @@ export function semaforoCobranza(
   if (dv >= 1) return { estado: "alerta", label: `Alerta (${dv} días)`, variant: "warning", bloquea: false };
   if (pend > 0) return { estado: "por_cobrar", label: "Por cobrar", variant: "warning", bloquea: false };
   return { estado: "al_corriente", label: "Al corriente", variant: "success", bloquea: false };
+}
+
+export function pagoEnUltimos30Dias(
+  ultimoPagoFecha: string | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!ultimoPagoFecha) return false;
+  const fecha = new Date(`${String(ultimoPagoFecha).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(fecha.getTime())) return false;
+  const hoyUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dias = Math.floor((hoyUtc - fecha.getTime()) / 86_400_000);
+  return dias >= 0 && dias <= 30;
 }
 
 // =====================================================================
@@ -66,6 +80,8 @@ export const VENTANA_SUSPENSION_DEFAULT = 62;
 
 export function clasificarRiesgo(params: {
   totalPagado?: number | null;
+  ultimoPagoFecha?: string | null;
+  now?: Date;
   diasVencido: number | null | undefined;
   saldoVencido: number | null | undefined;
   isLegacy?: boolean | null;
@@ -73,11 +89,14 @@ export function clasificarRiesgo(params: {
   ventanaSuspension?: number | null;
 }): RiesgoInfo {
   const pagado = Number(params.totalPagado ?? 0);
-  if (pagado > 0) {
+  const pagoReciente = pagoEnUltimos30Dias(params.ultimoPagoFecha, params.now);
+  if (pagado > 0 || pagoReciente) {
     return {
       clase: "Crédito Liberado",
       variant: "success",
-      detalle: "Crédito liberado · la cuenta ya registró al menos un pago",
+      detalle: pagoReciente
+        ? "Crédito liberado · registró un pago en los últimos 30 días"
+        : "Crédito liberado · la cuenta ya registró al menos un pago",
     };
   }
   return {
