@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +50,9 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href={`/api/restock/${r.id}/pdf`}><Download className="mr-1 h-4 w-4" /> Descargar pedido</a>
+            </Button>
             {r.fulfillment && (
               <Badge variant={FULFILLMENT_VARIANT[r.fulfillment as FulfillmentType] ?? "muted"}>
                 {FULFILLMENT_LABEL[r.fulfillment as FulfillmentType] ?? r.fulfillment}
