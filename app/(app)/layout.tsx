@@ -11,7 +11,7 @@ import { PersonalIncentiveAnnouncement } from "@/components/incentivos/PersonalI
 import { getPersonalIncentiveConfig } from "@/lib/personal-incentives";
 import { TomasPendientesPopup } from "@/components/consignaciones/TomasPendientesPopup";
 import { loadTomasGroups, type VendedorTomasGroup } from "@/lib/tomas-inventario-email";
-import { selectTomasGroupsForRep } from "@/lib/tomas-inventario-popup";
+import { resolveCrmAccountId, selectTomasGroupsForRep } from "@/lib/tomas-inventario-popup";
 
 export default async function AppLayout({
   children,
@@ -33,6 +33,18 @@ export default async function AppLayout({
     try {
       const allGroups = await loadTomasGroups();
       tomaGroups = selectTomasGroupsForRep(allGroups, rep.email, isAdmin);
+      const supabase = createClient();
+      const { data: accounts } = await supabase
+        .from("accounts")
+        .select("id, business_name, client_number");
+      const crmAccounts = accounts ?? [];
+      tomaGroups = tomaGroups.map((group) => ({
+        ...group,
+        items: group.items.map((item) => ({
+          ...item,
+          accountId: resolveCrmAccountId(item, crmAccounts),
+        })),
+      }));
     } catch (error) {
       console.error("No se pudieron cargar las tomas pendientes desde Base44", error);
     }

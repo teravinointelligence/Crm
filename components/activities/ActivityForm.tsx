@@ -34,6 +34,7 @@ type Props = {
   defaultAccountId?: string;
   defaultStatus?: ActivityStatus;
   defaultDate?: string; // YYYY-MM-DD
+  defaultNotes?: string;
   /** Si se pasa, el formulario edita esta actividad en lugar de crear una nueva. */
   activity?: Activity;
   onDone?: () => void;
@@ -63,6 +64,7 @@ export function ActivityForm({
   defaultAccountId,
   defaultStatus = "realizada",
   defaultDate,
+  defaultNotes,
   activity,
   onDone,
 }: Props) {
@@ -322,7 +324,7 @@ export function ActivityForm({
 
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="notes">Notas internas</Label>
-          <Textarea id="notes" name="notes" defaultValue={activity?.notes ?? ""} />
+          <Textarea id="notes" name="notes" defaultValue={activity?.notes ?? defaultNotes ?? ""} />
         </div>
       </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, CalendarClock, CheckCircle2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -133,10 +133,26 @@ export function TomasPendientesPopup({
                     className="flex items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 shadow-sm"
                   >
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-brand-tinta">{item.cliente}</p>
+                      {item.accountId ? (
+                        <Link
+                          href={`/cuentas/${item.accountId}?origen=toma-pendiente`}
+                          onClick={() => handleOpenChange(false)}
+                          className="group/client flex items-center gap-1 text-sm font-semibold text-brand-tinta hover:text-brand-carmesi hover:underline"
+                        >
+                          <span className="truncate">{item.cliente}</span>
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover/client:translate-x-0.5" />
+                        </Link>
+                      ) : (
+                        <p className="truncate text-sm font-semibold text-brand-tinta">{item.cliente}</p>
+                      )}
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         {ultimaTomaLabel(item.ultimaToma, item.diasSinToma)}
                       </p>
+                      {item.accountId && (
+                        <p className="mt-1 text-[11px] font-medium text-brand-carmesi">
+                          Abrir cuenta para agendar
+                        </p>
+                      )}
                     </div>
                     <span
                       className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${urgenciaClass(item.diasSinToma)}`}

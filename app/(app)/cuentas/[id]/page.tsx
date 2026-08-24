@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import Link from "next/link";
-import { FileText, Wallet, Wine, FlaskConical, CalendarCheck2, Truck } from "lucide-react";
+import { FileText, Wallet, Wine, FlaskConical, CalendarCheck2, CalendarPlus, Truck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -321,6 +321,11 @@ export default async function CuentaDetailPage({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Button asChild>
+                <Link href={`/actividades/nueva?estado=agendada&account=${account.id}&motivo=toma-inventario`}>
+                  <CalendarPlus className="mr-1 h-4 w-4" /> Agendar toma de inventario
+                </Link>
+              </Button>
               <Button asChild>
                 <Link href={`/actividades/nueva?account=${account.id}`}>Registrar actividad</Link>
               </Button>
