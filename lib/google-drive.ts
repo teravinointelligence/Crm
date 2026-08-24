@@ -59,6 +59,43 @@ async function accessToken() {
   return body.access_token;
 }
 
+export async function latestDriveFileInFolder(input: {
+  folderId: string;
+  nameContains: string;
+}): Promise<{ id: string; name: string; modifiedTime: string }> {
+  const token = await accessToken();
+  const escapedFolder = input.folderId.replaceAll("'", "\\'");
+  const escapedName = input.nameContains.replaceAll("'", "\\'");
+  const query = `'${escapedFolder}' in parents and trashed = false and name contains '${escapedName}'`;
+  const params = new URLSearchParams({
+    q: query,
+    orderBy: "modifiedTime desc",
+    pageSize: "20",
+    fields: "files(id,name,modifiedTime,mimeType)",
+    supportsAllDrives: "true",
+    includeItemsFromAllDrives: "true",
+  });
+  const response = await fetch(`${DRIVE_API}/files?${params}`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(await driveError(response));
+  const body = (await response.json()) as { files?: Array<{ id: string; name: string; modifiedTime: string }> };
+  const file = body.files?.[0];
+  if (!file) throw new Error(`No encontre archivos que contengan "${input.nameContains}" en Drive`);
+  return file;
+}
+
+export async function downloadDriveFile(fileId: string): Promise<Buffer> {
+  const token = await accessToken();
+  const response = await fetch(`${DRIVE_API}/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`, {
+    headers: { Authorization: `Bearer ${token}` },
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error(await driveError(response));
+  return Buffer.from(await response.arrayBuffer());
+}
+
 async function driveError(response: Response) {
   const message = await response.text().catch(() => "");
   return `Google Drive respondió ${response.status}: ${message.slice(0, 300)}`;
