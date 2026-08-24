@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +60,14 @@ export function RestockReviewActions({
 
   return (
     <Card><CardContent className="space-y-4 p-6">
-      <h3 className="font-display text-lg">Revisión</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-display text-lg">Revisión</h3>
+        <Button asChild variant="outline" size="sm">
+          <a href={`/api/restock/${requestId}/pdf`}>
+            <Download className="mr-1 h-4 w-4" /> Descargar solicitud
+          </a>
+        </Button>
+      </div>
       <table className="min-w-full text-sm">
         <thead className="border-b text-left text-xs uppercase text-muted-foreground"><tr><th className="py-2">Producto</th><th className="py-2 text-right">Pedido</th><th className="py-2 text-right w-28">Aprobar</th></tr></thead>
         {groups.map(([supplier, group]) => (

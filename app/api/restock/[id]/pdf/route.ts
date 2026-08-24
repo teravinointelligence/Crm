@@ -5,6 +5,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { RestockRequestPdf, type RestockRequestPdfData } from "@/components/restock/RestockRequestPdf";
 import { FULFILLMENT_LABEL, type FulfillmentType } from "@/lib/restock-fulfillment";
 import { formatDateTime } from "@/lib/utils";
+import { evaluateRestockRequest } from "@/lib/restock-review";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,10 +15,25 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const supabase = createClient();
   const { data: request } = await supabase
     .from("restock_requests")
-    .select("request_number, region_destino, fulfillment, status, created_at, notes, sales_reps:sales_rep_id(full_name), restock_request_items(product_name, supplier, quantity_requested, quantity_approved, notes)")
+    .select("request_number, sales_rep_id, region_destino, fulfillment, status, created_at, notes, sales_reps:sales_rep_id(full_name), restock_request_items(id, product_id, product_name, supplier, quantity_requested, quantity_approved, notes)")
     .eq("id", params.id)
     .maybeSingle();
   if (!request) return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });
+
+  const requestItems = request.restock_request_items ?? [];
+  const evaluation = await evaluateRestockRequest({
+    supabase,
+    salesRepId: request.sales_rep_id,
+    region: request.region_destino,
+    fulfillment: request.fulfillment,
+    items: requestItems.map((item) => ({
+      id: item.id,
+      product_id: item.product_id,
+      product_name: item.product_name,
+      quantity_requested: Number(item.quantity_requested ?? 0),
+    })),
+  });
+  const evaluationByItem = new Map(evaluation.map((row) => [row.itemId, row]));
 
   const seller = (Array.isArray(request.sales_reps) ? request.sales_reps[0] : request.sales_reps) as { full_name: string | null } | null;
   const data: RestockRequestPdfData = {
@@ -28,12 +44,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     status: request.status ?? "Sin estatus",
     createdAt: formatDateTime(request.created_at),
     notes: request.notes,
-    items: (request.restock_request_items ?? []).map((item) => ({
+    items: requestItems.map((item) => ({
       productName: item.product_name,
       supplier: item.supplier ?? "Sin proveedor",
       requested: Number(item.quantity_requested ?? 0),
       approved: item.quantity_approved == null ? null : Number(item.quantity_approved),
       notes: item.notes,
+      evaluation: evaluationByItem.get(item.id) ?? null,
     })),
   };
   const pdf = await renderToBuffer(RestockRequestPdf({ data }));

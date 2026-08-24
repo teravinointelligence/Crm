@@ -1,6 +1,17 @@
 import React from "react";
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 
+type EvaluationPdfData = {
+  warehouse: string | null;
+  stock: number | null;
+  salesPerMonth: number | null;
+  suggestedQty: number | null;
+  verdict: "justificado" | "reducir" | "no_recomendado" | "datos_insuficientes";
+  reason: string;
+  inventoryDate: string | null;
+  inventorySource: string | null;
+};
+
 export type RestockRequestPdfData = {
   requestNumber: string;
   vendedor: string;
@@ -15,6 +26,7 @@ export type RestockRequestPdfData = {
     requested: number;
     approved: number | null;
     notes: string | null;
+    evaluation: EvaluationPdfData | null;
   }>;
 };
 
@@ -34,6 +46,12 @@ const styles = StyleSheet.create({
   qty: { width: "12%", padding: 6, textAlign: "right" },
   note: { width: "21%", padding: 6, color: "#6f676a" },
   notesBox: { marginTop: 16, padding: 10, borderWidth: 0.7, borderColor: "#ded4cc" },
+  analysisHeader: { marginTop: 18 },
+  analysisProduct: { width: "34%", padding: 6 },
+  analysisNumber: { width: "11%", padding: 6, textAlign: "right" },
+  analysisResult: { width: "33%", padding: 6 },
+  source: { color: "#6f676a", fontSize: 7, marginTop: 2 },
+  disclaimer: { marginTop: 8, color: "#6f676a", fontSize: 7 },
   footer: { position: "absolute", left: 38, right: 38, bottom: 24, borderTopWidth: 0.5, borderTopColor: "#ded4cc", paddingTop: 6, color: "#6f676a", fontSize: 7, flexDirection: "row", justifyContent: "space-between" },
 });
 
@@ -64,6 +82,23 @@ export function RestockRequestPdf({ data }: { data: RestockRequestPdfData }) {
             <Text style={styles.qty}>{item.requested}</Text><Text style={styles.note}>{item.notes ?? "-"}</Text>
           </View>
         ))}
+        <Text style={[styles.section, styles.analysisHeader]}>EVALUACION CONTRA INVENTARIO Y VENTAS</Text>
+        <View style={[styles.row, styles.header]} fixed>
+          <Text style={styles.analysisProduct}>Producto / fuente</Text><Text style={styles.analysisNumber}>Stock</Text>
+          <Text style={styles.analysisNumber}>Venta/mes</Text><Text style={styles.analysisNumber}>Sugerido</Text>
+          <Text style={styles.analysisResult}>Resultado</Text>
+        </View>
+        {data.items.map((item, index) => {
+          const evaluation = item.evaluation;
+          return <View key={`analysis-${item.productName}-${index}`} style={styles.row} wrap={false}>
+            <View style={styles.analysisProduct}><Text>{item.productName}</Text><Text style={styles.source}>{evaluation?.warehouse ?? "Sin almacen"}{evaluation?.inventoryDate ? ` - ${evaluation.inventoryDate}` : ""}</Text><Text style={styles.source}>{evaluation?.inventorySource ?? "Sin fuente vigente"}</Text></View>
+            <Text style={styles.analysisNumber}>{evaluation?.stock ?? "-"}</Text>
+            <Text style={styles.analysisNumber}>{evaluation?.salesPerMonth ?? "-"}</Text>
+            <Text style={styles.analysisNumber}>{evaluation?.suggestedQty ?? "-"}</Text>
+            <View style={styles.analysisResult}><Text>{evaluation?.verdict.replaceAll("_", " ").toUpperCase() ?? "SIN DATOS"}</Text><Text style={styles.source}>{evaluation?.reason ?? "No fue posible evaluar."}</Text></View>
+          </View>;
+        })}
+        <Text style={styles.disclaimer}>Esta evaluacion es un apoyo para la decision. Si el inventario esta vencido o falta el codigo CONTPAQ, actualiza los datos antes de aprobar.</Text>
         {data.notes ? <View style={styles.notesBox}><Text style={styles.metaLabel}>NOTAS GENERALES</Text><Text>{data.notes}</Text></View> : null}
         <View style={styles.footer} fixed>
           <Text>TERAVINO Wine & Spirits</Text>

@@ -7,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RestockReviewActions } from "@/components/restock/RestockReviewActions";
+import { RestockInventoryEvaluation } from "@/components/restock/RestockInventoryEvaluation";
+import { evaluateRestockRequest } from "@/lib/restock-review";
 import { formatDateTime } from "@/lib/utils";
 import { FULFILLMENT_LABEL, FULFILLMENT_HINT, FULFILLMENT_VARIANT, type FulfillmentType } from "@/lib/restock-fulfillment";
 
@@ -23,7 +25,7 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
   if (!req) notFound();
 
   const items = (req.restock_request_items ?? []) as Array<{
-    id: string; product_name: string; supplier: string | null; quantity_requested: number; quantity_approved: number | null; notes: string | null;
+    id: string; product_id: string | null; product_name: string; supplier: string | null; quantity_requested: number; quantity_approved: number | null; notes: string | null;
   }>;
   const r = req as typeof req & { sales_reps: { full_name: string | null } | null; reviewer: { full_name: string | null } | null };
 
@@ -36,6 +38,15 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
     bySupplier.set(key, arr);
   }
   const supplierGroups = Array.from(bySupplier.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  const evaluation = isAdmin && r.status === "enviada"
+    ? await evaluateRestockRequest({
+        supabase,
+        salesRepId: r.sales_rep_id,
+        region: r.region_destino,
+        fulfillment: r.fulfillment,
+        items,
+      })
+    : [];
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -99,6 +110,8 @@ export default async function RestockDetailPage({ params }: { params: { id: stri
           })}
         </table>
       </CardContent></Card>
+
+      {evaluation.length > 0 && <RestockInventoryEvaluation rows={evaluation} />}
 
       {isAdmin && r.status === "enviada" && rep && (
         <RestockReviewActions requestId={r.id} repId={rep.id} items={items} />
