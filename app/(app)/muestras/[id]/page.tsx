@@ -15,6 +15,10 @@ import { SampleCancellationActions } from "@/components/samples/SampleCancellati
 import { SubmitSampleButton } from "@/components/samples/SubmitSampleButton";
 import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
 import { SAMPLE_CAP } from "@/lib/samples";
+import {
+  canRequestSampleCancellation,
+  isSampleCancellationPending,
+} from "@/lib/sample-cancellation";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -157,15 +161,23 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       sinPrecio,
     };
   }
-  const cancellationPending = Boolean(r.cancellation_requested_at && !r.cancellation_decision);
+  const cancellationPending = isSampleCancellationPending(
+    r.cancellation_requested_at,
+    r.cancellation_decision,
+  );
   const canExport = (r.status === "aprobada" || r.status === "entregada") && !cancellationPending;
   const canEditRequest =
     !cancellationPending && (
       (r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id)) ||
       (["enviada", "aprobada"].includes(r.status ?? "") && isAdmin)
     );
-  const canRequestCancellation =
-    rep.id === r.sales_rep_id && ["borrador", "enviada", "aprobada"].includes(r.status ?? "") && !cancellationPending;
+  const canRequestCancellation = canRequestSampleCancellation({
+    status: r.status,
+    isOwner: rep.id === r.sales_rep_id,
+    isAdmin,
+    requestedAt: r.cancellation_requested_at,
+    decision: r.cancellation_decision,
+  });
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
 import { deliverSampleTechnicalSheets } from "@/lib/sample-drive-delivery";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isSampleCancellationPending } from "@/lib/sample-cancellation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,10 +30,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const db = supabaseAdmin();
   const { data: sample } = await db
     .from("sample_requests")
-    .select("id, status, account_id")
+    .select("id, status, account_id, cancellation_requested_at, cancellation_decision")
     .eq("id", params.id)
     .maybeSingle();
   if (!sample) return NextResponse.json({ error: "Muestra no encontrada" }, { status: 404 });
+  if (isSampleCancellationPending(sample.cancellation_requested_at, sample.cancellation_decision)) {
+    return NextResponse.json(
+      { error: "La muestra tiene una cancelación pendiente; resuélvela antes de aprobar, rechazar o entregar" },
+      { status: 409 },
+    );
+  }
 
   if (body.retryDrive) {
     if (!["aprobada", "entregada"].includes(sample.status)) {
@@ -53,7 +60,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const reviewNotes = typeof body.reviewNotes === "string" ? body.reviewNotes.trim().slice(0, 2000) : "";
-  const { error: updateError } = await db
+  const { data: updated, error: updateError } = await db
     .from("sample_requests")
     .update({
       status: body.next,
@@ -61,8 +68,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       reviewed_at: new Date().toISOString(),
       ...(body.next !== "entregada" ? { review_notes: reviewNotes || null } : {}),
     })
-    .eq("id", params.id);
+    .eq("id", params.id)
+    .or("cancellation_requested_at.is.null,cancellation_decision.not.is.null")
+    .select("id")
+    .maybeSingle();
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+  if (!updated) {
+    return NextResponse.json(
+      { error: "Se recibió una solicitud de cancelación mientras revisabas la muestra" },
+      { status: 409 },
+    );
+  }
 
   if (body.next === "entregada" && body.addToAccount !== false) {
     const [{ data: linked }, { data: items }] = await Promise.all([

@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
+import { CANCELLABLE_SAMPLE_STATUSES } from "@/lib/sample-cancellation";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (rep.role !== "admin" && !isOwner) {
     return NextResponse.json({ error: "Sin permiso" }, { status: 403 });
   }
-  if (!["borrador", "enviada", "aprobada"].includes(sampleRequest.status ?? "")) {
+  if (!CANCELLABLE_SAMPLE_STATUSES.includes(
+    (sampleRequest.status ?? "") as (typeof CANCELLABLE_SAMPLE_STATUSES)[number],
+  )) {
     return NextResponse.json({ error: "No se puede cancelar en el estado actual" }, { status: 400 });
   }
 
