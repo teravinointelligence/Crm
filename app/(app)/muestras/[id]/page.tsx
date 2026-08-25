@@ -11,6 +11,7 @@ import { SendSampleEmail } from "@/components/samples/SendSampleEmail";
 import { AddCitasToSample } from "@/components/samples/AddCitasToSample";
 import { CitaEvidence } from "@/components/samples/CitaEvidence";
 import { CancelSampleButton } from "@/components/samples/CancelSampleButton";
+import { SampleCancellationActions } from "@/components/samples/SampleCancellationActions";
 import { SubmitSampleButton } from "@/components/samples/SubmitSampleButton";
 import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
 import { SAMPLE_CAP } from "@/lib/samples";
@@ -156,13 +157,15 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       sinPrecio,
     };
   }
-  const canExport = r.status === "aprobada" || r.status === "entregada";
+  const cancellationPending = Boolean(r.cancellation_requested_at && !r.cancellation_decision);
+  const canExport = (r.status === "aprobada" || r.status === "entregada") && !cancellationPending;
   const canEditRequest =
-    (r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id)) ||
-    (["enviada", "aprobada"].includes(r.status ?? "") && isAdmin);
-  const canCancel =
-    (["borrador", "enviada"].includes(r.status ?? "") && (isAdmin || rep.id === r.sales_rep_id)) ||
-    (r.status === "aprobada" && isAdmin);
+    !cancellationPending && (
+      (r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id)) ||
+      (["enviada", "aprobada"].includes(r.status ?? "") && isAdmin)
+    );
+  const canRequestCancellation =
+    rep.id === r.sales_rep_id && ["borrador", "enviada", "aprobada"].includes(r.status ?? "") && !cancellationPending;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -186,10 +189,11 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
                 <Link href={`/muestras/${r.id}/editar`}>Editar</Link>
               </Button>
             )}
-            {r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id) && (
+            {!cancellationPending && r.status === "borrador" && (isAdmin || rep.id === r.sales_rep_id) && (
               <SubmitSampleButton requestId={r.id} requestNumber={r.request_number ?? ""} />
             )}
-            {canCancel && <CancelSampleButton requestId={r.id} status={r.status ?? ""} />}
+            {canRequestCancellation && <CancelSampleButton requestId={r.id} />}
+            {cancellationPending && <Badge variant="warning">Cancelación pendiente</Badge>}
             {canExport && (
               <>
                 <Button asChild size="sm" variant="outline">
@@ -224,7 +228,14 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
             <strong>Revisión{r.reviewer?.full_name ? ` (${r.reviewer.full_name})` : ""}:</strong> {r.review_notes}
           </p>
         )}
+        {r.cancellation_decision === "rechazada" && r.cancellation_decision_notes && (
+          <p className="mt-2 rounded-md bg-muted p-3 text-sm"><strong>Cancelación rechazada:</strong> {r.cancellation_decision_notes}</p>
+        )}
       </div>
+
+      {isAdmin && cancellationPending && (
+        <SampleCancellationActions requestId={r.id} reason={r.cancellation_reason ?? "Sin motivo"} />
+      )}
 
       <Card><CardContent className="p-0">
         <table className="min-w-full text-sm">
@@ -340,7 +351,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
         </CardContent></Card>
       )}
 
-      {isAdmin && (
+      {isAdmin && !cancellationPending && (
         <SampleReviewActions
           requestId={r.id}
           status={r.status ?? "borrador"}
