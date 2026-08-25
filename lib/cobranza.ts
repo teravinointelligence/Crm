@@ -30,6 +30,12 @@ export function semaforoCobranza(
     if (pagoEnUltimos30Dias(ultimoPagoVencidoFecha, now)) {
       return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
     }
+    // Una cuenta sin facturas vencidas no debe quedar suspendida por no tener
+    // un pago calificable: todavía está dentro de su plazo de crédito.
+    if (dv <= 0) {
+      if (pend > 0) return { estado: "por_cobrar", label: "Por cobrar", variant: "warning", bloquea: false };
+      return { estado: "al_corriente", label: "Al corriente", variant: "success", bloquea: false };
+    }
     if (pend > 0) {
       return { estado: "suspendido", label: "Crédito suspendido", variant: "danger", bloquea: true };
     }
@@ -63,10 +69,9 @@ export function pagoEnUltimos30Dias(
 
 // =====================================================================
 // Política vigente de crédito:
-//   cualquier pago acumulado > 0 → crédito liberado
-//   ningún pago acumulado         → crédito no liberado
-// La evaluación es dinámica: el primer abono cambia la clasificación sin que
-// alguien tenga que editar manualmente la cuenta.
+//   sin saldo vencido                                  → crédito liberado
+//   pagó una factura vencida en los últimos 30 días   → crédito liberado
+//   con saldo vencido y sin pago calificable reciente → crédito suspendido
 // =====================================================================
 
 export type ClaseRiesgo =
@@ -96,8 +101,16 @@ export function clasificarRiesgo(params: {
   ventanaSuspension?: number | null;
 }): RiesgoInfo {
   const pagado = Number(params.totalPagado ?? 0);
+  const vencido = Number(params.saldoVencido ?? 0);
   const usaReglaFacturaVencida = params.ultimoPagoVencidoFecha !== undefined;
   const pagoReciente = pagoEnUltimos30Dias(params.ultimoPagoVencidoFecha, params.now);
+  if (vencido <= 0) {
+    return {
+      clase: "Crédito Liberado",
+      variant: "success",
+      detalle: "Crédito liberado · no tiene saldo vencido",
+    };
+  }
   if (pagoReciente || (!usaReglaFacturaVencida && pagado > 0)) {
     return {
       clase: "Crédito Liberado",
