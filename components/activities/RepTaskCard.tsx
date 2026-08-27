@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   AlarmClock,
   Banknote,
+  Building2,
+  CalendarPlus,
   Check,
   CheckCircle2,
   ClipboardList,
@@ -236,14 +238,28 @@ export function RepTaskCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  "text-sm font-medium",
-                  cerrada && "text-emerald-900/70 line-through",
-                )}
-              >
-                {task.title}
-              </span>
+              {/* El título lleva el nombre del cliente, así que es el objetivo
+                  natural para ir a su ficha: es lo que la gente toca. */}
+              {task.account_id ? (
+                <Link
+                  href={`/cuentas/${task.account_id}`}
+                  className={cn(
+                    "text-sm font-medium underline-offset-2 hover:text-brand-carmesi hover:underline",
+                    cerrada && "text-emerald-900/70 line-through",
+                  )}
+                >
+                  {task.title}
+                </Link>
+              ) : (
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    cerrada && "text-emerald-900/70 line-through",
+                  )}
+                >
+                  {task.title}
+                </span>
+              )}
               {cerrada && outcome ? (
                 <Badge variant="success" className="text-[11px]">
                   {OUTCOME_LABEL[outcome]}
@@ -272,28 +288,34 @@ export function RepTaskCard({
 
             <div
               className={cn(
-                "mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs",
+                "mt-1 text-xs",
                 cerrada ? "text-emerald-900/60" : "text-muted-foreground",
               )}
             >
-              {task.account_id && (
+              {formatDate(task.due_date)}
+            </div>
+
+            {/* Accesos con área de toque de verdad: en celular un enlace de
+                11 px entre texto gris es casi imposible de atinar. */}
+            {task.account_id && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Link
                   href={`/cuentas/${task.account_id}`}
-                  className="hover:text-brand-carmesi hover:underline"
+                  className="inline-flex items-center gap-1 rounded-full border border-brand-carmesi/30 bg-brand-carmesi/10 px-2.5 py-1 text-xs font-medium text-brand-carmesi transition-colors hover:bg-brand-carmesi/20"
                 >
-                  {task.account_name ?? "Ver cuenta"}
+                  <Building2 className="h-3 w-3" />
+                  {task.account_name ?? "Ver cliente"}
                 </Link>
-              )}
-              <span>· {formatDate(task.due_date)}</span>
-              {!cerrada && task.account_id && (
-                <Link
-                  href={`/actividades/nueva?estado=agendada&account=${task.account_id}`}
-                  className="hover:text-brand-carmesi hover:underline"
-                >
-                  · Agendar visita
-                </Link>
-              )}
-            </div>
+                {!cerrada && (
+                  <Link
+                    href={`/actividades/nueva?estado=agendada&account=${task.account_id}`}
+                    className="inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    <CalendarPlus className="h-3 w-3" /> Agendar visita
+                  </Link>
+                )}
+              </div>
+            )}
 
             <div className="mt-2 flex items-center gap-2">
               {cerrada ? (

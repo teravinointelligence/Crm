@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { decideAxis } from "@/lib/swipe";
 
 /**
  * Gesto de "deslizar la tarjeta" para acciones rápidas en celular.
@@ -42,6 +43,9 @@ export function useSwipeAction({
   // Marca que la acción ya mandó la tarjeta fuera de pantalla: sin esto, el
   // "regresa a su lugar" de onPointerUp cancelaría la animación de salida.
   const flung = useRef(false);
+  // Hubo un deslizamiento de verdad: el siguiente clic es un eco del gesto y
+  // no la intención de abrir el enlace que quedó debajo del dedo.
+  const suppressClick = useRef(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
 
@@ -58,6 +62,9 @@ export function useSwipeAction({
       if (!enabled) return;
       start.current = { x: e.clientX, y: e.clientY };
       locked.current = null;
+      // Un gesto anterior pudo terminar sin que llegara su clic (el dedo salió
+      // de la tarjeta). Se limpia aquí para no matar el toque siguiente.
+      suppressClick.current = false;
     },
     [enabled],
   );
@@ -69,9 +76,14 @@ export function useSwipeAction({
       const dy = e.clientY - start.current.y;
 
       if (locked.current === null) {
-        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
-        locked.current = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+        // Umbral y sesgo viven en lib/swipe.ts, probados con npm test.
+        const axis = decideAxis(dx, dy);
+        if (axis === null) return; // todavía es un toque: deja pasar el clic
+        locked.current = axis;
         if (locked.current === "h") {
+          // A partir de aquí sí fue un gesto: hay que tragarse el clic que el
+          // navegador dispara al soltar, o soltar sobre un enlace navegaría.
+          suppressClick.current = true;
           try {
             ref.current?.setPointerCapture(e.pointerId);
           } catch {
@@ -145,6 +157,13 @@ export function useSwipeAction({
       onPointerMove,
       onPointerUp,
       onPointerCancel: onPointerUp,
+      // En captura, para frenar el clic antes de que llegue al enlace.
+      onClickCapture: (e: React.MouseEvent) => {
+        if (!suppressClick.current) return;
+        suppressClick.current = false;
+        e.preventDefault();
+        e.stopPropagation();
+      },
     },
     style: {
       transform: `translateX(${dragX}px)`,
