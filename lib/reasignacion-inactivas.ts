@@ -1,7 +1,6 @@
 // Barrido de reasignación por inactividad. Una cuenta asignada que lleva
-// >= WARN_DAYS sin actividad recibe un aviso al vendedor ("te quedan N días");
-// si pasados GRACE_DAYS sigue sin actividad nueva, la cuenta se regresa al pool
-// (assigned_rep_id = null) y se notifica al vendedor y a admin.
+// 53 días sin actividad recibe un aviso de última oportunidad; al cumplir 60
+// días y tras siete días completos desde el aviso pasa al pool de Sabrina.
 //
 // "Actividad" = la última actividad no cancelada de la cuenta (vista
 // public.v_account_last_activity, migración 0015). Si la cuenta nunca tuvo
@@ -14,13 +13,23 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase/server";
 import { sendEmail, ventasFrom } from "@/lib/email";
+import {
+  decideReassignment,
+  REASSIGN_AFTER_DAYS,
+  REASSIGN_NOTICE_DAYS,
+  REASSIGN_WARN_DAYS,
+  SABRINA_POOL_REP_ID,
+} from "@/lib/reassignment-policy";
+
+export {
+  REASSIGN_AFTER_DAYS,
+  REASSIGN_NOTICE_DAYS,
+  REASSIGN_WARN_DAYS,
+  SABRINA_POOL_REP_ID,
+} from "@/lib/reassignment-policy";
 
 type DbClient = ReturnType<typeof createClient> | SupabaseClient;
 
-/** Días sin actividad para mandar el aviso previo. */
-export const REASSIGN_WARN_DAYS = 60;
-/** Días de gracia desde el aviso antes de reasignar al pool. */
-export const REASSIGN_GRACE_DAYS = 3;
 /** Estados de cuenta que entran al barrido (excluye 'perdido'). */
 const ESTADOS = ["activo", "inactivo", "prospecto"];
 const REASON = "inactividad";
@@ -74,14 +83,19 @@ export async function runReassignmentSweep(
   const now = Date.now();
   const errores: string[] = [];
 
-  // Candidatas: asignadas, en estado vigilado, no legacy ni socio.
+  // Candidatas: asignadas a un vendedor, en estado vigilado, no legacy ni socio.
+  // Sabrina es el pool general, por lo que sus cuentas quedan fuera del ciclo.
   const { data: acctData } = await supabase
     .from("accounts")
     .select("id, business_name, assigned_rep_id, status, activity_baseline_at, reassign_warned_at, is_legacy, es_socio")
     .in("status", ESTADOS)
     .not("assigned_rep_id", "is", null);
   const accounts = ((acctData ?? []) as AccountRow[]).filter(
-    (a) => !a.is_legacy && !a.es_socio && a.assigned_rep_id,
+    (a) =>
+      !a.is_legacy &&
+      !a.es_socio &&
+      a.assigned_rep_id &&
+      a.assigned_rep_id !== SABRINA_POOL_REP_ID,
   );
 
   // Última actividad por cuenta.
@@ -111,14 +125,18 @@ export async function runReassignmentSweep(
     const activitySinceWarn =
       warnedAt != null && lastActivity != null && new Date(lastActivity) > new Date(warnedAt);
 
-    if (warnedAt) {
-      // Ya tiene aviso pendiente.
-      if (effDays < REASSIGN_WARN_DAYS || activitySinceWarn) {
-        toRecover.push(a.id); // se reactivó → limpiar aviso
-        continue;
-      }
-      const graceElapsed = daysSince(warnedAt, now) ?? 0;
-      if (graceElapsed >= REASSIGN_GRACE_DAYS) {
+    const decision = decideReassignment({
+      assignedRepId: repId,
+      daysInactive: effDays,
+      daysSinceWarning: warnedAt == null ? null : (daysSince(warnedAt, now) ?? 0),
+      activitySinceWarning: activitySinceWarn,
+    });
+
+    switch (decision.action) {
+      case "recover":
+        toRecover.push(a.id);
+        break;
+      case "reassign":
         toReassign.push({
           account_id: a.id,
           business_name: a.business_name,
@@ -126,18 +144,21 @@ export async function runReassignmentSweep(
           last_activity_date: lastActivity,
           dias_restantes: 0,
         });
-      } else {
+        break;
+      case "pending":
         pending++;
-      }
-    } else if (effDays >= REASSIGN_WARN_DAYS) {
-      // Cruza el umbral por primera vez → avisar.
-      toWarn.push({
-        account_id: a.id,
-        business_name: a.business_name,
-        rep_id: repId,
-        last_activity_date: lastActivity,
-        dias_restantes: REASSIGN_GRACE_DAYS,
-      });
+        break;
+      case "warn":
+        toWarn.push({
+          account_id: a.id,
+          business_name: a.business_name,
+          rep_id: repId,
+          last_activity_date: lastActivity,
+          dias_restantes: decision.daysRemaining,
+        });
+        break;
+      case "ignore":
+        break;
     }
   }
 
@@ -174,11 +195,11 @@ export async function runReassignmentSweep(
     if (error) errores.push(`limpiar aviso: ${error.message}`);
   }
 
-  // 3) Reasignar al pool + bitácora.
+  // 3) Reasignar al pool de Sabrina + bitácora.
   for (const x of toReassign) {
     const { error: upErr } = await supabase
       .from("accounts")
-      .update({ assigned_rep_id: null, reassign_warned_at: null })
+      .update({ assigned_rep_id: SABRINA_POOL_REP_ID, reassign_warned_at: null })
       .eq("id", x.account_id);
     if (upErr) {
       errores.push(`reasignar ${x.account_id}: ${upErr.message}`);
@@ -187,7 +208,7 @@ export async function runReassignmentSweep(
     const { error: logErr } = await supabase.from("account_reassignment_log").insert({
       account_id: x.account_id,
       from_rep_id: x.rep_id,
-      to_rep_id: null,
+      to_rep_id: SABRINA_POOL_REP_ID,
       reason: REASON,
     });
     if (logErr) errores.push(`bitácora ${x.account_id}: ${logErr.message}`);
@@ -218,7 +239,7 @@ export async function runReassignmentSweep(
       try {
         await sendEmail({
           to: rep.email,
-          subject: `Cuentas en riesgo de reasignación — ${items.length}`,
+          subject: `Última oportunidad: 7 días para registrar actividad — ${items.length} cuentas`,
           html: buildWarningEmail(rep.name, items),
           from,
         });
@@ -260,7 +281,7 @@ export async function runReassignmentSweep(
         try {
           await sendEmail({
             to: adminEmails,
-            subject: `Reasignación por inactividad — ${toReassign.length} cuentas al pool`,
+            subject: `Reasignación por inactividad — ${toReassign.length} cuentas al pool de Sabrina`,
             html: buildAdminSummary(toReassign, reps),
             from,
           });
@@ -311,25 +332,32 @@ export async function loadReassignmentStatus(
 
   const { data: warnedData } = await supabase
     .from("accounts")
-    .select("id, business_name, assigned_rep_id, reassign_warned_at, sales_reps:assigned_rep_id(full_name)")
-    .not("reassign_warned_at", "is", null);
+    .select("id, business_name, assigned_rep_id, activity_baseline_at, reassign_warned_at, sales_reps:assigned_rep_id(full_name)")
+    .not("reassign_warned_at", "is", null)
+    .neq("assigned_rep_id", SABRINA_POOL_REP_ID);
 
-  const atRisk: AtRiskAccount[] = ((warnedData ?? []) as unknown as {
+  const warnedRows = ((warnedData ?? []) as unknown as {
     id: string;
     business_name: string;
     assigned_rep_id: string | null;
+    activity_baseline_at: string | null;
     reassign_warned_at: string;
     sales_reps: { full_name: string | null } | null;
-  }[])
+  }[]);
+
+  const atRisk: AtRiskAccount[] = warnedRows
     .map((a) => {
-      const elapsed = daysSince(a.reassign_warned_at, now) ?? 0;
+      const remaining = Math.max(
+        0,
+        REASSIGN_NOTICE_DAYS - (daysSince(a.reassign_warned_at, now) ?? 0),
+      );
       return {
         account_id: a.id,
         business_name: a.business_name,
         rep_id: a.assigned_rep_id,
         rep_name: a.sales_reps?.full_name ?? "Sin vendedor",
         warned_at: a.reassign_warned_at,
-        dias_restantes: Math.max(0, REASSIGN_GRACE_DAYS - elapsed),
+        dias_restantes: remaining,
       };
     })
     .sort((x, y) => x.dias_restantes - y.dias_restantes);
@@ -378,10 +406,17 @@ function rowsHtml(items: { business_name: string; dias_restantes: number }[], wi
 }
 
 function buildWarningEmail(repName: string, items: { business_name: string; dias_restantes: number }[]): string {
+  const deadline = new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "America/Mazatlan",
+  }).format(new Date(Date.now() + REASSIGN_NOTICE_DAYS * MS_DAY));
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
-    <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Cuentas en riesgo de reasignación</h2>
-    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(repName)}, estas cuentas que tienes asignadas llevan ${REASSIGN_WARN_DAYS} días o más sin ninguna actividad registrada. <strong>Te quedan ${REASSIGN_GRACE_DAYS} días</strong> para registrar una actividad (visita, llamada, degustación…) o se regresarán al pool para reasignarse.</p>
+    <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Última oportunidad antes de reasignación</h2>
+    <p style="margin:0 0 10px;color:#666;">Hola ${escapeHtml(repName)}, este es un <strong>aviso de última oportunidad</strong>. Estas cuentas llevan ${REASSIGN_WARN_DAYS} días o más sin actividad registrada.</p>
+    <p style="margin:0 0 16px;color:#666;">Tienes siete días completos, <strong>hasta el ${deadline}</strong>, para registrar una actividad (visita, llamada, degustación…). Si el plazo vence sin actividad, pasarán al pool general de Sabrina.</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead><tr style="background:#f6f1ee;text-align:left;"><th style="padding:6px 10px;">Cuenta</th><th style="padding:6px 10px;">Plazo</th></tr></thead>
       <tbody>${rowsHtml(items, true)}</tbody>
@@ -400,7 +435,7 @@ function buildReassignedEmail(repName: string, items: { business_name: string }[
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
     <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Cuentas reasignadas por inactividad</h2>
-    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(repName)}, estas cuentas se regresaron al pool por seguir sin actividad tras el aviso. Si quieres recuperarlas, coméntalo con tu administrador.</p>
+    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(repName)}, estas cuentas pasaron al pool general de Sabrina porque venció el aviso de siete días sin que se registrara actividad. Si quieres recuperarlas, coméntalo con tu administrador.</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead><tr style="background:#f6f1ee;text-align:left;"><th style="padding:6px 10px;">Cuenta</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -424,7 +459,7 @@ function buildAdminSummary(
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
     <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Reasignación por inactividad</h2>
-    <p style="margin:0 0 16px;color:#666;">${items.length} ${items.length === 1 ? "cuenta regresó" : "cuentas regresaron"} al pool por inactividad. Ya puedes repartirlas desde "Asignar vendedor".</p>
+    <p style="margin:0 0 16px;color:#666;">${items.length} ${items.length === 1 ? "cuenta pasó" : "cuentas pasaron"} al pool general de Sabrina tras vencer el aviso de última oportunidad de siete días sin actividad. Ya puedes repartirlas desde "Asignar vendedor".</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead><tr style="background:#f6f1ee;text-align:left;"><th style="padding:6px 10px;">Cuenta</th><th style="padding:6px 10px;">Vendedor anterior</th></tr></thead>
       <tbody>${rows}</tbody>
