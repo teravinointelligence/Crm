@@ -22,17 +22,17 @@ export const SAMPLE_CAP = {
   ventanaDias: 30,
 } as const;
 
-// ── Tope mensual de degustaciones por vendedor ───────────────────────────────
-// Un vendedor no puede enviar más de `botellasPorMes` botellas de degustación
-// por mes calendario (solicitudes vivas del mes). Las capacitaciones quedan
-// fuera (tienen su candado de compra previa) y el Admin está exento.
-// El número se calibró con el consumo del vendedor con más ventas
-// (~4 degustaciones de 3 vinos al mes).
-// FOOTGUN: el candado real vive en la BD (tg_sample_rep_monthly_cap, migración
+// ── Tope de muestras por cita ────────────────────────────────────────────────
+// El gasto de muestras sigue la actividad real del vendedor: máximo
+// `vinosPorCita` vinos por cita presencial ligada, tanto por solicitud como
+// acumulado en el mes (una cita solo da cupo una vez aunque se ligue a varias
+// solicitudes). Con más citas el cupo sube solo. Aplica también a
+// capacitaciones; el Admin está exento.
+// FOOTGUN: el candado real vive en la BD (tg_sample_citas_cap, migración
 // 20260828120000) con este MISMO número; esto solo alimenta los textos de la
 // UI. Si cambias uno, cambia el otro.
-export const SAMPLE_REP_CAP = {
-  botellasPorMes: 12,
+export const SAMPLE_CITA_CAP = {
+  vinosPorCita: 3,
 } as const;
 
 // ── Rendimiento de muestras para capacitaciones / catas ──────────────────────

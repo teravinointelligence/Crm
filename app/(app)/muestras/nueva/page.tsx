@@ -18,7 +18,7 @@ export default async function NuevaMuestraPage({
   if (!rep) redirect("/login");
   const isAdmin = rep.role === "admin";
 
-  const [{ data: products }, { data: citasRaw }, { data: lockedRows }, { data: bankRows }, { data: monthBottles }] = await Promise.all([
+  const [{ data: products }, { data: citasRaw }, { data: lockedRows }, { data: bankRows }, { data: monthUsageData }] = await Promise.all([
     supabase
       .from("products")
       .select("id, name, supplier, varietal, vintage, active, country, region_origin")
@@ -35,11 +35,15 @@ export default async function NuevaMuestraPage({
       .order("activity_date", { ascending: true }),
     supabase.rpc("rep_locked_sample_products"),
     supabase.rpc("rep_bank_available_products"),
-    supabase.rpc("my_degustacion_bottles_this_month"),
+    supabase.rpc("my_sample_month_usage"),
   ]);
 
   const lockedProductIds = ((lockedRows ?? []) as Array<{ product_id: string }>).map((r) => r.product_id);
   const bankProductIds = ((bankRows ?? []) as Array<{ product_id: string }>).map((r) => r.product_id);
+  const monthUsage = (Array.isArray(monthUsageData) ? monthUsageData[0] : monthUsageData) as
+    | { bottles: number | string | null; citas: number | string | null }
+    | null
+    | undefined;
 
   const citas = (citasRaw ?? []).map((c) => {
     const acc = (Array.isArray(c.accounts) ? c.accounts[0] : c.accounts) as unknown as
@@ -64,7 +68,8 @@ export default async function NuevaMuestraPage({
         citas={citas}
         lockedProductIds={lockedProductIds}
         bankProductIds={bankProductIds}
-        monthBottles={Number(monthBottles) || 0}
+        monthBottles={Number(monthUsage?.bottles) || 0}
+        monthCitas={Number(monthUsage?.citas) || 0}
         preselectAccountId={searchParams.account}
       />
     </div>
