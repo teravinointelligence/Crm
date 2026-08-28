@@ -22,6 +22,19 @@ export const SAMPLE_CAP = {
   ventanaDias: 30,
 } as const;
 
+// ── Tope mensual de degustaciones por vendedor ───────────────────────────────
+// Un vendedor no puede enviar más de `botellasPorMes` botellas de degustación
+// por mes calendario (solicitudes vivas del mes). Las capacitaciones quedan
+// fuera (tienen su candado de compra previa) y el Admin está exento.
+// El número se calibró con el consumo del vendedor con más ventas
+// (~4 degustaciones de 3 vinos al mes).
+// FOOTGUN: el candado real vive en la BD (tg_sample_rep_monthly_cap, migración
+// 20260828120000) con este MISMO número; esto solo alimenta los textos de la
+// UI. Si cambias uno, cambia el otro.
+export const SAMPLE_REP_CAP = {
+  botellasPorMes: 12,
+} as const;
+
 // ── Rendimiento de muestras para capacitaciones / catas ──────────────────────
 // Estándar TERAVINO: se sirven 2 onzas por participante de una botella de 750 ml,
 // por lo que cada botella rinde ~12 personas (antes se asumían 8, a ~3 oz).
