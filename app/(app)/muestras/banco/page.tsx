@@ -6,6 +6,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SampleBankClient, type BankRow, type RegionMetrics, type HistoryEntry } from "@/components/samples/SampleBankClient";
+import { SampleBankReportsPanel, type BankReport } from "@/components/samples/SampleBankReportsPanel";
 
 export const metadata = { title: "Banco de muestras — TERAVINO CRM" };
 
@@ -16,7 +17,7 @@ export default async function BancoMuestrasPage() {
   const isAdmin = rep.role === "admin";
 
   // RLS: el vendedor solo ve su zona; admin/contador ven todas.
-  const [{ data: viewData }, { data: movData }, { data: encData }, { data: acctData }] = await Promise.all([
+  const [{ data: viewData }, { data: movData }, { data: encData }, { data: acctData }, { data: reportData }] = await Promise.all([
     supabase
       .from("v_sample_bank")
       .select("product_id, product_name, supplier, region, location, available, ingresado, tomado")
@@ -30,6 +31,11 @@ export default async function BancoMuestrasPage() {
       .order("created_at", { ascending: false }),
     supabase.from("account_products").select("account_id, product_id").eq("status", "encartado"),
     supabase.from("accounts").select("id, business_name, region").order("business_name"),
+    supabase
+      .from("sample_bank_reports")
+      .select("id, product_name, region, location, quantity, kind, note, reported_at, rep:reported_by(full_name), account:account_id(business_name)")
+      .eq("status", "pendiente")
+      .order("reported_at", { ascending: true }),
   ]);
 
   const rows: BankRow[] = (viewData ?? []).map((r) => ({
@@ -153,6 +159,24 @@ export default async function BancoMuestrasPage() {
 
   const accounts = (acctData ?? []) as { id: string; business_name: string; region: string | null }[];
 
+  // RLS: el vendedor solo ve sus reportes; admin/contador ven todos.
+  const bankReports: BankReport[] = ((reportData ?? []) as unknown as {
+    id: string; product_name: string; region: string | null; location: string | null;
+    quantity: number | string; kind: BankReport["kind"]; note: string; reported_at: string | null;
+    rep: { full_name: string | null } | null; account: { business_name: string | null } | null;
+  }[]).map((r) => ({
+    id: r.id,
+    product_name: r.product_name,
+    region: r.region,
+    location: r.location,
+    quantity: Number(r.quantity ?? 0),
+    kind: r.kind,
+    note: r.note,
+    reported_at: r.reported_at,
+    rep: r.rep?.full_name ?? null,
+    account: r.account?.business_name ?? null,
+  }));
+
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div className="flex items-center justify-between gap-2">
@@ -180,6 +204,8 @@ export default async function BancoMuestrasPage() {
           <Kpi icon={Boxes} label="Zonas con stock" value={new Set(rows.map((r) => r.region ?? "Sin zona")).size.toLocaleString("es-MX")} />
         </div>
       )}
+
+      <SampleBankReportsPanel reports={bankReports} isAdmin={isAdmin} />
 
       <SampleBankClient rows={rows} isAdmin={isAdmin} accounts={accounts} metricsByRegion={metricsByRegion} lastUse={lastUse} history={historyByKey} />
     </div>

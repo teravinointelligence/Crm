@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FlaskConical, PackageCheck, PackageMinus } from "lucide-react";
+import { FlaskConical, MessageSquareWarning, PackageCheck, PackageMinus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -80,6 +80,11 @@ export function SampleBankClient({
   const [relQty, setRelQty] = useState(1);
   const [relNote, setRelNote] = useState("");
   const [hist, setHist] = useState<BankRow | null>(null);
+  const [report, setReport] = useState<BankRow | null>(null);
+  const [repKind, setRepKind] = useState<"consumo" | "merma" | "regreso_almacen">("consumo");
+  const [repQty, setRepQty] = useState(1);
+  const [repNote, setRepNote] = useState("");
+  const [repAccountId, setRepAccountId] = useState<string>(NONE);
 
   const openTake = (r: BankRow) => {
     setTake(r);
@@ -92,6 +97,44 @@ export function SampleBankClient({
     setRelease(r);
     setRelQty(1);
     setRelNote("");
+  };
+
+  const openReport = (r: BankRow) => {
+    setReport(r);
+    setRepKind("consumo");
+    setRepQty(1);
+    setRepNote("");
+    setRepAccountId(NONE);
+  };
+
+  const confirmReport = () => {
+    if (!report) return;
+    if (repQty <= 0 || repQty > report.available) {
+      toast.error("Cantidad inválida");
+      return;
+    }
+    if (repKind === "consumo" && repAccountId === NONE) {
+      toast.error("Selecciona el cliente", { description: "Indica con quién se usó la botella." });
+      return;
+    }
+    startTransition(async () => {
+      const { error } = await supabase.rpc("sample_bank_report_create", {
+        p_product: report.product_id,
+        p_region: report.region,
+        p_location: report.location,
+        p_kind: repKind,
+        p_qty: repQty,
+        p_account: repKind === "consumo" ? repAccountId : null,
+        p_note: repNote || null,
+      });
+      if (error) {
+        toast.error("No se pudo enviar el reporte", { description: error.message });
+        return;
+      }
+      toast.success("Reporte enviado", { description: "El admin lo revisará; el banco se ajusta cuando lo apruebe." });
+      setReport(null);
+      router.refresh();
+    });
   };
 
   const confirmRelease = () => {
@@ -275,6 +318,11 @@ export function SampleBankClient({
                             <PackageMinus className="mr-1 h-4 w-4" /> Liberar
                           </Button>
                         )}
+                        {!isAdmin && (
+                          <Button size="sm" variant="ghost" onClick={() => openReport(r)} disabled={pending} title="La botella ya no está (se consumió, se dañó o regresó al almacén)">
+                            <MessageSquareWarning className="mr-1 h-4 w-4" /> Reportar
+                          </Button>
+                        )}
                         <Button size="sm" variant="outline" onClick={() => openTake(r)} disabled={pending}>
                           <PackageCheck className="mr-1 h-4 w-4" /> Tomar
                         </Button>
@@ -396,6 +444,80 @@ export function SampleBankClient({
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!report} onOpenChange={(o) => !o && setReport(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reportar botella del banco</DialogTitle>
+          </DialogHeader>
+          {report && (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <div className="font-medium">{report.product_name}</div>
+                <div className="text-muted-foreground">
+                  {[report.supplier, report.region ?? "Sin zona", report.location ?? "Sin bodega", `${report.available} disponibles`].filter(Boolean).join(" · ")}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Úsalo cuando la botella ya no está físicamente: se consumió sin registrarse, se dañó
+                o regresó al almacén. El banco se ajusta cuando el admin apruebe tu reporte.
+              </p>
+              <div className="space-y-1.5">
+                <Label>¿Qué pasó?</Label>
+                <Select value={repKind} onValueChange={(v) => setRepKind(v as typeof repKind)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consumo">Se consumió con un cliente (cuenta como toma)</SelectItem>
+                    <SelectItem value="merma">Merma: botella dañada o pasada</SelectItem>
+                    <SelectItem value="regreso_almacen">Regresó al almacén de venta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="rep_qty">Cantidad</Label>
+                <Input
+                  id="rep_qty"
+                  type="number"
+                  min={1}
+                  max={report.available}
+                  value={repQty}
+                  onChange={(e) => setRepQty(Number(e.target.value) || 0)}
+                />
+              </div>
+              {repKind === "consumo" && (
+                <div className="space-y-1.5">
+                  <Label>Cliente *</Label>
+                  <AccountCombobox
+                    accounts={accounts}
+                    value={repAccountId}
+                    onChange={setRepAccountId}
+                    placeholder="¿Con qué cliente se usó?"
+                    noneValue={NONE}
+                    noneLabel="— Selecciona un cliente —"
+                  />
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="rep_note">¿Qué pasó con la botella? *</Label>
+                <Input
+                  id="rep_note"
+                  value={repNote}
+                  onChange={(e) => setRepNote(e.target.value)}
+                  placeholder="Se consumió en la degustación del…"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setReport(null)} disabled={pending}>
+                  Cancelar
+                </Button>
+                <Button onClick={confirmReport} disabled={pending}>
+                  {pending ? "Enviando…" : "Enviar reporte"}
+                </Button>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
