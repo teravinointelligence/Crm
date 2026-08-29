@@ -172,6 +172,7 @@ type AccountRow = {
   region: string | null;
   status: string | null;
   assigned_rep_id: string | null;
+  credit_days: number | null;
 };
 type RepRow = { id: string; full_name: string; last_seen_at: string | null };
 type ActivityRow = {
@@ -266,7 +267,7 @@ export async function loadTablero(
     selectAll<AccountRow>((from, to) =>
       supabase
         .from("accounts")
-        .select("id, business_name, region, status, assigned_rep_id")
+        .select("id, business_name, region, status, assigned_rep_id, credit_days")
         .range(from, to),
     ),
     supabase
@@ -561,7 +562,15 @@ export async function loadTablero(
     const myBalances = balances.filter((b) => b.assigned_rep_id === r.id);
     const vencidasList = myBalances.filter((b) => Number(b.saldo_vencido ?? 0) > 0);
     const suspendidas = myBalances.filter(
-      (b) => semaforoCobranza(b.dias_vencido, b.saldo_pendiente, b.total_pagado).estado === "suspendido",
+      (b) =>
+        semaforoCobranza(
+          b.dias_vencido,
+          b.saldo_pendiente,
+          b.total_pagado,
+          undefined,
+          new Date(),
+          accountById.get(b.account_id)?.credit_days,
+        ).estado === "suspendido",
     ).length;
     const montoVencido = vencidasList.reduce((s, b) => s + Number(b.saldo_vencido ?? 0), 0);
 

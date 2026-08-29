@@ -33,7 +33,7 @@ export async function buildRecordatorio(
   // La RLS restringe accounts al admin o al rep dueño; si no la ve, 404.
   const { data: account } = await supabase
     .from("accounts")
-    .select("id, business_name, fiscal_name, assigned_rep_id")
+    .select("id, business_name, fiscal_name, assigned_rep_id, credit_days")
     .eq("id", accountId)
     .maybeSingle();
   if (!account) return { ok: false, status: 404, error: "Cuenta no encontrada" };
@@ -82,6 +82,9 @@ export async function buildRecordatorio(
     balance?.dias_vencido,
     balance?.saldo_pendiente,
     balance?.total_pagado,
+    undefined,
+    new Date(),
+    account.credit_days,
   );
   const today = new Date();
   const rows = open

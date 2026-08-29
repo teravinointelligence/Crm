@@ -34,7 +34,15 @@ export function CobranzaEmails({ rows }: { rows: AccountBalance[] }) {
 
   const vencidas = pendientes.filter((r) => (r.saldo_vencido ?? 0) > 0);
   const suspendidos = pendientes.filter(
-    (r) => semaforoCobranza(r.dias_vencido ?? 0, r.saldo_pendiente ?? 0, r.total_pagado).estado === "suspendido",
+    (r) =>
+      semaforoCobranza(
+        r.dias_vencido ?? 0,
+        r.saldo_pendiente ?? 0,
+        r.total_pagado,
+        undefined,
+        new Date(),
+        r.credit_days,
+      ).estado === "suspendido",
   );
   const porVencer = pendientes.filter((r) => (r.saldo_vencido ?? 0) <= 0);
 
@@ -284,6 +292,7 @@ function Fila({
                 saldoVencido={row.saldo_vencido ?? 0}
                 totalPagado={row.total_pagado}
                 diasVencido={row.dias_vencido}
+                creditDays={row.credit_days}
               />
             </span>
             <span className="block text-xs text-muted-foreground">

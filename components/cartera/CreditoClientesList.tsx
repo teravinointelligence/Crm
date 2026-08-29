@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/ui/empty-state";
 import type { ClaseRiesgo } from "@/lib/cobranza";
+import { creditDaysLabel } from "@/lib/credit-terms";
 
 export type CreditoRow = {
   accountId: string;
@@ -21,6 +22,7 @@ export type CreditoRow = {
   vendedor: string | null;
   diasVencido: number | null;
   esSocio: boolean | null;
+  creditDays: number | null;
   clase: ClaseRiesgo;
   detalle: string;
 };
@@ -61,8 +63,8 @@ export function CreditoClientesList({ rows }: { rows: CreditoRow[] }) {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Kpi label="Sin crédito · ningún pago" value={suspender.length} tone="danger" />
-        <Kpi label="Crédito liberado" value={liberado.length} tone="ok" />
+        <Kpi label="Crédito suspendido o contado" value={suspender.length} tone="danger" />
+        <Kpi label="Crédito disponible" value={liberado.length} tone="ok" />
       </div>
 
       {rows.length === 0 ? (
@@ -78,15 +80,15 @@ export function CreditoClientesList({ rows }: { rows: CreditoRow[] }) {
       ) : (
         <div className="space-y-6">
           <Section
-            title="Sin crédito — ningún pago registrado"
-            description="No entregar a crédito hasta que la cuenta registre su primer pago."
+            title="Crédito suspendido o contado"
+            description="No entregar a crédito. En contado, el pedido requiere pago antes de entrega."
             icon={<ShieldCheck className="h-5 w-5 text-red-700" />}
             rows={suspender}
             variant="danger"
           />
           <Section
-            title="Crédito liberado — OK entregar"
-            description="La cuenta ya registró al menos un pago, sin importar el monto."
+            title="Crédito disponible — OK entregar"
+            description="Entregar respetando el plazo vigente que aparece en la tabla."
             icon={<CheckCircle2 className="h-5 w-5 text-emerald-700" />}
             rows={liberado}
             variant="success"
@@ -131,6 +133,7 @@ function Section({
                 <th className="px-4 py-2">Cliente</th>
                 <th className="px-4 py-2">Región</th>
                 <th className="px-4 py-2">Vendedor</th>
+                <th className="px-4 py-2 text-right">Plazo</th>
                 <th className="px-4 py-2 text-right">Días vencido</th>
               </tr>
             </thead>
@@ -150,6 +153,9 @@ function Section({
                   </td>
                   <td className="px-4 py-2 text-muted-foreground">{r.region ?? "—"}</td>
                   <td className="px-4 py-2 text-muted-foreground">{r.vendedor ?? "—"}</td>
+                  <td className="px-4 py-2 text-right font-medium">
+                    {creditDaysLabel(r.creditDays)}
+                  </td>
                   <td
                     className={`px-4 py-2 text-right ${
                       variant === "danger"

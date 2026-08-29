@@ -271,6 +271,10 @@ export function AccountForm({ account, reps, isAdmin, defaultRepId }: Props) {
           defaultValue={account?.credit_days ?? ""}
           placeholder="0 = contado · ej. 30"
         />
+        <p className="text-xs text-muted-foreground">
+          Si paga después de un vencimiento, el CRM reducirá automáticamente el plazo:
+          60 → 45 → 30 → 15 días → contado.
+        </p>
       </div>
 
       <div className="space-y-2">

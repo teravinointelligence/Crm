@@ -46,6 +46,27 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["accounts"]["Row"]>;
         Relationships: [];
       };
+      account_credit_adjustments: {
+        Row: {
+          account_id: string;
+          created_at: string;
+          id: string;
+          new_credit_days: number;
+          payment_date: string;
+          payment_id: string | null;
+          previous_credit_days: number;
+          reason: string;
+          triggering_invoice_id: string | null;
+        };
+        Insert: Partial<Database["public"]["Tables"]["account_credit_adjustments"]["Row"]> & {
+          account_id: string;
+          new_credit_days: number;
+          payment_date: string;
+          previous_credit_days: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["account_credit_adjustments"]["Row"]>;
+        Relationships: [];
+      };
       activities: {
         Row: {
           account_id: string;
@@ -759,7 +780,11 @@ export type AccountBalance = {
   facturas_abiertas: number | null;
   dias_vencido: number | null;
   es_socio: boolean | null;
+  credit_days?: number | null;
 };
+
+export type AccountCreditAdjustment =
+  Database["public"]["Tables"]["account_credit_adjustments"]["Row"];
 
 export const PAYMENT_METHODS = [
   "transferencia",

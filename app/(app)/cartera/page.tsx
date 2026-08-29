@@ -54,16 +54,16 @@ export default async function CarteraPage() {
         .order("saldo_vencido", { ascending: false })
         .order("saldo_pendiente", { ascending: false }),
       supabase.from("sales_reps").select("id, full_name"),
-      supabase.from("accounts").select("id, client_number"),
+      supabase.from("accounts").select("id, client_number, credit_days"),
       supabase.from("v_account_credit_release").select("account_id, last_qualifying_payment_date"),
       loadUltimoPagoPorCuenta(supabase),
     ]);
 
   const repName = new Map((reps ?? []).map((r) => [r.id, r.full_name]));
-  const clientNum = new Map(
-    ((accts ?? []) as { id: string; client_number: string | null }[]).map((a) => [
+  const accountMeta = new Map(
+    ((accts ?? []) as { id: string; client_number: string | null; credit_days: number | null }[]).map((a) => [
       a.id,
-      a.client_number,
+      a,
     ]),
   );
   const creditReleaseDate = new Map(
@@ -71,7 +71,10 @@ export default async function CarteraPage() {
   );
   const rows = ((balances ?? []) as AccountBalance[]).filter(
     (b) => (b.total_facturado ?? 0) > 0,
-  );
+  ).map((b) => ({
+    ...b,
+    credit_days: accountMeta.get(b.account_id)?.credit_days ?? null,
+  }));
 
   const totals = rows.reduce(
     (acc, b) => {
@@ -88,7 +91,8 @@ export default async function CarteraPage() {
   const carteraRows: CarteraRow[] = rows.map((b) => ({
     accountId: b.account_id,
     businessName: b.business_name,
-    clientNumber: clientNum.get(b.account_id) ?? null,
+    clientNumber: accountMeta.get(b.account_id)?.client_number ?? null,
+    creditDays: accountMeta.get(b.account_id)?.credit_days ?? null,
     region: b.region,
     vendedor: b.assigned_rep_id ? repName.get(b.assigned_rep_id) ?? null : null,
     esSocio: b.es_socio,
