@@ -11,7 +11,8 @@ import { AccountHeader } from "@/components/accounts/AccountHeader";
 import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { AccountWines } from "@/components/accounts/AccountWines";
-import { ChurnCard, CrossSellCard, TopProductsCard } from "@/components/accounts/AccountIntelCards";
+import { ChurnCard, CrossSellCard } from "@/components/accounts/AccountIntelCards";
+import { ProductPurchaseTimelineCard } from "@/components/accounts/ProductPurchaseTimelineCard";
 import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
 import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
@@ -282,9 +283,9 @@ export default async function CuentaDetailPage({
                 basis="cartera, qué compra, tendencia mensual, churn y venta cruzada"
               />
               <ChurnCard churn={facts.churn} trend={facts.trend} />
-              <TopProductsCard products={facts.topProducts} />
-              <CrossSellCard recommendations={facts.recommendations} />
             </div>
+            <ProductPurchaseTimelineCard accountId={account.id} timeline={facts.productPurchases} />
+            <CrossSellCard recommendations={facts.recommendations} />
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Kpi icon={Wallet} label="Saldo pendiente" value={formatCurrency(balance?.saldo_pendiente)} accent />
