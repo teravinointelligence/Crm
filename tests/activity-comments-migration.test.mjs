@@ -3,11 +3,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const migrationUrl = new URL(
-  "../supabase/migrations/20260902140945_activity_follow_up_comments.sql",
+  "../supabase/migrations/20260902141339_activity_follow_up_comments.sql",
   import.meta.url,
 );
 const authorIndexMigrationUrl = new URL(
-  "../supabase/migrations/20260902141439_activity_comments_author_index.sql",
+  "../supabase/migrations/20260902141458_activity_comments_author_index.sql",
   import.meta.url,
 );
 const sql = `${await readFile(migrationUrl, "utf8")} ${await readFile(authorIndexMigrationUrl, "utf8")}`
