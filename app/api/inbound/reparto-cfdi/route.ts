@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 const MAX_XML_BYTES = 1_000_000;
 // Solo se publica el hash. El token original vive únicamente en Make.
-const TOKEN_SHA256 = "97b21a2c849b1af9189538dd313a352c31bb603403045e4d6c8c6aae25d77161";
+const TOKEN_SHA256 = "b0393504103c81a603fb318a8cf8ed968db3317afdac7f5df01b851cd6775088";
 
 function autorizado(req: Request): boolean {
   const auth = req.headers.get("authorization") ?? "";
