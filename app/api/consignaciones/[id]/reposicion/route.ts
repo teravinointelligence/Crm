@@ -1,8 +1,8 @@
 // POST /api/consignaciones/[id]/reposicion
 //
 // "Reponer productos": crea un pedido en el proyecto Reparto para resurtir el
-// producto consumido de una consignación. El pedido queda pendiente de asignar
-// chofer (logística lo despacha desde el módulo de Reparto).
+// producto consumido de una consignación. Las plazas autorizadas se asignan
+// automáticamente; las demás quedan pendientes para Logística.
 //
 // Identidad cross-system: el cliente de Reparto es de su propia tabla; el caller
 // elige el reparto_cliente_id (buscado vía /api/consignaciones/reparto-clientes).
@@ -13,6 +13,7 @@
 import { NextResponse } from "next/server";
 import { base44, type Base44Consignacion } from "@/lib/base44";
 import { repartoAdmin } from "@/lib/supabase-reparto";
+import { crearResolvedorAsignacionAutomatica } from "@/lib/reparto/asignacion-automatica-server";
 import { appendNota, loadConsignacionForRep } from "../../_lib/scope";
 
 type ProductoInput = {
@@ -56,7 +57,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   // Verifica que el cliente de Reparto exista.
   const { data: cliente, error: cliErr } = await repartoAdmin
     .from("clientes")
-    .select("id, nombre, direccion")
+    .select("id, nombre, direccion, rfc, ciudad, zona")
     .eq("id", body.reparto_cliente_id)
     .maybeSingle();
   if (cliErr) return NextResponse.json({ error: cliErr.message }, { status: 500 });
@@ -78,8 +79,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   const refConsig = consignacion.cliente_nombre ?? consignacion.id;
   const tag = `[RESURTIDO CONSIGNACIÓN · ${refConsig} · ref:${consignacion.id}]`;
   const notas = `${tag}${body.notas?.trim() ? ` ${body.notas.trim()}` : ""}`;
+  const asignacion = await crearResolvedorAsignacionAutomatica().resolver(cliente);
 
-  // Crea el pedido en Reparto (pendiente de asignar chofer).
+  // Crea el pedido en Reparto; las plazas autorizadas salen ya asignadas.
   const { data: pedido, error: pedidoErr } = await repartoAdmin
     .from("pedidos")
     .insert({
@@ -87,12 +89,13 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       // Los resurtidos de consignación se tramitan como traspaso de almacén.
       tipo: "traspaso",
       cliente_id: cliente.id,
+      chofer_id: asignacion.chofer_id,
       fecha: hoy,
       subtotal: Math.round(subtotal * 100) / 100,
       iva,
       total,
       moneda: "MXN",
-      estatus: "pendiente_asignar",
+      estatus: asignacion.aplicada ? "asignado" : "pendiente_asignar",
       prioridad,
       origen: "manual",
       direccion_entrega: cliente.direccion ?? null,
@@ -132,5 +135,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // El pedido ya se creó; la bitácora es secundaria.
   }
 
-  return NextResponse.json({ ok: true, pedido_id: pedido.id, numero_factura: numeroFactura });
+  return NextResponse.json({
+    ok: true,
+    pedido_id: pedido.id,
+    numero_factura: numeroFactura,
+    auto_asignacion: {
+      aplicada: asignacion.aplicada,
+      chofer_nombre: asignacion.chofer_nombre,
+      motivo: asignacion.motivo,
+    },
+  });
 }

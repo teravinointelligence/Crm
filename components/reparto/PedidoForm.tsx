@@ -21,8 +21,9 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { PEDIDO_TIPOS, PRIORIDADES, TIPO_LABEL, type PedidoTipo, type Prioridad } from "@/types/reparto";
 
-// Radix Select v2 no permite <SelectItem value="">; usamos un centinela para
-// la opción "Sin asignar" y lo mapeamos a "" (→ null al crear el pedido).
+// Radix Select v2 no permite <SelectItem value="">; usamos centinelas para
+// distinguir la asignación automática de "dejar sin asignar".
+const AUTO_ASIGNAR = "auto_asignar";
 const SIN_ASIGNAR = "sin_asignar";
 
 type ClienteLite = { id: string; nombre: string; rfc: string | null; ciudad: string | null };
@@ -47,7 +48,7 @@ export function PedidoForm() {
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: "", rfc: "", ciudad: "", direccion: "" });
 
   const [choferes, setChoferes] = useState<ChoferLite[]>([]);
-  const [choferId, setChoferId] = useState<string>("");
+  const [choferId, setChoferId] = useState<string>(AUTO_ASIGNAR);
 
   const [tipo, setTipo] = useState<PedidoTipo>("factura");
   const [pdf, setPdf] = useState<File | null>(null);
@@ -106,6 +107,8 @@ export function PedidoForm() {
       return;
     }
     startTransition(async () => {
+      const asignarAutomaticamente = choferId === AUTO_ASIGNAR;
+      const choferManual = choferId === AUTO_ASIGNAR || choferId === SIN_ASIGNAR ? null : choferId;
       const res = await fetch("/api/reparto/pedidos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -114,7 +117,8 @@ export function PedidoForm() {
           tipo,
           fecha,
           cliente_id: cliente.id,
-          chofer_id: choferId || null,
+          chofer_id: choferManual,
+          auto_asignar: asignarAutomaticamente,
           prioridad,
           ventana_inicio: ventanaInicio || null,
           ventana_fin: ventanaFin || null,
@@ -135,6 +139,7 @@ export function PedidoForm() {
       });
       const json = await res.json();
       if (!res.ok) { toast.error(json.error ?? "Error al crear pedido"); return; }
+      const asignacionDescripcion = json.data?.auto_asignacion?.motivo as string | undefined;
       // PDF del documento (traspaso, consignación, patrocinio…): se adjunta
       // después de crear; si falla, el pedido ya existe y se puede resubir
       // desde su detalle.
@@ -152,7 +157,9 @@ export function PedidoForm() {
           return;
         }
       }
-      toast.success(pdf ? "Pedido creado con su PDF" : "Pedido creado");
+      toast.success(pdf ? "Pedido creado con su PDF" : "Pedido creado", {
+        description: asignacionDescripcion,
+      });
       router.push(`/reparto/pedidos/${json.data.id}`);
       router.refresh();
     });
@@ -280,11 +287,12 @@ export function PedidoForm() {
           </Select></div>
         <div className="space-y-2"><Label>Asignar a</Label>
           <Select
-            value={choferId || SIN_ASIGNAR}
-            onValueChange={(v) => setChoferId(v === SIN_ASIGNAR ? "" : v)}
+            value={choferId}
+            onValueChange={setChoferId}
           >
-            <SelectTrigger><SelectValue placeholder="Sin asignar" /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Automático según ubicación" /></SelectTrigger>
             <SelectContent>
+              <SelectItem value={AUTO_ASIGNAR}>Automático según ubicación</SelectItem>
               <SelectItem value={SIN_ASIGNAR}>Sin asignar</SelectItem>
               {choferes.some((c) => c.es_chofer) && (
                 <SelectGroup>
@@ -303,7 +311,13 @@ export function PedidoForm() {
                 </SelectGroup>
               )}
             </SelectContent>
-          </Select></div>
+          </Select>
+          {choferId === AUTO_ASIGNAR && (
+            <p className="text-xs text-muted-foreground">
+              Baja California Norte → Emmanuel · Puerto Vallarta/Nayarit → Martín · La Paz → Mauricio.
+            </p>
+          )}
+        </div>
 
         <div className="space-y-2"><Label>Ventana inicio</Label>
           <Input type="time" value={ventanaInicio} onChange={(e) => setVentanaInicio(e.target.value)} /></div>

@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import JSZip from "jszip";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { parseCfdi, type CfdiParsed } from "@/lib/cfdi/parse";
+import { crearResolvedorAsignacionAutomatica } from "@/lib/reparto/asignacion-automatica-server";
 import { requireRepartoManage } from "../../_lib/guard";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,19 @@ type Outcome = {
   pedido_id?: string;
   numero_factura?: string;
   error?: string;
+  asignacion?: {
+    aplicada: boolean;
+    chofer_nombre: string | null;
+    motivo: string;
+  };
+};
+
+type ClienteAsignable = {
+  id: string;
+  created: boolean;
+  rfc: string | null;
+  ciudad: string | null;
+  zona: string | null;
 };
 
 async function readFiles(form: FormData): Promise<{ name: string; xml: string }[]> {
@@ -38,25 +52,25 @@ async function readFiles(form: FormData): Promise<{ name: string; xml: string }[
   return out;
 }
 
-async function ensureCliente(parsed: CfdiParsed): Promise<{ id: string; created: boolean } | null> {
+async function ensureCliente(parsed: CfdiParsed): Promise<ClienteAsignable | null> {
   const rfc = parsed.receptor.rfc;
   if (rfc) {
     const { data } = await repartoAdmin
       .from("clientes")
-      .select("id")
+      .select("id, rfc, ciudad, zona")
       .ilike("rfc", rfc)
       .limit(1)
       .maybeSingle();
-    if (data?.id) return { id: data.id, created: false };
+    if (data?.id) return { ...data, rfc: data.rfc ?? rfc, created: false };
   }
   if (parsed.receptor.nombre) {
     const { data } = await repartoAdmin
       .from("clientes")
-      .select("id")
+      .select("id, rfc, ciudad, zona")
       .ilike("nombre", parsed.receptor.nombre)
       .limit(1)
       .maybeSingle();
-    if (data?.id) return { id: data.id, created: false };
+    if (data?.id) return { ...data, rfc: data.rfc ?? rfc ?? null, created: false };
   }
   if (!parsed.receptor.nombre) return null;
   const { data: nuevo, error } = await repartoAdmin
@@ -66,10 +80,10 @@ async function ensureCliente(parsed: CfdiParsed): Promise<{ id: string; created:
       nombre: parsed.receptor.nombre,
       notas: parsed.receptor.codigo_postal ? `CP fiscal: ${parsed.receptor.codigo_postal}` : null,
     })
-    .select("id")
+    .select("id, rfc, ciudad, zona")
     .single();
   if (error || !nuevo) return null;
-  return { id: nuevo.id, created: true };
+  return { ...nuevo, created: true };
 }
 
 export async function POST(req: Request) {
@@ -91,6 +105,8 @@ export async function POST(req: Request) {
   let creados = 0;
   let yaExistentes = 0;
   let clientesCreados = 0;
+  let asignadosAutomaticamente = 0;
+  const asignador = crearResolvedorAsignacionAutomatica();
 
   for (const { name, xml } of files) {
     try {
@@ -114,6 +130,7 @@ export async function POST(req: Request) {
         continue;
       }
       if (cli.created) clientesCreados++;
+      const asignacion = await asignador.resolver(cli);
 
       const { data: pedido, error: pedErr } = await repartoAdmin
         .from("pedidos")
@@ -126,7 +143,8 @@ export async function POST(req: Request) {
           iva: parsed.iva,
           total: parsed.total,
           moneda: parsed.moneda,
-          estatus: "pendiente_asignar",
+          chofer_id: asignacion.chofer_id,
+          estatus: asignacion.aplicada ? "asignado" : "pendiente_asignar",
           prioridad: "normal",
           origen: "xml_upload",
         })
@@ -151,7 +169,18 @@ export async function POST(req: Request) {
         await repartoAdmin.from("pedido_productos").insert(partidas);
       }
 
-      results.push({ archivo: name, status: "creado", pedido_id: pedido.id, numero_factura: parsed.numero_factura });
+      if (asignacion.aplicada) asignadosAutomaticamente++;
+      results.push({
+        archivo: name,
+        status: "creado",
+        pedido_id: pedido.id,
+        numero_factura: parsed.numero_factura,
+        asignacion: {
+          aplicada: asignacion.aplicada,
+          chofer_nombre: asignacion.chofer_nombre,
+          motivo: asignacion.motivo,
+        },
+      });
       creados++;
     } catch (e) {
       results.push({ archivo: name, status: "error", error: e instanceof Error ? e.message : "Error desconocido" });
@@ -159,7 +188,14 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    summary: { total: files.length, creados, ya_existen: yaExistentes, errores: results.filter((r) => r.status === "error").length, clientes_creados: clientesCreados },
+    summary: {
+      total: files.length,
+      creados,
+      asignados_automaticamente: asignadosAutomaticamente,
+      ya_existen: yaExistentes,
+      errores: results.filter((r) => r.status === "error").length,
+      clientes_creados: clientesCreados,
+    },
     results,
   });
 }
