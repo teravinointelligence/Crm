@@ -17,10 +17,16 @@ type Outcome = {
   pedido_id?: string;
   numero_factura?: string;
   error?: string;
+  asignacion?: {
+    aplicada: boolean;
+    chofer_nombre: string | null;
+    motivo: string;
+  };
 };
 type Summary = {
   total: number;
   creados: number;
+  asignados_automaticamente: number;
   ya_existen: number;
   errores: number;
   clientes_creados: number;
@@ -54,7 +60,9 @@ export function UploadCFDI() {
       setSummary(json.summary);
       setResults(json.results ?? []);
       if (json.summary.creados > 0) {
-        toast.success(`${json.summary.creados} pedido(s) creado(s)`);
+        toast.success(`${json.summary.creados} pedido(s) creado(s)`, {
+          description: `${json.summary.asignados_automaticamente ?? 0} asignado(s) automáticamente`,
+        });
         router.refresh();
       } else if (json.summary.ya_existen > 0) {
         toast.success("Todos los XML ya estaban cargados");
@@ -93,9 +101,10 @@ export function UploadCFDI() {
 
           {summary && (
             <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
                 <Kpi label="Total" value={summary.total} />
                 <Kpi label="Creados" value={summary.creados} tone={summary.creados > 0 ? "ok" : undefined} />
+                <Kpi label="Autoasignados" value={summary.asignados_automaticamente ?? 0} tone={summary.asignados_automaticamente > 0 ? "ok" : undefined} />
                 <Kpi label="Ya existen" value={summary.ya_existen} />
                 <Kpi label="Errores" value={summary.errores} tone={summary.errores > 0 ? "warn" : undefined} />
               </div>
@@ -113,7 +122,13 @@ export function UploadCFDI() {
                       <span>
                         <strong>{r.archivo}</strong> · {r.numero_factura ?? "—"} ·{" "}
                         <span className={r.status === "error" ? "text-amber-700" : "text-muted-foreground"}>
-                          {r.status === "creado" ? "creado" : r.status === "ya_existe" ? "ya existía" : `error: ${r.error}`}
+                          {r.status === "creado"
+                            ? r.asignacion?.aplicada
+                              ? `creado · asignado a ${r.asignacion.chofer_nombre}`
+                              : `creado · sin asignar (${r.asignacion?.motivo ?? "requiere revisión manual"})`
+                            : r.status === "ya_existe"
+                              ? "ya existía"
+                              : `error: ${r.error}`}
                         </span>
                       </span>
                     </li>

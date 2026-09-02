@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { requireReparto, requireRepartoManage } from "../_lib/guard";
 import { PEDIDO_ESTATUS, PEDIDO_TIPOS, PRIORIDADES } from "@/types/reparto";
+import { crearResolvedorAsignacionAutomatica } from "@/lib/reparto/asignacion-automatica-server";
 
 export const dynamic = "force-dynamic";
 
@@ -95,6 +96,12 @@ export async function POST(req: Request) {
   }, 0);
   const total = Number(body?.total ?? subtotal * 1.16);
   const iva = Number(body?.iva ?? total - subtotal);
+  const choferManual = body?.chofer_id || null;
+  const autoAsignar = !choferManual && body?.auto_asignar !== false;
+  const asignacion = autoAsignar
+    ? await crearResolvedorAsignacionAutomatica().resolverPorClienteId(body.cliente_id)
+    : null;
+  const choferId = choferManual ?? asignacion?.chofer_id ?? null;
 
   const { data: pedido, error: pedidoErr } = await repartoAdmin
     .from("pedidos")
@@ -103,7 +110,7 @@ export async function POST(req: Request) {
       uuid_fiscal: body?.uuid_fiscal?.trim() || null,
       tipo,
       cliente_id: body.cliente_id,
-      chofer_id: body?.chofer_id || null,
+      chofer_id: choferId,
       fecha,
       ventana_inicio: body?.ventana_inicio || null,
       ventana_fin: body?.ventana_fin || null,
@@ -111,7 +118,7 @@ export async function POST(req: Request) {
       iva: Math.round(iva * 100) / 100,
       total: Math.round(total * 100) / 100,
       moneda: body?.moneda || "MXN",
-      estatus: body?.chofer_id ? "asignado" : "pendiente_asignar",
+      estatus: choferId ? "asignado" : "pendiente_asignar",
       prioridad,
       origen: body?.origen || "manual",
       direccion_entrega: body?.direccion_entrega?.trim() || null,
@@ -143,5 +150,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: itemsErr.message, pedido_id: pedido.id }, { status: 500 });
   }
 
-  return NextResponse.json({ data: { id: pedido.id } });
+  return NextResponse.json({
+    data: {
+      id: pedido.id,
+      auto_asignacion: asignacion
+        ? {
+            aplicada: asignacion.aplicada,
+            chofer_nombre: asignacion.chofer_nombre,
+            motivo: asignacion.motivo,
+          }
+        : null,
+    },
+  });
 }
