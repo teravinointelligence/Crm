@@ -39,6 +39,7 @@ export function ProductForm({ product }: { product?: Product }) {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
+    const sampleUnitCost = String(fd.get("sample_unit_cost") ?? "").trim();
     const payload = {
       sku: (fd.get("sku") as string) || null,
       name: String(fd.get("name") ?? "").trim(),
@@ -50,6 +51,7 @@ export function ProductForm({ product }: { product?: Product }) {
       vintage: (fd.get("vintage") as string) || null,
       volume_ml: Number(fd.get("volume_ml") ?? 750),
       base_price: Number(fd.get("base_price") ?? 0),
+      sample_unit_cost: sampleUnitCost ? Number(sampleUnitCost) : null,
       stock_quantity: Number(fd.get("stock_quantity") ?? 0),
       stock_min_alert: Number(fd.get("stock_min_alert") ?? 6),
       active: fd.get("active") !== "off",
@@ -184,6 +186,21 @@ export function ProductForm({ product }: { product?: Product }) {
           required
           defaultValue={product?.base_price ?? ""}
         />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="sample_unit_cost">Costo unitario para muestras</Label>
+        <Input
+          id="sample_unit_cost"
+          name="sample_unit_cost"
+          type="number"
+          step="0.01"
+          min={0}
+          defaultValue={product?.sample_unit_cost ?? ""}
+          placeholder="Costo real de adquisición"
+        />
+        <p className="text-xs text-muted-foreground">
+          Si se deja vacío, el retorno usará el precio base y lo marcará como estimado.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="stock_quantity">Stock actual</Label>

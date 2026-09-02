@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -14,22 +16,26 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-export function CancelSampleButton({ requestId, status }: { requestId: string; status: string }) {
+export function CancelSampleButton({ requestId }: { requestId: string }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
-  const isApproved = status === "aprobada";
+  const [reason, setReason] = useState("");
 
   const confirm = () => {
     startTransition(async () => {
-      const res = await fetch(`/api/samples/${requestId}/cancelar`, { method: "POST" });
+      const res = await fetch(`/api/samples/${requestId}/cancelar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
         toast.error("No se pudo cancelar", { description: data.error });
         return;
       }
-      toast.success("Solicitud cancelada");
+      toast.success("Cancelación enviada a administración");
       setOpen(false);
       router.refresh();
     });
@@ -43,22 +49,32 @@ export function CancelSampleButton({ requestId, status }: { requestId: string; s
         className="text-red-600 border-red-200 hover:bg-red-50"
         onClick={() => setOpen(true)}
       >
-        <XCircle className="mr-1.5 h-4 w-4" /> Cancelar solicitud
+        <XCircle className="mr-1.5 h-4 w-4" /> Solicitar cancelación
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>¿Cancelar esta solicitud?</DialogTitle>
+            <DialogTitle>Solicitar cancelación</DialogTitle>
             <DialogDescription>
-              {isApproved
-                ? "Esta solicitud ya estaba aprobada. Al cancelarla se revertirán los vinos que se registraron en el banco de muestras. Esta acción no se puede deshacer."
-                : "La solicitud pasará a estado «cancelada» y ya no podrá procesarse. Esta acción no se puede deshacer."}
+              Administración revisará el motivo antes de cancelar y ajustar el banco de muestras.
             </DialogDescription>
           </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="cancellation-reason">Motivo</Label>
+            <Textarea
+              id="cancellation-reason"
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="Ej. El cliente canceló la cita o seleccioné un producto equivocado"
+              maxLength={2000}
+            />
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Volver</Button>
-            <Button variant="destructive" onClick={confirm}>Sí, cancelar</Button>
+            <Button variant="destructive" disabled={reason.trim().length < 5} onClick={confirm}>
+              Enviar solicitud
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

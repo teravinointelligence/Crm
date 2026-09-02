@@ -441,7 +441,7 @@ export function VendorIncentives({
                           {r.cobrado ? (
                             <Badge className="bg-emerald-100 text-emerald-800">Sí</Badge>
                           ) : (
-                            <Badge variant="outline" className="text-muted-foreground">Pendiente</Badge>
+                            <Badge variant="outline" className="text-muted-foreground">Pendiente de pago</Badge>
                           )}
                         </td>
                       )}

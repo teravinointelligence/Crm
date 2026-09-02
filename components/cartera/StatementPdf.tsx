@@ -34,7 +34,6 @@ const s = StyleSheet.create({
   totalsTotal: { flexDirection: "row", justifyContent: "space-between", paddingTop: 8, marginTop: 4, borderTopWidth: 1, borderTopColor: CARMESI },
   totalsLabel: { fontFamily: "Times-Roman", fontSize: 13, color: CARMESI },
   totalsValue: { fontFamily: "Times-Roman", fontSize: 15, color: CARMESI },
-  riesgoBox: { borderWidth: 1, borderColor: CARMESI, borderRadius: 3, paddingVertical: 4, paddingHorizontal: 8, alignSelf: "flex-start" },
   note: { fontSize: 7.5, color: MUTED, marginTop: 2 },
   footer: { position: "absolute", bottom: 32, left: 48, right: 48, borderTopWidth: 1, borderTopColor: ORO, paddingTop: 8, fontSize: 8, color: MUTED, flexDirection: "row", justifyContent: "space-between" },
 });
@@ -58,10 +57,8 @@ export type StatementData = {
   };
   generatedAt: string;
   creditDays: number;
-  riesgo: string;
-  totals: { facturado: number; pagado: number; pendiente: number; vencido: number; netoEstimado: number | null };
+  totals: { facturado: number; pagado: number; pendiente: number; vencido: number };
   aging?: { b_1_31: number; b_32_62: number; b_63_93: number; b_94_mas: number; saldo_total: number } | null;
-  pendientes: Array<{ fecha: string | null; banco: string; referencia: string; folios: string; importe: number }>;
   invoices: Array<{ invoice_number: string; invoice_date: string; due_date: string | null; total: number; total_paid: number; balance: number; status: string }>;
   payments: Array<{ payment_date: string; amount: number; method: string | null; reference: string | null }>;
 };
@@ -80,7 +77,7 @@ function diasVencidosDe(invoiceDate: string, creditDays: number, corte: string) 
 }
 
 export function StatementPdf({ data }: { data: StatementData }) {
-  const { account, totals, invoices, payments, aging, pendientes, riesgo, creditDays, generatedAt } = data;
+  const { account, totals, invoices, payments, aging, creditDays, generatedAt } = data;
   const agingTotal = aging?.saldo_total ?? 0;
   const totalSaldoFacturas = invoices.reduce((acc, i) => acc + i.balance, 0);
 
@@ -113,19 +110,6 @@ export function StatementPdf({ data }: { data: StatementData }) {
           <Meta label="Crédito" value={account.credito} />
         </View>
 
-        {/* Sección 2 — saldo y riesgo */}
-        <Text style={s.h2}>Saldo y riesgo</Text>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <View style={s.riesgoBox}>
-            <Text style={{ fontSize: 10, color: CARMESI }}>{riesgo}</Text>
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            {totals.netoEstimado != null && (
-              <Text style={s.small}>Saldo neto estimado: {mxn(totals.netoEstimado)} (por confirmar abonos)</Text>
-            )}
-          </View>
-        </View>
-
         {/* Sección 3 — resumen por antigüedad */}
         {aging && agingTotal > 0 && (
           <>
@@ -147,27 +131,6 @@ export function StatementPdf({ data }: { data: StatementData }) {
               <Text style={[agingStyles.cVal, { color: CARMESI }]}>{mxn(agingTotal)}</Text>
               <Text style={[agingStyles.cPct, { color: CARMESI }]}>100%</Text>
             </View>
-          </>
-        )}
-
-        {/* Sección 5 — abonos pendientes de aplicar */}
-        {pendientes.length > 0 && (
-          <>
-            <Text style={s.h2}>Abonos detectados pendientes de aplicar</Text>
-            <View style={s.tableHeader}>
-              <Text style={[s.th, s.c2]}>Fecha</Text>
-              <Text style={[s.th, s.c1]}>Banco / referencia</Text>
-              <Text style={[s.th, s.c1]}>Folios</Text>
-              <Text style={[s.th, s.cR]}>Importe</Text>
-            </View>
-            {pendientes.map((p, idx) => (
-              <View key={idx} style={s.row} wrap={false}>
-                <Text style={s.c2}>{fmt(p.fecha)}</Text>
-                <Text style={s.c1}>{[p.banco, p.referencia].filter((x) => x && x !== "—").join(" · ") || "—"}</Text>
-                <Text style={s.c1}>{p.folios}</Text>
-                <Text style={s.cR}>{mxn(p.importe)}</Text>
-              </View>
-            ))}
           </>
         )}
 
@@ -230,9 +193,8 @@ export function StatementPdf({ data }: { data: StatementData }) {
         </View>
 
         <View style={{ marginTop: 16 }}>
-          <Text style={s.note}>· CONTPAQ guarda vencimiento = fecha de factura; para crédito negociado los días/bucket se recalculan con los días pactados.</Text>
-          <Text style={s.note}>· La aplicación de pagos por coincidencia de importe es estimada hasta confirmar en COMPAC.</Text>
-          <Text style={s.note}>· Cuentas legacy/estratégicas se excluyen de métricas operativas.</Text>
+          <Text style={s.note}>Los pagos pueden tardar en reflejarse. Si realizó un pago recientemente, envíe su comprobante a cobranza@teravino.com para ayudarnos a identificarlo.</Text>
+          <Text style={s.note}>Para cualquier aclaración sobre este estado de cuenta, escríbanos a cobranza@teravino.com.</Text>
         </View>
 
         <View style={s.footer} fixed>

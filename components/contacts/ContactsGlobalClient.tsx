@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Phone, Mail, MessageCircle, Star, Pencil, Search, Cake, AlertTriangle } from "lucide-react";
+import { Phone, Mail, MessageCircle, Star, Pencil, Search, Cake, AlertTriangle, ReceiptText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,10 +89,15 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
       whatsapp: String(fd.get("whatsapp") ?? "") || null,
       birthday: String(fd.get("birthday") ?? "") || null,
       is_primary: fd.get("is_primary") === "on",
+      receives_statement: fd.get("receives_statement") === "on",
       notes: String(fd.get("notes") ?? "") || null,
     };
     if (!payload.full_name) {
       toast.error("Nombre obligatorio");
+      return;
+    }
+    if (payload.receives_statement && !payload.email) {
+      toast.error("Agrega un email para enviarle el estado de cuenta");
       return;
     }
     startTransition(async () => {
@@ -236,6 +241,11 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
                   </div>
                 );
               })()}
+              {c.receives_statement && (
+                <Badge variant="accent" className="gap-1">
+                  <ReceiptText className="h-3 w-3" /> Estado de cuenta
+                </Badge>
+              )}
               {missing.length > 0 && (
                 <p className="text-[11px] text-amber-600">
                   Falta: {missing.join(", ")}
@@ -296,6 +306,15 @@ export function ContactsGlobalClient({ contacts }: { contacts: ContactRow[] }) {
                   className="h-4 w-4 rounded border-input text-brand-carmesi focus:ring-brand-carmesi"
                 />
                 Contacto principal de la cuenta
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="receives_statement"
+                  defaultChecked={editing.receives_statement ?? false}
+                  className="h-4 w-4 rounded border-input text-brand-carmesi focus:ring-brand-carmesi"
+                />
+                Recibe estados de cuenta
               </label>
               <div className="space-y-1.5">
                 <Label htmlFor="notes">Notas</Label>

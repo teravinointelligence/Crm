@@ -11,14 +11,16 @@ import {
   CircleCheckBig,
   Pencil,
   CalendarPlus,
+  BadgeDollarSign,
 } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { googleCalendarUrl } from "@/lib/calendar-links";
 import { EmptyState } from "@/components/ui/empty-state";
-import type { Activity } from "@/types/database";
+import { ACTIVITY_TYPE_LABELS, type Activity, type ActivityType } from "@/types/database";
 
 const iconFor: Record<string, React.ComponentType<{ className?: string }>> = {
   visita: CalendarCheck2,
+  visita_cobranza: BadgeDollarSign,
   llamada: Phone,
   email: Mail,
   whatsapp: MessageCircle,
@@ -62,7 +64,9 @@ export function ActivityTimeline({
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium capitalize">
-                    {a.activity_type ?? "actividad"}
+                    {ACTIVITY_TYPE_LABELS[a.activity_type as ActivityType] ??
+                      a.activity_type ??
+                      "Actividad"}
                   </span>
                   {a.status === "agendada" && (
                     <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-medium text-indigo-700">

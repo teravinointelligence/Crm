@@ -9,6 +9,7 @@
 import "server-only";
 import {
   base44,
+  type Base44Cliente,
   type Base44Consignacion,
   type Base44TomaInventario,
   type Base44Vendedor,
@@ -26,7 +27,11 @@ const MS_DAY = 86_400_000;
 
 export type TomaPendiente = {
   consignacionId: string;
+  clienteId: string;
   cliente: string;
+  clienteNumero: string | null;
+  /** Cuenta correspondiente en el CRM, resuelta del lado del servidor. */
+  accountId?: string | null;
   estado: string;
   fechaConsignacion: string | null;
   ultimaToma: string | null;
@@ -102,7 +107,9 @@ function pendientesDe(
       vendedorNombre: c.vendedor_nombre ?? "—",
       item: {
         consignacionId: c.id,
+        clienteId: c.cliente_id,
         cliente: c.cliente_nombre ?? "—",
+        clienteNumero: null,
         estado: c.estado,
         fechaConsignacion: c.fecha ?? null,
         ultimaToma: ultima,
@@ -116,11 +123,13 @@ function pendientesDe(
 /** Carga TODAS las consignaciones pendientes agrupadas por vendedor (para el
  *  tablero admin y el cron). */
 export async function loadTomasGroups(dias: number = DEFAULT_TOMA_DAYS): Promise<VendedorTomasGroup[]> {
-  const [{ consignaciones, tomas }, vendedores] = await Promise.all([
+  const [{ consignaciones, tomas }, vendedores, clientes] = await Promise.all([
     loadBase44(),
     base44.entity<Base44Vendedor>("Vendedor").list({ limit: 200 }),
+    base44.entity<Base44Cliente>("Cliente").list({ limit: 500 }),
   ]);
   const vendMap = new Map(vendedores.map((v) => [v.id, v]));
+  const clienteMap = new Map(clientes.map((cliente) => [cliente.id, cliente]));
 
   const byVend = new Map<string, VendedorTomasGroup>();
   for (const p of pendientesDe(consignaciones, tomas, dias)) {
@@ -136,6 +145,8 @@ export async function loadTomasGroups(dias: number = DEFAULT_TOMA_DAYS): Promise
       };
       byVend.set(p.vendedorId, g);
     }
+    const cliente = clienteMap.get(p.item.clienteId);
+    p.item.clienteNumero = cliente?.numero_cliente?.trim() || null;
     g.items.push(p.item);
   }
   for (const g of byVend.values()) g.items.sort(sortItems);

@@ -52,6 +52,7 @@ export type Database = {
           activity_date: string;
           activity_type: string | null;
           contact_id: string | null;
+          completed_at: string | null;
           created_at: string | null;
           duration_minutes: number | null;
           id: string;
@@ -70,6 +71,23 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["activities"]["Row"]>;
         Relationships: [];
       };
+      seller_weekly_activity_goals: {
+        Row: {
+          created_at: string;
+          effective_from: string;
+          effective_to: string | null;
+          sales_rep_id: string;
+          updated_at: string;
+          weekly_goal: number;
+        };
+        Insert: Partial<Database["public"]["Tables"]["seller_weekly_activity_goals"]["Row"]> & {
+          effective_from: string;
+          sales_rep_id: string;
+          weekly_goal: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["seller_weekly_activity_goals"]["Row"]>;
+        Relationships: [];
+      };
       contacts: {
         Row: {
           account_id: string;
@@ -80,6 +98,7 @@ export type Database = {
           full_name: string;
           id: string;
           is_primary: boolean | null;
+          receives_statement: boolean;
           notes: string | null;
           phone: string | null;
           role: string | null;
@@ -223,10 +242,15 @@ export type Database = {
           proposed_at: string | null;
           proposed_by: string | null;
           region_origin: string | null;
+          sample_unit_cost: number | null;
           sku: string | null;
           stock_min_alert: number | null;
           stock_quantity: number | null;
           supplier: string;
+          technical_sheet_file_name: string | null;
+          technical_sheet_path: string | null;
+          technical_sheet_updated_at: string | null;
+          technical_sheet_updated_by: string | null;
           updated_at: string | null;
           varietal: string | null;
           vintage: string | null;
@@ -565,6 +589,7 @@ export const ACCOUNT_STATUSES: AccountStatus[] = [
 
 export type ActivityType =
   | "visita"
+  | "visita_cobranza"
   | "llamada"
   | "email"
   | "whatsapp"
@@ -574,6 +599,7 @@ export type ActivityType =
 
 export const ACTIVITY_TYPES: ActivityType[] = [
   "visita",
+  "visita_cobranza",
   "llamada",
   "email",
   "whatsapp",
@@ -581,6 +607,17 @@ export const ACTIVITY_TYPES: ActivityType[] = [
   "reunion",
   "evento",
 ];
+
+export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
+  visita: "Visita",
+  visita_cobranza: "Visita de cobranza",
+  llamada: "Llamada",
+  email: "Email",
+  whatsapp: "WhatsApp",
+  degustacion: "Degustación",
+  reunion: "Reunión",
+  evento: "Evento",
+};
 
 export type ActivityStatus = "agendada" | "realizada" | "cancelada";
 

@@ -1,7 +1,7 @@
 // GET /api/cron/reasignar-inactivas — Vercel Cron (diario).
-// Barre las cuentas asignadas sin actividad: avisa al vendedor a los 50 días
-// ("te quedan 10 días") y, pasado el margen, regresa la cuenta al pool y
-// notifica al vendedor y a admin. Corre con service-role (sin sesión).
+// Barre las cuentas asignadas sin actividad: avisa al vendedor a los 53 días
+// ("te quedan 7 días") y, al cumplir 60 días y siete días desde el aviso, la
+// pasa al pool de Sabrina. Corre con service-role (sin sesión).
 //
 // Seguridad: si CRON_SECRET está configurado, exige Authorization: Bearer <secret>.
 

@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
 import { ActivityCalendar } from "@/components/dashboard/ActivityCalendar";
 import { TeamActivityBoard } from "@/components/dashboard/TeamActivityBoard";
+import { TeamWeeklyActivityGoals } from "@/components/activities/WeeklyActivityGoal";
 import { SugerenciasIA } from "@/components/dashboard/SugerenciasIA";
 import { DatosFaltantesBanner } from "@/components/dashboard/DatosFaltantesBanner";
 import { FraseDelDia } from "@/components/dashboard/FraseDelDia";
@@ -39,6 +40,7 @@ import { formatCurrency, formatDate, formatBirthday } from "@/lib/utils";
 import { OnlinePill } from "@/components/equipo/OnlinePill";
 import { staleUrgency } from "@/lib/colors";
 import type { Activity, UpcomingBirthday } from "@/types/database";
+import { loadWeeklyActivityGoals } from "@/lib/activity-goals-server";
 
 function daysSince(iso: string | null): number | null {
   if (!iso) return null;
@@ -164,6 +166,9 @@ export default async function DashboardPage() {
   const repsForCalendar = isAdmin
     ? (((await supabase.from("sales_reps").select("id, full_name").eq("active", true).in("role", SELLER_ROLES).order("full_name")).data ?? []) as { id: string; full_name: string }[])
     : [];
+  const weeklyActivityGoals = isAdmin
+    ? await loadWeeklyActivityGoals(repsForCalendar, new Date(), supabase)
+    : { snapshots: [], warning: null };
 
   // Cuentas sin actividad reciente (>30 días) para el recordatorio "Visitar pronto".
   const staleRes = await supabase
@@ -608,6 +613,13 @@ export default async function DashboardPage() {
             </div>
           )}
         </div>
+      )}
+
+      {isAdmin && (
+        <TeamWeeklyActivityGoals
+          snapshots={weeklyActivityGoals.snapshots}
+          warning={weeklyActivityGoals.warning}
+        />
       )}
 
       {isAdmin && <TeamActivityBoard />}

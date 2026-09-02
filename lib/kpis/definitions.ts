@@ -143,7 +143,7 @@ export const KPI_DEFINITIONS: KpiDefinition[] = [
     id: "v_actividades",
     nombre: "Actividades por tipo",
     formula:
-      "Actividades del periodo desglosadas por tipo (visita, llamada, degustación, email, WhatsApp, reunión, evento).",
+      "Actividades del periodo desglosadas por tipo (visita, visita de cobranza, llamada, degustación, email, WhatsApp, reunión, evento).",
     fuente: "activities",
     frecuencia: "semanal",
     nivel: "vendedor",

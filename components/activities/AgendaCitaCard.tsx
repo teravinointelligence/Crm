@@ -18,6 +18,9 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +39,9 @@ export type AgendaCitaData = {
   account_id: string;
   account_name: string | null;
   notes: string | null;
+  outcome: string | null;
+  next_step: string | null;
+  next_step_date: string | null;
 };
 
 /** Suma días a un timestamp ISO conservando la hora de la cita. */
@@ -61,10 +67,14 @@ export function AgendaCitaCard({
   const [gone, setGone] = useState(false);
   const [realizada, setRealizada] = useState(done);
   const [reagendarOpen, setReagendarOpen] = useState(false);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [outcome, setOutcome] = useState(cita.outcome ?? "");
+  const [nextStep, setNextStep] = useState(cita.next_step ?? "");
+  const [nextStepDate, setNextStepDate] = useState(cita.next_step_date ?? "");
 
   const swipe = useSwipeAction({
     enabled: !pending && !realizada && !gone,
-    onSwipeRight: () => marcarRealizada(),
+    onSwipeRight: () => setCompleteOpen(true),
     onSwipeLeft: () => setReagendarOpen(true),
   });
 
@@ -87,11 +97,23 @@ export function AgendaCitaCard({
 
   /** Marcarla realizada la deja en su lugar y la pinta de verde. */
   function marcarRealizada() {
+    if (!outcome.trim() && !nextStep.trim()) {
+      toast.error("Escribe el resultado o el siguiente paso");
+      return;
+    }
+    setCompleteOpen(false);
+    swipe.reset();
     setRealizada(true);
     startTransition(async () => {
       const { error } = await supabase
         .from("activities")
-        .update({ status: "realizada" })
+        .update({
+          status: "realizada",
+          completed_at: new Date().toISOString(),
+          outcome: outcome.trim() || null,
+          next_step: nextStep.trim() || null,
+          next_step_date: nextStep.trim() ? nextStepDate || null : null,
+        })
         .eq("id", cita.id);
       if (error) {
         setRealizada(false);
@@ -108,7 +130,7 @@ export function AgendaCitaCard({
     startTransition(async () => {
       const { error } = await supabase
         .from("activities")
-        .update({ status: "agendada" })
+        .update({ status: "agendada", completed_at: null })
         .eq("id", cita.id);
       if (error) {
         setRealizada(true);
@@ -184,7 +206,6 @@ export function AgendaCitaCard({
 
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              {/* El título ES el cliente: tocarlo debe llevar a su ficha. */}
               <Link
                 href={`/cuentas/${cita.account_id}`}
                 className={cn(
@@ -214,7 +235,6 @@ export function AgendaCitaCard({
               {cita.notes ? ` · ${cita.notes}` : ""}
             </p>
 
-            {/* Accesos con área de toque de verdad, no enlaces de 11 px. */}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <Link
                 href={`/cuentas/${cita.account_id}`}
@@ -241,7 +261,7 @@ export function AgendaCitaCard({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={marcarRealizada}
+                    onClick={() => setCompleteOpen(true)}
                     disabled={pending}
                   >
                     <Check className="mr-1 h-3.5 w-3.5" /> Realizada
@@ -295,6 +315,70 @@ export function AgendaCitaCard({
             <Button variant="ghost" className="justify-start text-red-600" onClick={cancelar}>
               <X className="mr-2 h-4 w-4" /> Cancelar la cita
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={completeOpen}
+        onOpenChange={(open) => {
+          setCompleteOpen(open);
+          if (!open) swipe.reset();
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Completar actividad</DialogTitle>
+            <DialogDescription>
+              {cita.account_name ?? "Cita"} · documenta el resultado para que sume a tu meta semanal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor={`outcome-${cita.id}`}>¿Qué pasó?</Label>
+              <Textarea
+                id={`outcome-${cita.id}`}
+                value={outcome}
+                onChange={(event) => setOutcome(event.target.value)}
+                placeholder="Ej. Presenté la nueva colección; pidió una cotización de 12 botellas…"
+              />
+            </div>
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+              <Label htmlFor={`next-step-${cita.id}`}>Siguiente paso (opcional)</Label>
+              <Textarea
+                id={`next-step-${cita.id}`}
+                value={nextStep}
+                onChange={(event) => setNextStep(event.target.value)}
+                placeholder="Enviar cotización, confirmar degustación, dar seguimiento…"
+              />
+              {nextStep.trim() ? (
+                <div className="space-y-1">
+                  <Label htmlFor={`next-step-date-${cita.id}`} className="text-xs">
+                    Fecha de seguimiento
+                  </Label>
+                  <Input
+                    id={`next-step-date-${cita.id}`}
+                    type="date"
+                    value={nextStepDate}
+                    onChange={(event) => setNextStepDate(event.target.value)}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Es necesario registrar al menos el resultado o el siguiente paso. Una cita solo
+              agendada no cuenta como actividad realizada.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCompleteOpen(false)} disabled={pending}>
+                Volver
+              </Button>
+              <Button onClick={marcarRealizada} disabled={pending || (!outcome.trim() && !nextStep.trim())}>
+                {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+                Marcar realizada
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

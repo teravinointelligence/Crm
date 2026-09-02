@@ -56,6 +56,7 @@ export type CarteraRow = {
   facturasAbiertas: number | null;
   ultimoPagoMonto: number | null;
   ultimoPagoFecha: string | null;
+  ultimoPagoVencidoFecha: string | null;
 };
 
 export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
@@ -213,6 +214,8 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                       <SemaforoBadge
                         saldoPendiente={b.saldoPendiente ?? 0}
                         saldoVencido={b.saldoVencido ?? 0}
+                        totalPagado={b.totalPagado}
+                        ultimoPagoVencidoFecha={b.ultimoPagoVencidoFecha}
                         diasVencido={b.diasVencido}
                       />
                     </div>

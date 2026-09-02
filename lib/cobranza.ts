@@ -19,9 +19,34 @@ export type SemaforoInfo = {
 export function semaforoCobranza(
   diasVencido: number | null | undefined,
   saldoPendiente: number | null | undefined,
+  totalPagado?: number | null,
+  ultimoPagoVencidoFecha?: string | null,
+  now = new Date(),
 ): SemaforoInfo {
   const dv = Number(diasVencido ?? 0);
   const pend = Number(saldoPendiente ?? 0);
+
+  if (ultimoPagoVencidoFecha !== undefined) {
+    if (pagoEnUltimos30Dias(ultimoPagoVencidoFecha, now)) {
+      return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
+    }
+    // Una cuenta sin facturas vencidas no debe quedar suspendida por no tener
+    // un pago calificable: todavía está dentro de su plazo de crédito.
+    if (dv <= 0) {
+      if (pend > 0) return { estado: "por_cobrar", label: "Por cobrar", variant: "warning", bloquea: false };
+      return { estado: "al_corriente", label: "Al corriente", variant: "success", bloquea: false };
+    }
+    if (pend > 0) {
+      return { estado: "suspendido", label: "Crédito suspendido", variant: "danger", bloquea: true };
+    }
+  } else if (totalPagado != null) {
+    if (Number(totalPagado) > 0) {
+      return { estado: "al_corriente", label: "Crédito liberado", variant: "success", bloquea: false };
+    }
+    if (pend > 0) {
+      return { estado: "suspendido", label: "Sin crédito · ningún pago", variant: "danger", bloquea: true };
+    }
+  }
 
   if (dv >= 45) return { estado: "suspendido", label: "Suspendido", variant: "danger", bloquea: true };
   if (dv >= 7) return { estado: "vencido", label: `Vencido (${dv} días)`, variant: "danger", bloquea: true };
@@ -30,19 +55,23 @@ export function semaforoCobranza(
   return { estado: "al_corriente", label: "Al corriente", variant: "success", bloquea: false };
 }
 
+export function pagoEnUltimos30Dias(
+  ultimoPagoFecha: string | null | undefined,
+  now = new Date(),
+): boolean {
+  if (!ultimoPagoFecha) return false;
+  const fecha = new Date(`${String(ultimoPagoFecha).slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(fecha.getTime())) return false;
+  const hoyUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dias = Math.floor((hoyUtc - fecha.getTime()) / 86_400_000);
+  return dias >= 0 && dias <= 30;
+}
+
 // =====================================================================
-// Clasificación de riesgo de cartera (Flujo 3 — estado de cuenta).
-//
-//   Cartera Legacy  → cuenta legacy/estratégica; se excluye de métricas
-//                     operativas y NO entra a la lógica de suspensión.
-//   Crédito Liberado→ al corriente o sin saldo vencido material.
-//   Por Revisar     → saldo vencido dentro de la ventana de revisión
-//                     [ventanaRevision, ventanaSuspension]. NO se suspende
-//                     (regla 13).
-//   Suspender Crédito → saldo vencido más allá de la ventana de revisión.
-//
-// El umbral de "Por Revisar" es configurable por cliente (default 45 días)
-// para resolver la pregunta abierta 45 (regla) vs 32 (bucket) sin cablearla.
+// Política vigente de crédito:
+//   sin saldo vencido                                  → crédito liberado
+//   pagó una factura vencida en los últimos 30 días   → crédito liberado
+//   con saldo vencido y sin pago calificable reciente → crédito suspendido
 // =====================================================================
 
 export type ClaseRiesgo =
@@ -62,41 +91,40 @@ export const VENTANA_REVISION_DEFAULT = 45;
 export const VENTANA_SUSPENSION_DEFAULT = 62;
 
 export function clasificarRiesgo(params: {
+  totalPagado?: number | null;
+  ultimoPagoVencidoFecha?: string | null;
+  now?: Date;
   diasVencido: number | null | undefined;
   saldoVencido: number | null | undefined;
   isLegacy?: boolean | null;
   ventanaRevision?: number | null;
   ventanaSuspension?: number | null;
 }): RiesgoInfo {
-  const dv = Number(params.diasVencido ?? 0);
+  const pagado = Number(params.totalPagado ?? 0);
   const vencido = Number(params.saldoVencido ?? 0);
-  const inicio = Number(params.ventanaRevision ?? VENTANA_REVISION_DEFAULT);
-  const fin = Number(params.ventanaSuspension ?? VENTANA_SUSPENSION_DEFAULT);
-
-  if (params.isLegacy) {
-    return {
-      clase: "Cartera Legacy",
-      variant: "muted",
-      detalle: "Cuenta legacy/estratégica · excluida de métricas operativas",
-    };
-  }
-  if (vencido <= 0 || dv < inicio) {
+  const usaReglaFacturaVencida = params.ultimoPagoVencidoFecha !== undefined;
+  const pagoReciente = pagoEnUltimos30Dias(params.ultimoPagoVencidoFecha, params.now);
+  if (vencido <= 0) {
     return {
       clase: "Crédito Liberado",
       variant: "success",
-      detalle: vencido > 0 ? `Vencido ${dv} días (dentro de tolerancia)` : "Sin saldo vencido material",
+      detalle: "Crédito liberado · no tiene saldo vencido",
     };
   }
-  if (dv <= fin) {
+  if (pagoReciente || (!usaReglaFacturaVencida && pagado > 0)) {
     return {
-      clase: "Por Revisar",
-      variant: "warning",
-      detalle: `Vencido ${dv} días · en ventana de revisión (${inicio}–${fin})`,
+      clase: "Crédito Liberado",
+      variant: "success",
+      detalle: pagoReciente
+        ? "Crédito liberado · pagó una factura vencida en los últimos 30 días"
+        : "Crédito liberado · la cuenta ya registró al menos un pago",
     };
   }
   return {
     clase: "Suspender Crédito",
     variant: "danger",
-    detalle: `Vencido ${dv} días · más allá de la ventana de revisión (${fin})`,
+    detalle: usaReglaFacturaVencida
+      ? "Crédito suspendido · no ha pagado una factura vencida en los últimos 30 días"
+      : "Crédito no liberado · la cuenta no ha registrado ningún pago",
   };
 }

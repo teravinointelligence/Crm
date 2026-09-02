@@ -16,6 +16,13 @@ import { NoteCard } from "@/components/activities/NoteCard";
 import { loadNotes } from "@/lib/notes";
 import { dateKeyTz } from "@/lib/utils";
 import { compareTasks } from "@/lib/rep-tasks";
+import { isFelixIncentiveUser } from "@/lib/felix-incentive";
+import { loadFelixIncentiveSnapshot } from "@/lib/felix-incentive-server";
+import { FelixIncentiveMeter } from "@/components/incentivos/FelixIncentiveMeter";
+import { loadPersonalIncentiveSnapshot } from "@/lib/personal-incentives-server";
+import { PersonalIncentiveMeter } from "@/components/incentivos/PersonalIncentiveMeter";
+import { WeeklyActivityGoalCard } from "@/components/activities/WeeklyActivityGoal";
+import { loadWeeklyActivityGoals } from "@/lib/activity-goals-server";
 import type { RepTask } from "@/types/database";
 
 export const metadata = { title: "Mi día — TERAVINO CRM" };
@@ -26,6 +33,10 @@ type ActivityRow = {
   activity_date: string;
   status: string;
   notes: string | null;
+  outcome: string | null;
+  next_step: string | null;
+  next_step_date: string | null;
+  completed_at: string | null;
   account_id: string;
   accounts: { business_name: string | null } | null;
 };
@@ -72,17 +83,37 @@ export default async function MiDiaPage({
         .order("full_name")
     : { data: null };
   const reps = (repsData ?? []) as { id: string; full_name: string }[];
+  const goalReps = isAdmin ? reps : [{ id: me.id, full_name: me.full_name }];
 
   // Lo que se cerró HOY sigue en pantalla, en verde: sirve de marcador de
   // avance y permite reabrir algo que se marcó por error.
   const doneFrom = new Date(`${today}T00:00:00Z`);
   doneFrom.setUTCDate(doneFrom.getUTCDate() - 1);
 
-  const [citasRes, tareasRes, pasosRes, notas] = await Promise.all([
+  // El medidor es personal: ni siquiera se carga cuando un admin revisa la agenda de Félix.
+  const felixIncentivePromise =
+    repId === me.id && isFelixIncentiveUser(me.email)
+      ? loadFelixIncentiveSnapshot(me, now)
+      : Promise.resolve(null);
+  const personalIncentivePromise =
+    repId === me.id
+      ? loadPersonalIncentiveSnapshot(me, now, supabase)
+      : Promise.resolve(null);
+  const weeklyGoalsPromise = loadWeeklyActivityGoals(goalReps, now, supabase);
+
+  const [
+    citasRes,
+    tareasRes,
+    pasosRes,
+    notas,
+    felixIncentive,
+    personalIncentive,
+    weeklyGoals,
+  ] = await Promise.all([
     supabase
       .from("activities")
       .select(
-        "id, activity_type, activity_date, status, notes, account_id, accounts:account_id(business_name)",
+        "id, activity_type, activity_date, completed_at, status, notes, outcome, next_step, next_step_date, account_id, accounts:account_id(business_name)",
       )
       .in("status", ["agendada", "realizada"])
       .eq("sales_rep_id", repId)
@@ -110,6 +141,9 @@ export default async function MiDiaPage({
       .lte("next_step_date", today)
       .order("next_step_date", { ascending: true }),
     loadNotes(supabase, repId),
+    felixIncentivePromise,
+    personalIncentivePromise,
+    weeklyGoalsPromise,
   ]);
 
   const citasAll = (citasRes.data ?? []) as unknown as ActivityRow[];
@@ -126,10 +160,13 @@ export default async function MiDiaPage({
       account_id: a.account_id,
       account_name: a.accounts?.business_name ?? null,
       notes: a.notes,
+      outcome: a.outcome,
+      next_step: a.next_step,
+      next_step_date: a.next_step_date,
     };
     // Las realizadas solo cuentan si fueron hoy; las viejas ya son bitácora.
     if (a.status === "realizada") {
-      if (day === today) citasHechas.push(item);
+      if (dateKeyTz(a.completed_at ?? a.activity_date) === today) citasHechas.push(item);
     } else if (day === today) citasHoy.push(item);
     else citasAtrasadas.push(item);
   }
@@ -184,6 +221,7 @@ export default async function MiDiaPage({
   }).format(now);
 
   const repName = reps.find((r) => r.id === repId)?.full_name;
+  const weeklyGoal = weeklyGoals.snapshots.find((snapshot) => snapshot.repId === repId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -206,6 +244,18 @@ export default async function MiDiaPage({
       </div>
 
       <ActivityViewTabs />
+
+      {weeklyGoal ? (
+        <WeeklyActivityGoalCard snapshot={weeklyGoal} viewingAsAdmin={isAdmin && repId !== me.id} />
+      ) : null}
+
+      {felixIncentive && (
+        <FelixIncentiveMeter snapshot={felixIncentive} variant="compact" />
+      )}
+
+      {personalIncentive && (
+        <PersonalIncentiveMeter snapshot={personalIncentive} variant="compact" />
+      )}
 
       {/* El admin puede revisar el día de cada vendedor */}
       {isAdmin && reps.length > 0 && (

@@ -104,6 +104,10 @@ export function RestockRequestForm({
         lines.map((l) => ({ request_id: req.id, product_id: l.product_id, product_name: l.product_name, supplier: l.supplier, quantity_requested: l.qty, notes: l.notes || null })),
       );
       if (itemsErr) { toast.error("Líneas no se guardaron", { description: itemsErr.message }); return; }
+      if (status === "enviada") {
+        const alertResponse = await fetch(`/api/restock/${req.id}/notificar`, { method: "POST" });
+        if (!alertResponse.ok) toast.warning("El pedido se guardó, pero no se pudo enviar la alerta");
+      }
       toast.success(`${num} ${status === "enviada" ? "enviado a revisión" : "guardado"}`);
       router.push(`/restock/${req.id}`);
       router.refresh();

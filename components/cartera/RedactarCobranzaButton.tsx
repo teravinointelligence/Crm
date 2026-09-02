@@ -212,7 +212,8 @@ export function RedactarCobranzaButton({
                         </div>
                       ) : (
                         <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-800">
-                          Este cliente no tiene correo registrado. Agrégalo en la ficha de la cuenta.
+                          No hay un contacto con email seleccionado para recibir estados de cuenta.
+                          Selecciónalo en la pestaña Contactos de la cuenta.
                         </p>
                       )
                     ) : current.whatsapp ? (

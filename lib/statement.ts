@@ -5,9 +5,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StatementData } from "@/components/cartera/StatementPdf";
-import { clasificarRiesgo } from "@/lib/cobranza";
 import { resumenVencido } from "@/lib/cartera";
-import type { ReconcileSuggestion } from "@/lib/bank/types";
 
 /**
  * Reúne todos los datos del estado de cuenta de una cuenta. Devuelve null si
@@ -20,7 +18,7 @@ export async function buildStatementData(
   const { data: account } = await supabase
     .from("accounts")
     .select(
-      "business_name, fiscal_name, rfc, region, city, client_number, credit_days, dias_pago, dias_revision, ventana_revision, ventana_suspension, is_legacy, assigned_rep_id",
+      "business_name, fiscal_name, rfc, region, city, client_number, credit_days, dias_pago, dias_revision, assigned_rep_id",
     )
     .eq("id", accountId)
     .single();
@@ -32,7 +30,6 @@ export async function buildStatementData(
     { data: balance },
     { data: aging },
     { data: rep },
-    { data: sugeridos },
   ] = await Promise.all([
     supabase
       .from("invoices")
@@ -54,43 +51,15 @@ export async function buildStatementData(
     account.assigned_rep_id
       ? supabase.from("sales_reps").select("full_name").eq("id", account.assigned_rep_id).single()
       : Promise.resolve({ data: null }),
-    supabase
-      .from("bank_transactions")
-      .select("id, txn_date, amount, reference, description, suggestion, bank_statements(bank, account_label)")
-      .eq("matched_account_id", accountId)
-      .eq("estado_conciliacion", "sugerido")
-      .eq("kind", "abono"),
   ]);
 
   const saldoPendiente = Number(balance?.saldo_pendiente ?? 0);
   const creditDaysNum = Number(account.credit_days ?? 0);
-  const { saldoVencido, maxDiasVencido } = resumenVencido(
+  const { saldoVencido } = resumenVencido(
     ((invoices ?? []) as { invoice_date: string | null; balance: number | null }[]),
     creditDaysNum,
     new Date(),
   );
-
-  const riesgo = clasificarRiesgo({
-    diasVencido: maxDiasVencido,
-    saldoVencido,
-    isLegacy: account.is_legacy as boolean | null,
-    ventanaRevision: account.ventana_revision as number | null,
-    ventanaSuspension: account.ventana_suspension as number | null,
-  });
-
-  const pendientes = ((sugeridos ?? []) as Record<string, unknown>[]).map((sgst) => {
-    const sug = (sgst.suggestion ?? null) as ReconcileSuggestion | null;
-    const bankRel = Array.isArray(sgst.bank_statements) ? sgst.bank_statements[0] : sgst.bank_statements;
-    const b = bankRel as { bank: string | null; account_label: string | null } | null;
-    return {
-      fecha: sgst.txn_date ? String(sgst.txn_date) : null,
-      banco: b?.bank ?? b?.account_label ?? "—",
-      referencia: (sgst.reference as string) ?? (sgst.description as string) ?? "—",
-      folios: (sug?.candidates ?? []).map((c) => c.invoice_number).join(", ") || "—",
-      importe: Number(sgst.amount ?? 0),
-    };
-  });
-  const sumSugeridos = pendientes.reduce((acc, p) => acc + p.importe, 0);
 
   const creditoLabel =
     account.credit_days == null
@@ -114,13 +83,11 @@ export async function buildStatementData(
     },
     generatedAt: new Date().toISOString(),
     creditDays: Number(account.credit_days ?? 0),
-    riesgo: riesgo.clase,
     totals: {
       facturado: Number(balance?.total_facturado ?? 0),
       pagado: Number(balance?.total_pagado ?? 0),
       pendiente: saldoPendiente,
       vencido: saldoVencido,
-      netoEstimado: sumSugeridos > 0 ? saldoPendiente - sumSugeridos : null,
     },
     aging: aging
       ? {
@@ -131,7 +98,6 @@ export async function buildStatementData(
           saldo_total: Number(aging.saldo_total ?? 0),
         }
       : null,
-    pendientes,
     invoices: ((invoices ?? []) as never[]).map((i: Record<string, unknown>) => ({
       invoice_number: String(i.invoice_number),
       invoice_date: String(i.invoice_date),

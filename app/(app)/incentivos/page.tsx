@@ -7,6 +7,15 @@ import { VendorIncentives } from "@/components/incentivos/VendorIncentives";
 import { TeamIncentives } from "@/components/incentivos/TeamIncentives";
 import { BogleVendor } from "@/components/incentivos/BogleVendor";
 import { BogleAdmin } from "@/components/incentivos/BogleAdmin";
+import { FelixIncentiveMeter } from "@/components/incentivos/FelixIncentiveMeter";
+import { loadFelixIncentiveSnapshot } from "@/lib/felix-incentive-server";
+import { PersonalIncentiveMeter } from "@/components/incentivos/PersonalIncentiveMeter";
+import { TeamPersonalIncentives } from "@/components/incentivos/TeamPersonalIncentives";
+import { TeamSalesGoalHistory } from "@/components/incentivos/TeamSalesGoalHistory";
+import {
+  loadPersonalIncentiveSnapshot,
+  loadTeamPersonalIncentives,
+} from "@/lib/personal-incentives-server";
 import type {
   IncentiveDetailRow,
   IncentiveLevel,
@@ -29,16 +38,21 @@ export default async function IncentivosPage({
 
   // Pueden convivir varios programas activos con mecánicas distintas:
   // 'puntos' (Gerard Bertrand, niveles) y 'encartes' (Bogle, carrera).
-  const { data: programsData } = await supabase
-    .from("incentive_programs")
-    .select("*")
-    .eq("active", true)
-    .order("start_date", { ascending: false });
+  const [{ data: programsData }, felixIncentive, personalIncentive, personalTeam] = await Promise.all([
+    supabase
+      .from("incentive_programs")
+      .select("*")
+      .eq("active", true)
+      .order("start_date", { ascending: false }),
+    loadFelixIncentiveSnapshot(rep),
+    seesAll ? Promise.resolve(null) : loadPersonalIncentiveSnapshot(rep, new Date(), supabase),
+    seesAll ? loadTeamPersonalIncentives(supabase) : Promise.resolve([]),
+  ]);
   const programs = (programsData ?? []) as IncentiveProgram[];
   const puntosProg = programs.find((p) => p.tipo === "puntos") ?? null;
   const encartesProg = programs.find((p) => p.tipo === "encartes") ?? null;
 
-  if (!puntosProg && !encartesProg) {
+  if (!puntosProg && !encartesProg && !felixIncentive && !personalIncentive && !personalTeam.length) {
     return (
       <div className="space-y-2">
         <h1 className="font-display text-3xl">Incentivos</h1>
@@ -79,8 +93,10 @@ export default async function IncentivosPage({
   if (seesAll) {
     const repId = searchParams.rep;
     if (repId) {
+      const selectedPersonal = personalTeam.find((snapshot) => snapshot.repId === repId) ?? null;
       const part = (participants ?? []).find((p) => p.rep_id === repId);
       const name =
+        selectedPersonal?.repName ??
         (part?.sales_reps as unknown as { full_name: string } | null)?.full_name ??
         race.find((r) => r.rep_id === repId)?.rep_name ??
         "Vendedor";
@@ -95,6 +111,9 @@ export default async function IncentivosPage({
             </Link>
             <h1 className="font-display text-3xl">Incentivos · {name}</h1>
           </div>
+          {selectedPersonal && (
+            <PersonalIncentiveMeter snapshot={selectedPersonal} variant="full" />
+          )}
           {encartesProg && bogleParticipantIds.has(repId) && (
             <BogleVendor
               program={encartesProg}
@@ -132,6 +151,8 @@ export default async function IncentivosPage({
             {programs.map((p) => p.name).join(" · ")}
           </p>
         </div>
+        <TeamPersonalIncentives snapshots={personalTeam} />
+        <TeamSalesGoalHistory snapshots={personalTeam} canEdit={rep.role === "admin"} />
         {encartesProg && <BogleAdmin program={encartesProg} placements={placements} race={race} />}
         {puntosProg && (
           <TeamIncentives program={puntosProg} levels={lvls} rows={rows} participantNames={participantNames} />
@@ -143,7 +164,7 @@ export default async function IncentivosPage({
   // --- Vendedor ---
   const enGB = puntosProg && gbParticipantIds.has(rep.id);
   const enBogle = encartesProg && bogleParticipantIds.has(rep.id);
-  if (!enGB && !enBogle) {
+  if (!enGB && !enBogle && !felixIncentive && !personalIncentive) {
     return (
       <div className="space-y-2">
         <h1 className="font-display text-3xl">Incentivos</h1>
@@ -167,8 +188,22 @@ export default async function IncentivosPage({
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-3xl">Mis Incentivos</h1>
-        <p className="text-sm text-muted-foreground">{programs.map((p) => p.name).join(" · ")}</p>
+        <p className="text-sm text-muted-foreground">
+          {[
+            personalIncentive ? "Incentivo personalizado septiembre–noviembre 2026" : null,
+            felixIncentive ? "Incentivo Vallarta 2026–2027" : null,
+            ...programs.map((p) => p.name),
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
       </div>
+      {personalIncentive && (
+        <PersonalIncentiveMeter snapshot={personalIncentive} variant="full" />
+      )}
+      {felixIncentive && (
+        <FelixIncentiveMeter snapshot={felixIncentive} variant="full" />
+      )}
       {enBogle && (
         <BogleVendor
           program={encartesProg}

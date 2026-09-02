@@ -39,11 +39,11 @@ export default async function CreditoClientesPage() {
   }
 
   const db = supabaseAdmin();
-  const [{ data: balances }, { data: accounts }, { data: reps }] = await Promise.all([
+  const [{ data: balances }, { data: accounts }, { data: reps }, { data: releases }] = await Promise.all([
     db
       .from("v_account_balance")
       .select(
-        "account_id, business_name, region, assigned_rep_id, total_facturado, saldo_vencido, dias_vencido, es_socio",
+        "account_id, business_name, region, assigned_rep_id, total_facturado, total_pagado, saldo_vencido, dias_vencido, es_socio",
       ),
     db
       .from("accounts")
@@ -51,6 +51,7 @@ export default async function CreditoClientesPage() {
         "id, business_name, client_number, region, assigned_rep_id, is_legacy, ventana_revision, ventana_suspension",
       ),
     db.from("sales_reps").select("id, full_name"),
+    db.from("v_account_credit_release").select("account_id, last_qualifying_payment_date"),
   ]);
 
   const acctMeta = new Map(
@@ -59,6 +60,9 @@ export default async function CreditoClientesPage() {
   const repName = new Map(
     ((reps ?? []) as { id: string; full_name: string | null }[]).map((r) => [r.id, r.full_name]),
   );
+  const releaseDate = new Map(
+    (releases ?? []).map((row) => [row.account_id, row.last_qualifying_payment_date]),
+  );
 
   // Universo: clientes con cartera (igual que la página de Cartera).
   const rows: CreditoRow[] = ((balances ?? []) as AccountBalance[])
@@ -66,6 +70,8 @@ export default async function CreditoClientesPage() {
     .map((b) => {
       const meta = acctMeta.get(b.account_id);
       const riesgo = clasificarRiesgo({
+        totalPagado: b.total_pagado,
+        ultimoPagoVencidoFecha: releaseDate.get(b.account_id) ?? null,
         diasVencido: b.dias_vencido,
         saldoVencido: b.saldo_vencido,
         isLegacy: meta?.is_legacy,
@@ -90,8 +96,8 @@ export default async function CreditoClientesPage() {
       <div>
         <h1 className="font-display text-3xl">Crédito de clientes</h1>
         <p className="text-sm text-muted-foreground">
-          Estatus de crédito por cliente para decidir entregas. No muestra montos:
-          solo la clasificación de riesgo y los días vencidos.
+          El crédito se libera cuando el cliente paga una factura vencida durante los
+          últimos 30 días. Los demás pagos no liberan el crédito.
         </p>
       </div>
 

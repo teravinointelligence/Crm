@@ -6,8 +6,9 @@ import { isAdmin } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import {
   loadReassignmentStatus,
+  REASSIGN_AFTER_DAYS,
   REASSIGN_WARN_DAYS,
-  REASSIGN_GRACE_DAYS,
+  REASSIGN_NOTICE_DAYS,
 } from "@/lib/reasignacion-inactivas";
 import { ReasignacionBoard } from "@/components/accounts/ReasignacionBoard";
 
@@ -32,9 +33,11 @@ export default async function ReasignacionPage() {
         <h1 className="font-display text-3xl">Reasignación por inactividad</h1>
         <p className="text-sm text-muted-foreground">
           Las cuentas asignadas sin actividad en {REASSIGN_WARN_DAYS} días reciben un aviso al
-          vendedor ("te quedan {REASSIGN_GRACE_DAYS} días"). Si sigue sin actividad, la cuenta
-          regresa al pool de <Link href="/cuentas/asignar-vendedor" className="underline">Asignar
-          vendedor</Link>. Corre automático a diario; aquí puedes ver el estado y ejecutarlo a mano.
+          vendedor ("te quedan {REASSIGN_NOTICE_DAYS} días"). Al cumplir {REASSIGN_AFTER_DAYS} días,
+          la cuenta pasa al pool general de Sabrina, desde donde se puede <Link
+          href="/cuentas/asignar-vendedor" className="underline">asignar vendedor</Link>. Corre
+          automáticamente a diario. Si un aviso sale tarde, siempre se respetan siete días
+          completos antes de reasignar; aquí puedes ver el estado y ejecutarlo a mano.
         </p>
       </div>
 

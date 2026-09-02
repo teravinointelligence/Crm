@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, FlaskConical, Boxes, Gauge } from "lucide-react";
+import { Plus, FlaskConical, Boxes, Gauge, FileText, TrendingUp } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -24,16 +24,18 @@ export default async function MuestrasPage() {
 
   const { data } = await supabase
     .from("sample_requests")
-    .select("id, request_number, reason, status, created_at, account_id, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name, client_number), sample_request_activities(activities:activity_id(account_id))")
+    .select("id, request_number, reason, status, created_at, account_id, cancellation_requested_at, cancellation_decision, sales_reps:sales_rep_id(full_name), accounts:account_id(business_name, client_number), sample_request_activities(activities:activity_id(account_id))")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as unknown as Array<{
     id: string; request_number: string; reason: string | null; status: string | null; created_at: string | null; account_id: string | null;
+    cancellation_requested_at: string | null; cancellation_decision: string | null;
     sales_reps: { full_name: string | null } | null;
     accounts: { business_name: string | null; client_number: string | null } | null;
     sample_request_activities: Array<{ activities: { account_id: string | null } | null }> | null;
   }>;
   const pendientes = rows.filter((r) => r.status === "enviada").length;
+  const cancelacionesPendientes = rows.filter((r) => r.cancellation_requested_at && !r.cancellation_decision).length;
 
   return (
     <div className="space-y-6">
@@ -42,16 +44,22 @@ export default async function MuestrasPage() {
           <h1 className="font-display text-3xl">Muestras solicitadas</h1>
           <p className="text-sm text-muted-foreground">
             {isAdmin
-              ? `Botellas de muestra pedidas por los vendedores${pendientes ? ` · ${pendientes} por revisar` : ""}`
+              ? `Botellas de muestra pedidas por los vendedores${pendientes ? ` · ${pendientes} por revisar` : ""}${cancelacionesPendientes ? ` · ${cancelacionesPendientes} cancelación(es) pendiente(s)` : ""}`
               : "Tus solicitudes de botellas para catas / clientes."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline">
+            <Link href="/muestras/retorno"><TrendingUp className="mr-1 h-4 w-4" /> Conversión y retorno</Link>
+          </Button>
           {isAdmin && (
             <Button asChild variant="outline">
               <Link href="/muestras/consumo"><Gauge className="mr-1 h-4 w-4" /> Consumo por vendedor</Link>
             </Button>
           )}
+          <Button asChild variant="outline">
+            <Link href="/muestras/reporte"><FileText className="mr-1 h-4 w-4" /> Reporte por vendedor</Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/muestras/banco"><Boxes className="mr-1 h-4 w-4" /> Banco de muestras</Link>
           </Button>
@@ -110,7 +118,7 @@ export default async function MuestrasPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.reason ?? "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(r.created_at)}</td>
-                  <td className="px-4 py-3"><Badge variant={statusVariant[r.status ?? ""] ?? "muted"}>{r.status}</Badge></td>
+                  <td className="px-4 py-3"><div className="flex flex-col items-start gap-1"><Badge variant={statusVariant[r.status ?? ""] ?? "muted"}>{r.status}</Badge>{r.cancellation_requested_at && !r.cancellation_decision ? <Badge variant="warning">Cancelación pendiente</Badge> : null}</div></td>
                   <td className="px-4 py-3 text-right"><Button asChild size="sm" variant="ghost"><Link href={`/muestras/${r.id}`}>Ver</Link></Button></td>
                 </tr>
                 );

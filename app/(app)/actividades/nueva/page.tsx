@@ -9,7 +9,7 @@ export const metadata = { title: "Nueva actividad — TERAVINO CRM" };
 export default async function NuevaActividadPage({
   searchParams,
 }: {
-  searchParams: { account?: string; estado?: string; fecha?: string };
+  searchParams: { account?: string; estado?: string; fecha?: string; motivo?: string };
 }) {
   const supabase = createClient();
   const rep = await getCurrentRep();
@@ -41,6 +41,11 @@ export default async function NuevaActividadPage({
         defaultAccountId={searchParams.account}
         defaultStatus={status}
         defaultDate={fecha}
+        defaultNotes={
+          searchParams.motivo === "toma-inventario"
+            ? "Toma de inventario de consignación."
+            : undefined
+        }
       />
     </div>
   );

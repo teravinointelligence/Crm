@@ -70,6 +70,7 @@ export default async function EstadoCuentaPage({
     { data: rep },
     { data: sugeridos },
     { data: snapshots },
+    { data: creditRelease },
   ] = await Promise.all([
     supabase
       .from("invoices")
@@ -105,6 +106,11 @@ export default async function EstadoCuentaPage({
       .eq("account_id", params.accountId)
       .order("fecha_corte", { ascending: false })
       .limit(12),
+    supabase
+      .from("v_account_credit_release")
+      .select("last_qualifying_payment_date")
+      .eq("account_id", params.accountId)
+      .maybeSingle(),
   ]);
 
   const inv = (invoices ?? []) as Invoice[];
@@ -162,6 +168,8 @@ export default async function EstadoCuentaPage({
             <SemaforoBadge
               saldoPendiente={saldoPendiente}
               saldoVencido={saldoVencido}
+              totalPagado={balance?.total_pagado}
+              ultimoPagoVencidoFecha={creditRelease?.last_qualifying_payment_date ?? null}
               diasVencido={maxDiasVencido}
             />
           </div>
@@ -255,6 +263,8 @@ export default async function EstadoCuentaPage({
             </div>
             <RiesgoBadge
               withDetail
+              totalPagado={balance?.total_pagado}
+              ultimoPagoVencidoFecha={creditRelease?.last_qualifying_payment_date ?? null}
               diasVencido={maxDiasVencido}
               saldoVencido={saldoVencido}
               isLegacy={account.is_legacy}

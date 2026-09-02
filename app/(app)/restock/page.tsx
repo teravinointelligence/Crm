@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus, PackageCheck, PackagePlus, Sparkles, AlertTriangle } from "lucide-react";
+import { Plus, PackageCheck, PackagePlus, Sparkles, AlertTriangle, Download } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -99,7 +99,12 @@ export default async function RestockPage() {
                   </td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(r.created_at)}</td>
                   <td className="px-4 py-3"><Badge variant={statusVariant[r.status ?? ""] ?? "muted"}>{r.status}</Badge></td>
-                  <td className="px-4 py-3 text-right"><Button asChild size="sm" variant="ghost"><Link href={`/restock/${r.id}`}>Ver</Link></Button></td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button asChild size="sm" variant="ghost"><a href={`/api/restock/${r.id}/pdf`} aria-label={`Descargar ${r.request_number}`}><Download className="h-4 w-4" /></a></Button>
+                      <Button asChild size="sm" variant="ghost"><Link href={`/restock/${r.id}`}>Ver</Link></Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

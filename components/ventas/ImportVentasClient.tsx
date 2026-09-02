@@ -99,6 +99,27 @@ export function ImportVentasClient() {
     return byClientNum;
   };
 
+  const recordImport = async ({
+    periodDate,
+    sourceFormat,
+    customersImported,
+    productLinesImported,
+    rowsError,
+  }: {
+    periodDate: string;
+    sourceFormat: Format;
+    customersImported: number;
+    productLinesImported: number;
+    rowsError: number;
+  }) => supabase.from("sales_imports").insert({
+    period: periodDate,
+    source_file_name: fileName,
+    source_format: sourceFormat,
+    customers_imported: customersImported,
+    product_lines_imported: productLinesImported,
+    rows_error: rowsError,
+  });
+
   const confirmPorVendedor = (periodDate: string) => {
     startTransition(async () => {
       const byClientNum = await loadAccountsIndex();
@@ -118,7 +139,20 @@ export function ImportVentasClient() {
       if (!payload.length) { toast.error("Ninguna venta pudo asociarse a una cuenta con vendedor"); return; }
       const { error } = await supabase.from("monthly_sales").upsert(payload, { onConflict: "account_id,period" });
       if (error) { toast.error("Error al importar ventas", { description: error.message }); return; }
-      toast.success(`${payload.length} ventas importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
+      const { error: logError } = await recordImport({
+        periodDate,
+        sourceFormat: "por_vendedor",
+        customersImported: payload.length,
+        productLinesImported: 0,
+        rowsError: errs.length + parseErrors.length,
+      });
+      if (logError) {
+        toast.warning("Ventas importadas, pero no se registró la fecha de actualización", {
+          description: logError.message,
+        });
+      } else {
+        toast.success(`${payload.length} ventas importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
+      }
       // Resultado persistente (el toast desaparece): filas procesadas + errores.
       setOutcome({
         ok: payload.length,
@@ -183,7 +217,20 @@ export function ImportVentasClient() {
       });
       if (itErr) { toast.error("Error al guardar detalle de productos", { description: itErr.message }); return; }
 
-      toast.success(`${matched.length} clientes · ${itemsPayload.length} líneas de producto importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
+      const { error: logError } = await recordImport({
+        periodDate,
+        sourceFormat: "contpaq",
+        customersImported: matched.length,
+        productLinesImported: itemsPayload.length,
+        rowsError: errs.length + parseErrors.length,
+      });
+      if (logError) {
+        toast.warning("Ventas importadas, pero no se registró la fecha de actualización", {
+          description: logError.message,
+        });
+      } else {
+        toast.success(`${matched.length} clientes · ${itemsPayload.length} líneas de producto importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
+      }
       // Resultado persistente (el toast desaparece): filas procesadas + errores.
       setOutcome({
         ok: matched.length,
