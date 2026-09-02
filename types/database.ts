@@ -71,6 +71,22 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["activities"]["Row"]>;
         Relationships: [];
       };
+      activity_comments: {
+        Row: {
+          id: string;
+          activity_id: string;
+          author_rep_id: string;
+          body: string;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["activity_comments"]["Row"]> & {
+          activity_id: string;
+          author_rep_id: string;
+          body: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["activity_comments"]["Row"]>;
+        Relationships: [];
+      };
       seller_weekly_activity_goals: {
         Row: {
           created_at: string;
@@ -379,6 +395,8 @@ export type ContactInsert = Database["public"]["Tables"]["contacts"]["Insert"];
 
 export type Activity = Database["public"]["Tables"]["activities"]["Row"];
 export type ActivityInsert = Database["public"]["Tables"]["activities"]["Insert"];
+export type ActivityComment = Database["public"]["Tables"]["activity_comments"]["Row"];
+export type ActivityCommentInsert = Database["public"]["Tables"]["activity_comments"]["Insert"];
 
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
@@ -390,6 +408,14 @@ export type OrderItem = Database["public"]["Tables"]["order_items"]["Row"];
 export type OrderItemInsert = Database["public"]["Tables"]["order_items"]["Insert"];
 
 export type SalesRep = Database["public"]["Tables"]["sales_reps"]["Row"];
+
+export type ActivityCommentWithAuthor = ActivityComment & {
+  author: Pick<SalesRep, "full_name"> | null;
+};
+
+export type ActivityWithComments = Activity & {
+  activity_comments?: ActivityCommentWithAuthor[] | null;
+};
 
 export type Region =
   | "Los Cabos"

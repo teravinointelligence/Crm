@@ -16,7 +16,12 @@ import {
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { googleCalendarUrl } from "@/lib/calendar-links";
 import { EmptyState } from "@/components/ui/empty-state";
-import { ACTIVITY_TYPE_LABELS, type Activity, type ActivityType } from "@/types/database";
+import { ActivityComments } from "@/components/activities/ActivityComments";
+import {
+  ACTIVITY_TYPE_LABELS,
+  type ActivityType,
+  type ActivityWithComments,
+} from "@/types/database";
 
 const iconFor: Record<string, React.ComponentType<{ className?: string }>> = {
   visita: CalendarCheck2,
@@ -32,11 +37,15 @@ const iconFor: Record<string, React.ComponentType<{ className?: string }>> = {
 export function ActivityTimeline({
   activities,
   showAccount = false,
+  enableComments = false,
+  currentRepId,
 }: {
-  activities: (Activity & {
+  activities: (ActivityWithComments & {
     accounts?: { business_name: string | null } | null;
   })[];
   showAccount?: boolean;
+  enableComments?: boolean;
+  currentRepId?: string;
 }) {
   if (!activities.length) {
     return (
@@ -165,9 +174,27 @@ export function ActivityTimeline({
                 </div>
               )}
               {a.notes && (
-                <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
-                  {a.notes}
-                </p>
+                enableComments ? (
+                  <div className="mt-3 rounded-md border bg-background/60 px-3 py-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Nota original de la actividad
+                    </p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground/90">
+                      {a.notes}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 border-t pt-2 text-xs text-muted-foreground">
+                    {a.notes}
+                  </p>
+                )
+              )}
+              {enableComments && currentRepId && (
+                <ActivityComments
+                  activityId={a.id}
+                  comments={a.activity_comments ?? []}
+                  currentRepId={currentRepId}
+                />
               )}
             </div>
           </li>
