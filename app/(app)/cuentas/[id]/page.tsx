@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import type {
   Account,
   Contact,
-  Activity,
+  ActivityWithComments,
   Order,
   SalesRep,
 } from "@/types/database";
@@ -84,7 +84,9 @@ export default async function CuentaDetailPage({
       .order("full_name"),
     supabase
       .from("activities")
-      .select("*")
+      .select(
+        "*, activity_comments(id, activity_id, author_rep_id, body, created_at, author:sales_reps!activity_comments_author_rep_id_fkey(full_name))",
+      )
       .eq("account_id", params.id)
       .order("activity_date", { ascending: false })
       .limit(50),
@@ -195,7 +197,7 @@ export default async function CuentaDetailPage({
   }
 
   const orderList = (orders ?? []) as Order[];
-  const activityList = (activities ?? []) as Activity[];
+  const activityList = (activities ?? []) as ActivityWithComments[];
   const wineList = (wines ?? []) as never[];
   const priceTier = (account.price_tier as "base" | "+10") ?? "base";
 
@@ -426,7 +428,11 @@ export default async function CuentaDetailPage({
         </TabsContent>
 
         <TabsContent value="actividades">
-          <ActivityTimeline activities={activityList} />
+          <ActivityTimeline
+            activities={activityList}
+            enableComments
+            currentRepId={me.id}
+          />
         </TabsContent>
 
         <TabsContent value="pedidos">
