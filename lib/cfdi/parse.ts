@@ -25,6 +25,7 @@ export type CfdiParsed = {
   total: number;
   iva: number;
   moneda: string;
+  tipo_comprobante: string | null;
   metodo_pago: string | null;
   forma_pago: string | null;
   receptor: {
@@ -40,6 +41,18 @@ export type CfdiParsed = {
   };
   partidas: CfdiPartida[];
 };
+
+export const TERAVINO_RFC = "TER170509L72";
+
+export function validarCfdiVentaTeravino(parsed: CfdiParsed): void {
+  if (!parsed.uuid) throw new Error("El XML no contiene UUID fiscal.");
+  if (parsed.emisor.rfc !== TERAVINO_RFC) {
+    throw new Error("El XML no fue emitido por TERAVINO.");
+  }
+  if (parsed.tipo_comprobante?.toUpperCase() !== "I") {
+    throw new Error("El XML no es un CFDI de ingreso.");
+  }
+}
 
 const parser = new XMLParser({
   ignoreAttributes: false,
@@ -84,6 +97,7 @@ export function parseCfdi(xml: string): CfdiParsed {
   const total = num(c["@_Total"]);
   const iva = num((impuestosRoot["@_TotalImpuestosTrasladados"] ?? "")) || Math.max(0, total - subtotal);
   const moneda = (c["@_Moneda"] ?? "MXN").toString();
+  const tipo_comprobante = (c["@_TipoDeComprobante"] ?? "").toString().trim() || null;
 
   const partidas: CfdiPartida[] = conceptos.map((p) => ({
     descripcion: String(p["@_Descripcion"] ?? "").trim(),
@@ -107,6 +121,7 @@ export function parseCfdi(xml: string): CfdiParsed {
     total,
     iva,
     moneda,
+    tipo_comprobante,
     metodo_pago: (c["@_MetodoPago"] ?? "").toString().trim() || null,
     forma_pago: (c["@_FormaPago"] ?? "").toString().trim() || null,
     receptor: {
