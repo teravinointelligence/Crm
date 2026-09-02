@@ -51,10 +51,14 @@ export async function updateSession(request: NextRequest) {
   // se auto-protege validando el rsvp_token en su propio handler.
   const isInvitacionPublica =
     path.startsWith("/invitacion") || path.startsWith("/api/invitacion");
+  // Carga automática de inventarios desde Make (Drive → CRM): llega SIN sesión;
+  // se auto-protege con INVENTARIO_IMPORT_TOKEN en su propio handler.
+  const isInventarioImport = path.startsWith("/api/inventario/import");
   const isPublic =
     isAuthRoute ||
     isCron ||
     isInbound ||
+    isInventarioImport ||
     isEstadoPublico ||
     isInvitacionPublica ||
     path.startsWith("/_next") ||

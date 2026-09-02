@@ -17,6 +17,8 @@ type RepComision = {
 type ApiData = {
   period: string | null;
   priorPeriod: string | null;
+  /** false = todavía no se suben las ventas CONTPAQ del mes en curso */
+  periodLoaded?: boolean;
   mine: {
     profileKey: ProfileKey;
     current: ComisionResult;
@@ -25,11 +27,19 @@ type ApiData = {
   team: RepComision[] | null;
 };
 
+const MESES = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+const MESES_LARGOS = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
 function periodLabel(period: string | null): string {
   if (!period) return "";
-  const meses = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const [y, m] = period.split("-").map(Number);
+  return MESES[m - 1] ? `${MESES[m - 1]} ${y}` : period;
+}
+
+function monthName(period: string | null): string {
+  if (!period) return "el mes";
   const [, m] = period.split("-").map(Number);
-  return meses[m - 1] ?? period;
+  return MESES_LARGOS[m - 1] ?? "el mes";
 }
 
 function pct(current: number, prior: number): number | null {
@@ -115,6 +125,7 @@ export function ComisionCard() {
   const { mine, team, period, priorPeriod } = data;
   const { current, prior } = mine;
   const priorTotal = prior?.comTotal ?? null;
+  const pendiente = data.periodLoaded === false;
 
   const progressPct =
     priorTotal && current.comTotal
@@ -134,12 +145,22 @@ export function ComisionCard() {
                 {fmt(current.comTotal)}
               </p>
             </div>
-            <Badge variant="outline" className="text-xs shrink-0 mt-1">Estimado</Badge>
+            <Badge variant="outline" className="text-xs shrink-0 mt-1">
+              {pendiente ? "Sin ventas cargadas" : "Estimado"}
+            </Badge>
           </div>
 
-          <Trend current={current.comTotal} prior={priorTotal} />
+          {pendiente ? (
+            <p className="text-xs text-muted-foreground">
+              Todavía no se cargan las ventas de {monthName(period)}. La comisión
+              arranca en cero y se irá calculando en cuanto se importe el reporte
+              CONTPAQ del mes.
+            </p>
+          ) : (
+            <Trend current={current.comTotal} prior={priorTotal} />
+          )}
 
-          {progressPct !== null && (
+          {!pendiente && progressPct !== null && (
             <div>
               <div className="mb-1 flex justify-between text-[11px] text-muted-foreground">
                 <span>vs {periodLabel(priorPeriod)} ({fmt(priorTotal!)})</span>
@@ -154,20 +175,22 @@ export function ComisionCard() {
             </div>
           )}
 
-          <div className="flex gap-4 pt-1">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Wine className="h-3.5 w-3.5 text-brand-carmesi/70" />
-              <span>Vino:</span>
-              <span className="font-medium text-foreground">{fmt(current.comVino)}</span>
-            </div>
-            {current.comCerveza > 0 && (
+          {!pendiente && (
+            <div className="flex gap-4 pt-1">
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Beer className="h-3.5 w-3.5 text-amber-600/70" />
-                <span>Cerveza:</span>
-                <span className="font-medium text-foreground">{fmt(current.comCerveza)}</span>
+                <Wine className="h-3.5 w-3.5 text-brand-carmesi/70" />
+                <span>Vino:</span>
+                <span className="font-medium text-foreground">{fmt(current.comVino)}</span>
               </div>
-            )}
-          </div>
+              {current.comCerveza > 0 && (
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Beer className="h-3.5 w-3.5 text-amber-600/70" />
+                  <span>Cerveza:</span>
+                  <span className="font-medium text-foreground">{fmt(current.comCerveza)}</span>
+                </div>
+              )}
+            </div>
+          )}
 
           <p className="text-[10px] text-muted-foreground/70">
             Basado en ventas CONTPAQ · preliminar, no incluye ajustes del cierre

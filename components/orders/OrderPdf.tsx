@@ -220,21 +220,26 @@ export function OrderPdf({ data }: { data: OrderPdfData }) {
           <Text style={[styles.th, styles.colPrice]}>Precio</Text>
           <Text style={[styles.th, styles.colTotal]}>Total</Text>
         </View>
-        {items.map((i, idx) => (
+        {items.map((i, idx) => {
+          // En cotizaciones no mostramos el proveedor (solo la añada).
+          const meta = [
+            order.order_type === "pedido" ? i.supplier : null,
+            i.vintage,
+          ]
+            .filter(Boolean)
+            .join(" · ");
+          return (
           <View key={idx} style={styles.row} wrap={false}>
             <View style={styles.colName}>
               <Text style={styles.productName}>{i.product_name}</Text>
-              {(i.supplier || i.vintage) && (
-                <Text style={styles.productMeta}>
-                  {[i.supplier, i.vintage].filter(Boolean).join(" · ")}
-                </Text>
-              )}
+              {meta && <Text style={styles.productMeta}>{meta}</Text>}
             </View>
             <Text style={styles.colQty}>{i.quantity}</Text>
             <Text style={styles.colPrice}>{mxn(i.unit_price)}</Text>
             <Text style={styles.colTotal}>{mxn(i.line_total)}</Text>
           </View>
-        ))}
+          );
+        })}
 
         <View style={styles.totalsBlock}>
           <View style={styles.totalsRow}>
