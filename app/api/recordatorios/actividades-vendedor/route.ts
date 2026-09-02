@@ -64,7 +64,7 @@ export async function POST(request: Request) {
       .from("activities")
       .select("id", { count: "exact", head: true })
       .eq("sales_rep_id", repId)
-      .neq("status", "cancelada")
+      .eq("status", "agendada")
       .gte("activity_date", window.startIso)
       .lt("activity_date", window.endIso),
   ]);
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: `${seller.full_name} ya tiene ${futureActivities} ${
-          futureActivities === 1 ? "actividad futura registrada" : "actividades futuras registradas"
+          futureActivities === 1 ? "actividad futura agendada" : "actividades futuras agendadas"
         } para ${monthLabel}.`,
         futureActivities,
       },

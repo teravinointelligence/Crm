@@ -11,6 +11,16 @@ export type ReminderActivity = {
   status?: string | null;
 };
 
+export type ReminderNextStep = {
+  next_step_date?: string | null;
+};
+
+export type ActivityMonthSummary = {
+  futureScheduled: number;
+  completed: number;
+  nextSteps: number;
+};
+
 export function normalizeReminderMonth(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const match = /^(\d{4})-(\d{2})$/.exec(value);
@@ -94,7 +104,7 @@ export function activityReminderWindow(
   };
 }
 
-/** Cuenta solo actividades reales futuras; los "siguientes pasos" no llegan a este módulo. */
+/** Cuenta solo actividades agendadas a futuro; los "siguientes pasos" no sustituyen agenda. */
 export function countFutureActivities(
   activities: ReminderActivity[],
   month: string,
@@ -104,12 +114,39 @@ export function countFutureActivities(
   if (state === "past") return 0;
 
   return activities.filter((activity) => {
-    if (activity.status === "cancelada") return false;
+    if (activity.status !== "agendada") return false;
     const instant = new Date(activity.activity_date);
     if (Number.isNaN(instant.getTime())) return false;
     if (reminderDateKey(instant).slice(0, 7) !== month) return false;
     return state === "future" || instant.getTime() >= now.getTime();
   }).length;
+}
+
+/** Resume por separado planeación futura, trabajo realizado y siguientes pasos del mes. */
+export function summarizeActivityMonth(
+  activities: ReminderActivity[],
+  nextSteps: ReminderNextStep[],
+  month: string,
+  now: Date,
+): ActivityMonthSummary {
+  const completed = activities.filter((activity) => {
+    if (activity.status !== "realizada") return false;
+    const instant = new Date(activity.activity_date);
+    return (
+      !Number.isNaN(instant.getTime()) &&
+      reminderDateKey(instant).slice(0, 7) === month
+    );
+  }).length;
+
+  const datedNextSteps = nextSteps.filter(
+    (nextStep) => nextStep.next_step_date?.slice(0, 7) === month,
+  ).length;
+
+  return {
+    futureScheduled: countFutureActivities(activities, month, now),
+    completed,
+    nextSteps: datedNextSteps,
+  };
 }
 
 export function activityReminderIdempotencyKey(
@@ -151,7 +188,7 @@ export function buildActivityScheduleReminderEmail(input: {
       <div style="font-family:Arial,Helvetica,sans-serif;max-width:620px;margin:0 auto;color:#222;font-size:15px;line-height:1.55;">
         <div style="font-size:22px;letter-spacing:4px;color:#7a1220;font-weight:700;margin-bottom:18px;">TERAVINO</div>
         <p>Hola ${sellerName},</p>
-        <p>No aparecen actividades futuras registradas para <strong>${safeMonth}</strong>.</p>
+        <p>No aparecen actividades futuras agendadas para <strong>${safeMonth}</strong>.</p>
         <p>Recuerda programar tus visitas, llamadas, degustaciones y seguimientos en el CRM.</p>
         <p style="margin:24px 0;">
           <a href="${safeUrl}" style="display:inline-block;background:#7a1220;color:#fff;text-decoration:none;font-weight:600;padding:10px 20px;border-radius:6px;">Abrir calendario de actividades</a>

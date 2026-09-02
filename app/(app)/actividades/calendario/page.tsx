@@ -19,9 +19,9 @@ import { CalendarAgenda } from "@/components/activities/CalendarAgenda";
 import { ActivityScheduleReminder } from "@/components/activities/ActivityScheduleReminder";
 import { cn, dateKeyTz, formatTime } from "@/lib/utils";
 import {
-  countFutureActivities,
   reminderMonthLabel,
   reminderMonthState,
+  summarizeActivityMonth,
 } from "@/lib/activity-schedule-reminder";
 import {
   buildRepColors,
@@ -183,8 +183,12 @@ export default async function CalendarioPage({
   const todayStr = dateKeyTz(now);
   const selectedSeller = reps.find((seller) => seller.id === repFilter);
   const selectedMonthState = reminderMonthState(monthStr, now);
-  const futureActivitiesCount = countFutureActivities(
-    (activitiesRes.data ?? []) as { activity_date: string; status: string | null }[],
+  const activityMonthSummary = summarizeActivityMonth(
+    (activitiesRes.data ?? []) as {
+      activity_date: string;
+      status: string | null;
+    }[],
+    (tasksRes.data ?? []) as { next_step_date: string | null }[],
     monthStr,
     now,
   );
@@ -315,7 +319,7 @@ export default async function CalendarioPage({
             }}
             month={monthStr}
             monthLabel={reminderMonthLabel(monthStr)}
-            futureActivitiesCount={futureActivitiesCount}
+            summary={activityMonthSummary}
           />
         )}
 
