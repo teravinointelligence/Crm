@@ -28,7 +28,9 @@ import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { StockBadge } from "./StockBadge";
+import { RpScoreBadge } from "./RpScoreBadge";
 import { TransferRequestButton } from "./TransferRequestButton";
+import { resolveVintageRating } from "@/lib/vintage-chart/resolve";
 import { WAREHOUSES, WAREHOUSE_SHORT } from "@/lib/warehouses";
 import { createClient } from "@/lib/supabase/client";
 import { applyRegionPrice } from "@/lib/pricing";
@@ -71,6 +73,25 @@ export function ProductsListClient({
 
   const suppliers = useMemo(
     () => Array.from(new Set(products.map((p) => p.supplier))).sort((a, b) => a.localeCompare(b)),
+    [products],
+  );
+
+  // Calificación de añada de RP Wine Advocate por producto (o null). Se calcula
+  // una vez sobre el catálogo, no en cada tecleo del filtro.
+  const rpRatings = useMemo(
+    () =>
+      new Map(
+        products.map((p) => [
+          p.id,
+          resolveVintageRating({
+            region_origin: p.region_origin,
+            varietal: p.varietal,
+            category: p.category,
+            vintage: p.vintage,
+            name: p.name,
+          }),
+        ]),
+      ),
     [products],
   );
 
@@ -308,12 +329,17 @@ export function ProductsListClient({
                   className="border-b last:border-b-0 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/catalogo/${p.id}`}
-                      className="font-medium hover:text-brand-carmesi"
-                    >
-                      {p.name}
-                    </Link>
+                    <div className="flex items-center gap-2">
+                      <Link
+                        href={`/catalogo/${p.id}`}
+                        className="font-medium hover:text-brand-carmesi"
+                      >
+                        {p.name}
+                      </Link>
+                      {rpRatings.get(p.id) && (
+                        <RpScoreBadge rating={rpRatings.get(p.id)!} />
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {[p.sku, p.varietal, p.country, p.vintage].filter(Boolean).join(" · ")}
                     </div>

@@ -1,12 +1,22 @@
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Plus, Clock, Check } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  Clock,
+  Check,
+  CalendarDays,
+  List,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { SELLER_ROLES } from "@/lib/modules";
 import { Button } from "@/components/ui/button";
 import { ActivityViewTabs } from "@/components/activities/ActivityViewTabs";
 import { CalendarMonth, type CalItem } from "@/components/activities/CalendarMonth";
-import { dateKeyTz, formatTime } from "@/lib/utils";
+import { CalendarDayPanel } from "@/components/activities/CalendarDayPanel";
+import { CalendarAgenda } from "@/components/activities/CalendarAgenda";
+import { cn, dateKeyTz, formatTime } from "@/lib/utils";
 import {
   buildRepColors,
   STATUS_SWATCH,
@@ -39,7 +49,7 @@ type Row = {
 export default async function CalendarioPage({
   searchParams,
 }: {
-  searchParams: { mes?: string; rep?: string };
+  searchParams: { mes?: string; rep?: string; dia?: string; vista?: string };
 }) {
   const supabase = createClient();
   const rep = await getCurrentRep();
@@ -110,6 +120,8 @@ export default async function CalendarioPage({
     (itemsByDay[day] ??= []).push(item);
   };
 
+  const repName = new Map(reps.map((r) => [r.id, r.full_name]));
+
   for (const a of (activitiesRes.data ?? []) as unknown as Row[]) {
     const day = dateKeyTz(a.activity_date); // día en hora de Los Cabos
     const time = formatTime(a.activity_date); // hora en hora de Los Cabos
@@ -123,6 +135,8 @@ export default async function CalendarioPage({
       time,
       status: a.status,
       title: a.accounts?.business_name ?? a.activity_type ?? "actividad",
+      typeLabel: a.activity_type,
+      repName: (a.sales_rep_id && repName.get(a.sales_rep_id)) ?? null,
       bg: sw.bg,
       fg: sw.fg,
       href: `/actividades/${a.id}/editar`,
@@ -137,6 +151,7 @@ export default async function CalendarioPage({
       kind: "task",
       title: t.next_step ?? "siguiente paso",
       done: t.next_step_done,
+      repName: (t.sales_rep_id && repName.get(t.sales_rep_id)) ?? null,
       bg: sw.bg,
       fg: sw.fg,
       href: `/actividades/${t.id}/editar`,
@@ -156,6 +171,29 @@ export default async function CalendarioPage({
   }).format(new Date(year, month - 1, 1));
   const todayStr = dateKeyTz(now);
   const keepRep = repFilter ? `&rep=${repFilter}` : "";
+
+  // Vista y día abierto. Todo va en la URL: así el estado sobrevive a un
+  // refresh y se puede compartir el enlace de un día concreto.
+  const vista = searchParams.vista === "lista" ? "lista" : "mes";
+  const diaParam = searchParams.dia?.match(/^\d{4}-\d{2}-\d{2}$/)
+    ? searchParams.dia
+    : null;
+  // Solo tiene sentido abrir un día del mes que se está viendo.
+  const selectedDay = diaParam?.startsWith(monthStr) ? diaParam : null;
+
+  // Sufijo para los enlaces que ya arman su querystring a mano (mes anterior /
+  // siguiente, filtro por vendedor): no deben tirar la vista elegida.
+  const keepView = vista === "lista" ? "&vista=lista" : "";
+
+  const buildHref = (params: { dia?: string | null; vista?: string }) => {
+    const qs = new URLSearchParams({ mes: monthStr });
+    if (repFilter) qs.set("rep", repFilter);
+    const v = params.vista ?? (vista === "lista" ? "lista" : "");
+    if (v === "lista") qs.set("vista", "lista");
+    const d = params.dia === undefined ? selectedDay : params.dia;
+    if (d) qs.set("dia", d);
+    return `/actividades/calendario?${qs.toString()}`;
+  };
 
   // Total de actividades + tareas del mes (solo los días que caen dentro del mes).
   const totalMes = Object.entries(itemsByDay)
@@ -182,11 +220,38 @@ export default async function CalendarioPage({
 
       <ActivityViewTabs />
 
+      {/* Alternador Mes / Lista. La rejilla recorta a cuatro por celda; la
+          lista muestra todo y es la que sirve en celular. */}
+      <div className="inline-flex items-center gap-1 rounded-md bg-muted p-1">
+        <Link
+          href={buildHref({ vista: "mes" })}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+            vista === "mes"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <CalendarDays className="h-4 w-4" /> Mes
+        </Link>
+        <Link
+          href={buildHref({ vista: "lista", dia: null })}
+          className={cn(
+            "inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-colors",
+            vista === "lista"
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          <List className="h-4 w-4" /> Lista
+        </Link>
+      </div>
+
       {/* Filtro por vendedor (admin) */}
       {isAdmin && reps.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
           <Link
-            href={`/actividades/calendario?mes=${monthStr}`}
+            href={`/actividades/calendario?mes=${monthStr}${keepView}`}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
               !repFilter
                 ? "border-brand-carmesi bg-brand-carmesi text-white"
@@ -201,7 +266,7 @@ export default async function CalendarioPage({
             return (
               <Link
                 key={r.id}
-                href={`/actividades/calendario?mes=${monthStr}&rep=${r.id}`}
+                href={`/actividades/calendario?mes=${monthStr}&rep=${r.id}${keepView}`}
                 style={
                   active
                     ? { backgroundColor: c.solid, borderColor: c.solid, color: "#fff" }
@@ -225,7 +290,7 @@ export default async function CalendarioPage({
         <div className="flex items-center gap-2">
           <Button asChild variant="outline" size="icon">
             <Link
-              href={`/actividades/calendario?mes=${prevY}-${pad(prevM)}${keepRep}`}
+              href={`/actividades/calendario?mes=${prevY}-${pad(prevM)}${keepRep}${keepView}`}
               aria-label="Mes anterior"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -233,7 +298,7 @@ export default async function CalendarioPage({
           </Button>
           <Button asChild variant="outline" size="icon">
             <Link
-              href={`/actividades/calendario?mes=${nextY}-${pad(nextM)}${keepRep}`}
+              href={`/actividades/calendario?mes=${nextY}-${pad(nextM)}${keepRep}${keepView}`}
               aria-label="Mes siguiente"
             >
               <ChevronRight className="h-4 w-4" />
@@ -247,19 +312,46 @@ export default async function CalendarioPage({
           )}
         </div>
         <Button asChild variant="ghost" size="sm">
-          <Link href={`/actividades/calendario${repFilter ? `?rep=${repFilter}` : ""}`}>
+          <Link href={`/actividades/calendario?${new URLSearchParams({
+            ...(repFilter ? { rep: repFilter } : {}),
+            ...(vista === "lista" ? { vista: "lista" } : {}),
+          }).toString()}`}>
             Hoy
           </Link>
         </Button>
       </div>
 
-      <CalendarMonth
-        year={year}
-        month={month}
-        itemsByDay={itemsByDay}
-        today={todayStr}
-        canSchedule
-      />
+      {/* Detalle del día abierto: aquí sí se ve TODO lo de ese día. */}
+      {vista === "mes" && selectedDay && (
+        <CalendarDayPanel
+          day={selectedDay}
+          items={itemsByDay[selectedDay] ?? []}
+          closeHref={buildHref({ dia: null })}
+          canSchedule
+          showRep={isAdmin}
+        />
+      )}
+
+      {vista === "lista" ? (
+        <CalendarAgenda
+          year={year}
+          month={month}
+          itemsByDay={itemsByDay}
+          today={todayStr}
+          canSchedule
+          showRep={isAdmin}
+        />
+      ) : (
+        <CalendarMonth
+          year={year}
+          month={month}
+          itemsByDay={itemsByDay}
+          today={todayStr}
+          canSchedule
+          selectedDay={selectedDay}
+          dayHref={(d) => buildHref({ dia: d === selectedDay ? null : d })}
+        />
+      )}
 
       {/* Leyenda */}
       <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">

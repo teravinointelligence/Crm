@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { getCurrentRep } from "@/lib/auth";
+import { dateKeyTz } from "@/lib/utils";
 import {
   comisionDeLineas,
   profileKeyFromName,
@@ -89,29 +90,51 @@ function calcComision(lineas: (Linea & { _period: string })[], period: string, p
   return comisionDeLineas(forPeriod, profileKey);
 }
 
+/** Mes en curso (hora de Los Cabos) como 'YYYY-MM-01'. */
+function currentPeriodISO(): string {
+  return `${dateKeyTz(new Date()).slice(0, 7)}-01`;
+}
+
+function prevPeriodISO(period: string): string {
+  const [y, m] = period.split("-").map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-01`;
+}
+
 export async function GET() {
   const rep = await getCurrentRep();
   if (!rep) return NextResponse.json({ error: "no auth" }, { status: 401 });
 
   const db = serviceClient();
 
-  // Get 2 most recent periods
-  const { data: periodRows } = await db
+  // La comisión estimada SIEMPRE es la del mes en curso: si todavía no se
+  // suben las ventas CONTPAQ del mes, arranca en cero (antes se quedaba
+  // mostrando el último mes cargado y parecía comisión vigente).
+  const period = currentPeriodISO();
+  const priorPeriod = prevPeriodISO(period);
+
+  // ¿Ya se cargaron las ventas del mes en curso? (a nivel empresa, no del rep)
+  const { count: loadedCount } = await db
     .from("monthly_sales")
-    .select("period")
-    .order("period", { ascending: false })
-    .limit(500);
-  const allPeriods = [...new Set((periodRows ?? []).map((r) => r.period as string))];
-  const period = allPeriods[0] ?? null;
-  const priorPeriod = allPeriods[1] ?? null;
+    .select("id", { count: "exact", head: true })
+    .eq("period", period);
+  const periodLoaded = (loadedCount ?? 0) > 0;
 
-  if (!period) {
-    return NextResponse.json({ period: null, priorPeriod: null, mine: null, team: null });
-  }
-
-  const periods = [period, ...(priorPeriod ? [priorPeriod] : [])];
+  const periods = [period, priorPeriod];
   const myProfileKey = profileKeyFromName(rep.full_name);
   const isAdmin = rep.role === "admin";
+
+  // Mes sin ventas cargadas: todo en cero, sin comparativos (no tiene caso
+  // pedir las líneas del mes anterior para un mes que aún no existe).
+  if (!periodLoaded) {
+    return NextResponse.json({
+      period,
+      priorPeriod,
+      periodLoaded,
+      mine: myProfileKey ? { profileKey: myProfileKey, current: ZERO, prior: null } : null,
+      team: null,
+    });
+  }
 
   // Sabrina: all lines regardless of rep (sabrinaAll — no exclusions, 4% todo)
   const myLineas = await fetchLineas(
@@ -169,5 +192,5 @@ export async function GET() {
     });
   }
 
-  return NextResponse.json({ period, priorPeriod, mine, team });
+  return NextResponse.json({ period, priorPeriod, periodLoaded, mine, team });
 }

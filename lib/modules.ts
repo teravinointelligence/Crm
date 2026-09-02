@@ -204,6 +204,21 @@ export function canViewPortafolios(role: string | null | undefined): boolean {
 }
 
 /**
+ * Pueden VER los Planogramas de bodega (/planogramas): el admin, el jefe de
+ * logística (Isaí, que es quien acomoda la bodega), los CHOFERES (que surten y
+ * cargan, y necesitan saber en qué rack está cada vino) y los vendedores, que
+ * consultan dónde hay producto antes de prometer entrega. Es de SOLO CONSULTA —
+ * la captura sigue en la app de Base44 "Teravino Map". Acceso por rol, no por
+ * módulo seleccionable, para que todo el equipo lo vea sin configurarlo uno por
+ * uno. Queda fuera el contador, que no toca bodega.
+ */
+export function canViewPlanogramas(role: string | null | undefined): boolean {
+  return (
+    role === "admin" || role === "rep" || role === "jefe_logistica" || role === "chofer"
+  );
+}
+
+/**
  * Pueden VER Visitas de proveedor y Eventos (/visitas, /eventos): el admin
  * (crea y administra) y los vendedores (ven el calendario y AGENDAN actividades
  * / invitan a sus clientes). Acceso por rol —no por módulo seleccionable— para

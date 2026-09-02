@@ -31,10 +31,11 @@ import {
   Send,
   Wrench,
   CalendarClock,
+  Grid3x3,
 } from "lucide-react";
-import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPortafolios, canViewReparto, canViewReportes, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
+import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPlanogramas, canViewPortafolios, canViewReparto, canViewReportes, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
 
-export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; reportes?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; visitas?: boolean; moduleKey?: string };
+export type LeafItem = { kind?: "leaf"; href: string; label: string; icon: typeof LayoutDashboard; adminOnly?: boolean; finance?: boolean; reportes?: boolean; flota?: boolean; fleetFaults?: boolean; restock?: boolean; reparto?: boolean; incentivos?: boolean; portafolios?: boolean; planogramas?: boolean; visitas?: boolean; moduleKey?: string };
 export type GroupItem = {
   kind: "group";
   label: string;
@@ -48,6 +49,7 @@ export type GroupItem = {
   reparto?: boolean;
   incentivos?: boolean;
   portafolios?: boolean;
+  planogramas?: boolean;
   visitas?: boolean;
   moduleKey?: string;
   basePath: string;
@@ -63,6 +65,8 @@ export const navItems: Item[] = [
   { href: "/contactos", label: "Contactos", icon: Users, moduleKey: "contactos" },
   { href: "/actividades", label: "Actividades", icon: CalendarCheck2, moduleKey: "actividades" },
   { href: "/catalogo", label: "Catálogo", icon: Wine, moduleKey: "catalogo" },
+  // Planogramas de bodega (app Base44 "Teravino Map"), solo consulta.
+  { href: "/planogramas", label: "Planogramas", icon: Grid3x3, planogramas: true },
   { href: "/documentos", label: "Documentos", icon: FileText, moduleKey: "documentos" },
   { href: "/portafolios", label: "Portafolios", icon: Briefcase, portafolios: true },
   { href: "/promociones", label: "Promociones", icon: Megaphone }, // siempre visible (todos los vendedores)
@@ -177,6 +181,8 @@ export function visibleNavItems({
           (i.moduleKey === "muestras" && canViewMuestras(role)) ||
           // …y el portafolio de vinos por zona.
           (i.portafolios === true && canViewPortafolios(role)) ||
+          // …y los planogramas de bodega (acomoda la bodega y surte pedidos).
+          (i.planogramas === true && canViewPlanogramas(role)) ||
           // …y Pedidos/Cotizaciones (crea cotizaciones para facturar consignaciones).
           (i.moduleKey === "pedidos" && role === "jefe_logistica"),
       )
@@ -192,6 +198,7 @@ export function visibleNavItems({
       if (i.reparto) return canViewReparto(role);
       if (i.incentivos) return canViewIncentivos(role);
       if (i.portafolios) return canViewPortafolios(role);
+      if (i.planogramas) return canViewPlanogramas(role);
       if (i.visitas) return canViewVisitas(role);
       if (i.adminOnly) return isAdmin;
       if (isAdmin) return true;

@@ -9,7 +9,9 @@ import { PriceBadge } from "@/components/products/PriceBadge";
 import { StockBadge } from "@/components/products/StockBadge";
 import { DiscontinueButton } from "@/components/products/DiscontinueButton";
 import { ProductCustomersPanel } from "@/components/products/ProductCustomersPanel";
+import { VintageRatingPanel } from "@/components/products/VintageRatingPanel";
 import { loadProductCustomers } from "@/lib/product-customers";
+import { resolveVintageRating } from "@/lib/vintage-chart/resolve";
 import { canSeeFinance } from "@/lib/modules";
 import { formatDateTime } from "@/lib/utils";
 
@@ -34,6 +36,15 @@ export default async function ProductDetailPage({
   const customers = await loadProductCustomers(supabase, {
     codigo_contpaqi: product.codigo_contpaqi,
     sku: product.sku,
+  });
+
+  // Calificación de añada de RP Wine Advocate para la región del vino (o null).
+  const vintageRating = resolveVintageRating({
+    region_origin: product.region_origin,
+    varietal: product.varietal,
+    category: product.category,
+    vintage: product.vintage,
+    name: product.name,
   });
 
   return (
@@ -81,6 +92,8 @@ export default async function ProductDetailPage({
       </div>
 
       <PriceBadge basePrice={product.base_price} />
+
+      {vintageRating && <VintageRatingPanel rating={vintageRating} />}
 
       <Card>
         <CardContent className="grid gap-3 p-6 sm:grid-cols-3">
