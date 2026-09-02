@@ -6,6 +6,11 @@ import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import { computeChurn, CHURN_RANK, type ChurnResult, type ChurnStatus } from "@/lib/churn";
 import { recommendForAccount, type AccountBasket, type Recommendation } from "@/lib/cross-sell";
+import {
+  buildProductPurchaseTimeline,
+  type ProductPurchaseTimeline,
+} from "@/lib/product-purchase-timeline";
+import { dateKeyTz } from "@/lib/utils";
 
 type DbClient = ReturnType<typeof createClient>;
 
@@ -64,10 +69,11 @@ async function loadSaleItems(supabase: DbClient, saleIds: string[]): Promise<Ite
 /** Universo mínimo para cross-sell: canastas de códigos por cuenta.
  *  Carga todas las cuentas pero solo 3 columnas (sin cantidades ni totales). */
 async function loadCrossSellUniverse(supabase: DbClient) {
-  const sales = await selectAll<{ id: string; account_id: string }>((from, to) =>
-    supabase.from("monthly_sales").select("id, account_id").range(from, to),
+  const sales = await selectAll<{ id: string; account_id: string; period: string }>((from, to) =>
+    supabase.from("monthly_sales").select("id, account_id, period").range(from, to),
   );
   const saleToAccount = new Map(sales.map((s) => [s.id, s.account_id]));
+  const saleToPeriod = new Map(sales.map((s) => [s.id, s.period.slice(0, 10)]));
 
   const items = await selectAll<{ monthly_sale_id: string; codigo: string | null; producto_nombre: string }>((from, to) =>
     supabase.from("monthly_sales_items").select("monthly_sale_id, codigo, producto_nombre").range(from, to),
@@ -75,7 +81,10 @@ async function loadCrossSellUniverse(supabase: DbClient) {
 
   const codigosByAccount = new Map<string, Set<string>>();
   const nombreByCodigo = new Map<string, string>();
+  const detailedPeriods = new Set<string>();
   for (const it of items) {
+    const period = saleToPeriod.get(it.monthly_sale_id);
+    if (period) detailedPeriods.add(period);
     const codigo = it.codigo?.trim();
     if (!codigo) continue;
     const acct = saleToAccount.get(it.monthly_sale_id);
@@ -83,7 +92,43 @@ async function loadCrossSellUniverse(supabase: DbClient) {
     if (!nombreByCodigo.has(codigo)) nombreByCodigo.set(codigo, it.producto_nombre || codigo);
     (codigosByAccount.get(acct) ?? codigosByAccount.set(acct, new Set()).get(acct)!).add(codigo);
   }
-  return { codigosByAccount, nombreByCodigo };
+  return { codigosByAccount, nombreByCodigo, detailedPeriods: [...detailedPeriods].sort() };
+}
+
+/** Meses que la bitácora confirma como cargas con partidas de producto. */
+async function loadDetailedImportPeriods(supabase: DbClient): Promise<string[]> {
+  const rows = await selectAll<{ period: string; product_lines_imported: number }>((from, to) =>
+    supabase
+      .from("sales_imports")
+      .select("period, product_lines_imported")
+      .in("source_format", ["contpaq", "historico"])
+      .gt("product_lines_imported", 0)
+      .range(from, to),
+  );
+  return [...new Set(rows.map((row) => row.period.slice(0, 10)))].sort();
+}
+
+/** Códigos del catálogo que la cuenta tiene marcados como encartados. */
+async function loadEncartadoCodes(supabase: DbClient, accountId: string): Promise<string[]> {
+  const { data } = await supabase
+    .from("account_products")
+    .select("products:product_id(sku, codigo_contpaqi)")
+    .eq("account_id", accountId)
+    .eq("status", "encartado");
+
+  type ProductCodes = { sku: string | null; codigo_contpaqi: string | null };
+  type EncartadoRow = { products: ProductCodes | ProductCodes[] | null };
+  const codes = new Set<string>();
+  for (const row of (data ?? []) as EncartadoRow[]) {
+    const related = Array.isArray(row.products) ? row.products : row.products ? [row.products] : [];
+    for (const product of related) {
+      for (const code of [product.sku, product.codigo_contpaqi]) {
+        const normalized = code?.trim().toUpperCase();
+        if (normalized) codes.add(normalized);
+      }
+    }
+  }
+  return [...codes];
 }
 
 /** Carga monthly_sales + items completos para funciones que necesitan todas las cuentas. */
@@ -155,6 +200,7 @@ export type AccountFacts = {
   churn: ChurnResult;
   trend: { period: string; amount: number }[];
   topProducts: { nombre: string; cantidad: number; total: number }[];
+  productPurchases: ProductPurchaseTimeline;
   recommendations: Recommendation[];
   cartera: { saldo_pendiente: number; saldo_vencido: number; dias_vencido: number };
 };
@@ -163,11 +209,21 @@ export type AccountFacts = {
  *  Optimizado: datos de esta cuenta en queries filtrados; universo cross-sell en paralelo. */
 export async function loadAccountFacts(supabase: DbClient, accountId: string): Promise<AccountFacts> {
   // Paso 1: datos de esta cuenta (filtrados) + universo cross-sell + cartera en paralelo
-  const [allPeriods, accountSales, { codigosByAccount, nombreByCodigo }, { data: accts }, { data: bal }] =
+  const [
+    allPeriods,
+    accountSales,
+    { codigosByAccount, nombreByCodigo, detailedPeriods: itemDetailedPeriods },
+    detailedImportPeriods,
+    encartadoCodes,
+    { data: accts },
+    { data: bal },
+  ] =
     await Promise.all([
       loadAllPeriods(supabase),
       loadAccountSales(supabase, accountId),
       loadCrossSellUniverse(supabase),
+      loadDetailedImportPeriods(supabase),
+      loadEncartadoCodes(supabase, accountId),
       supabase.from("accounts").select("id, account_type, region"),
       supabase.from("v_account_balance").select("saldo_pendiente, saldo_vencido, dias_vencido").eq("account_id", accountId).maybeSingle(),
     ]);
@@ -191,6 +247,14 @@ export async function loadAccountFacts(supabase: DbClient, accountId: string): P
     accItemMap.set(codigo, prev);
   }
   const topProducts = [...accItemMap.values()].sort((a, b) => b.total - a.total).slice(0, 5);
+  const productPurchases = buildProductPurchaseTimeline({
+    sales: accountSales,
+    items: accountItems,
+    allPeriods,
+    detailedPeriods: [...new Set([...itemDetailedPeriods, ...detailedImportPeriods])],
+    encartadoCodes,
+    currentPeriod: `${dateKeyTz(new Date()).slice(0, 7)}-01`,
+  });
 
   const meta = new Map((accts ?? []).map((a) => [a.id, a]));
   const baskets: AccountBasket[] = [...codigosByAccount.entries()].map(([id, codigos]) => ({
@@ -205,6 +269,7 @@ export async function loadAccountFacts(supabase: DbClient, accountId: string): P
     churn,
     trend: series,
     topProducts,
+    productPurchases,
     recommendations,
     cartera: {
       saldo_pendiente: Number(bal?.saldo_pendiente ?? 0),
