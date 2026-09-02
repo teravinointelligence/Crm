@@ -16,7 +16,13 @@ import { ActivityViewTabs } from "@/components/activities/ActivityViewTabs";
 import { CalendarMonth, type CalItem } from "@/components/activities/CalendarMonth";
 import { CalendarDayPanel } from "@/components/activities/CalendarDayPanel";
 import { CalendarAgenda } from "@/components/activities/CalendarAgenda";
+import { ActivityScheduleReminder } from "@/components/activities/ActivityScheduleReminder";
 import { cn, dateKeyTz, formatTime } from "@/lib/utils";
+import {
+  countFutureActivities,
+  reminderMonthLabel,
+  reminderMonthState,
+} from "@/lib/activity-schedule-reminder";
 import {
   buildRepColors,
   STATUS_SWATCH,
@@ -85,12 +91,17 @@ export default async function CalendarioPage({
   const { data: repsData } = isAdmin
     ? await supabase
         .from("sales_reps")
-        .select("id, full_name")
+        .select("id, full_name, email, role")
         .eq("active", true)
         .in("role", SELLER_ROLES)
         .order("full_name")
     : { data: null };
-  const reps = (repsData ?? []) as { id: string; full_name: string }[];
+  const reps = (repsData ?? []) as {
+    id: string;
+    full_name: string;
+    email: string | null;
+    role: string;
+  }[];
   const repColors = buildRepColors(reps.map((r) => r.id));
 
   let actQuery = supabase
@@ -170,6 +181,13 @@ export default async function CalendarioPage({
     year: "numeric",
   }).format(new Date(year, month - 1, 1));
   const todayStr = dateKeyTz(now);
+  const selectedSeller = reps.find((seller) => seller.id === repFilter);
+  const selectedMonthState = reminderMonthState(monthStr, now);
+  const futureActivitiesCount = countFutureActivities(
+    (activitiesRes.data ?? []) as { activity_date: string; status: string | null }[],
+    monthStr,
+    now,
+  );
   const keepRep = repFilter ? `&rep=${repFilter}` : "";
 
   // Vista y día abierto. Todo va en la URL: así el estado sobrevive a un
@@ -284,6 +302,22 @@ export default async function CalendarioPage({
           })}
         </div>
       )}
+
+      {isAdmin &&
+        selectedSeller?.role === "rep" &&
+        selectedMonthState !== "past" && (
+          <ActivityScheduleReminder
+            key={`${selectedSeller.id}-${monthStr}`}
+            seller={{
+              id: selectedSeller.id,
+              name: selectedSeller.full_name,
+              email: selectedSeller.email,
+            }}
+            month={monthStr}
+            monthLabel={reminderMonthLabel(monthStr)}
+            futureActivitiesCount={futureActivitiesCount}
+          />
+        )}
 
       {/* Navegación de mes */}
       <div className="flex items-center justify-between gap-3">

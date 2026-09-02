@@ -24,6 +24,8 @@ export type SendEmailInput = {
   attachments?: EmailAttachment[];
   /** Cabeceras extra (p. ej. In-Reply-To / References para enhebrar la respuesta). */
   headers?: Record<string, string>;
+  /** Evita que Resend procese dos veces la misma solicitud durante 24 horas. */
+  idempotencyKey?: string;
 };
 
 /** Remitente de cobranza. Configurable por env; default cobranza@teravino.com. */
@@ -58,6 +60,7 @@ export async function sendEmail(input: SendEmailInput): Promise<{ id: string }> 
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
+      ...(input.idempotencyKey ? { "Idempotency-Key": input.idempotencyKey } : {}),
     },
     body: JSON.stringify({
       from: input.from || cobranzaFrom(),
