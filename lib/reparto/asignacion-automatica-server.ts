@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   CHOFER_EMAIL_POR_PLAZA,
   PLAZA_LABEL,
+  nombresClienteCoinciden,
   resolverPlazaConsistente,
   type PlazaOperativa,
   type UbicacionEntrega,
@@ -12,12 +13,14 @@ import {
 
 type ClienteReparto = {
   id?: string | null;
+  nombre?: string | null;
   rfc?: string | null;
   ciudad?: string | null;
   zona?: string | null;
 };
 
 type CuentaCRM = {
+  business_name: string;
   rfc: string | null;
   region: string | null;
   city: string | null;
@@ -92,7 +95,7 @@ export function crearResolvedorAsignacionAutomatica() {
     const promise = (async () => {
       const { data, error } = await supabaseAdmin()
         .from("accounts")
-        .select("rfc, region, city, status")
+        .select("business_name, rfc, region, city, status")
         // Los comodines cubren espacios accidentales antes/después del RFC; el
         // filtro normalizado de abajo impide aceptar coincidencias parciales.
         .ilike("rfc", `%${rfc}%`);
@@ -111,7 +114,7 @@ export function crearResolvedorAsignacionAutomatica() {
     const promise = (async () => {
       const { data, error } = await repartoAdmin
         .from("clientes")
-        .select("id, rfc, ciudad, zona")
+        .select("id, nombre, rfc, ciudad, zona")
         .eq("id", clienteId)
         .maybeSingle();
       return {
@@ -127,12 +130,20 @@ export function crearResolvedorAsignacionAutomatica() {
     const { cuentas, error: cuentasError } = await cargarCuentas(cliente.rfc);
     if (cuentasError) return sinAsignar("No se pudo consultar la ubicación de la cuenta en el CRM");
 
+    // Los RFC genéricos pueden pertenecer a varias plazas. Cuando el nombre del
+    // cliente identifica una sola cuenta exacta, esa coincidencia desambigua el
+    // destino sin depender de la ciudad histórica guardada en Reparto.
+    const porNombre = cuentas.filter((cuenta) =>
+      nombresClienteCoinciden(cliente.nombre, cuenta.business_name),
+    );
+    const relacionadas = porNombre.length === 1 ? porNombre : cuentas;
+
     // Si hay cuentas activas, ignoramos duplicados históricos inactivos. Si no
     // hay ninguna activa, conservamos todas las coincidencias para no adivinar.
-    const activas = cuentas.filter((cuenta) =>
+    const activas = relacionadas.filter((cuenta) =>
       ["active", "activo"].includes(cuenta.status?.trim().toLowerCase() ?? ""),
     );
-    const candidatas = activas.length ? activas : cuentas;
+    const candidatas = activas.length ? activas : relacionadas;
     const ubicaciones: UbicacionEntrega[] = candidatas.map((cuenta) => ({
       region: cuenta.region,
       ciudad: cuenta.city,

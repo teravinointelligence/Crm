@@ -35,6 +35,14 @@ function normalizar(valor: string | null | undefined): string {
     .trim();
 }
 
+export function nombresClienteCoinciden(
+  nombreCliente: string | null | undefined,
+  nombreCuenta: string | null | undefined,
+): boolean {
+  const cliente = normalizar(nombreCliente);
+  return Boolean(cliente) && cliente === normalizar(nombreCuenta);
+}
+
 function contiene(valor: string, opciones: string[]): boolean {
   return opciones.some((opcion) => valor.includes(opcion));
 }

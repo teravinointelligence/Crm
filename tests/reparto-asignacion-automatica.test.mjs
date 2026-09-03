@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   detectarPlazaAutomatica,
   detectarPlazaOperativa,
+  nombresClienteCoinciden,
   resolverPlazaConsistente,
 } from "../lib/reparto/asignacion-automatica.ts";
 
@@ -70,4 +71,9 @@ test("RFC duplicado con plazas distintas queda sin asignar", () => {
     ]),
     { plaza: null, motivo: "ubicaciones_en_conflicto" },
   );
+});
+
+test("un RFC genérico se puede desambiguar por nombre exacto normalizado", () => {
+  assert.equal(nombresClienteCoinciden("VENTAS TIJUANA MOSTRADOR", "Ventas Tijuana Mostrador"), true);
+  assert.equal(nombresClienteCoinciden("VENTAS TIJUANA MOSTRADOR", "Ventas Mostrador La Paz"), false);
 });
