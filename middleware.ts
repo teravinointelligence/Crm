@@ -1,7 +1,13 @@
 import { updateSession } from "@/lib/supabase/middleware";
-import type { NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
+  // FacturaFoto se publica únicamente en una rama de preview protegida por
+  // Vercel Authentication; evita pedir además un segundo inicio de sesión del CRM.
+  if (request.nextUrl.pathname.startsWith("/facturafoto-preview")) {
+    return NextResponse.next();
+  }
+
   return updateSession(request);
 }
 
