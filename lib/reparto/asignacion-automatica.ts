@@ -2,6 +2,7 @@
 // Se mantienen separadas de Supabase para poder probarlas sin red ni secretos.
 
 export type PlazaAutomatica = "baja_california_norte" | "puerto_vallarta_nayarit" | "la_paz";
+export type PlazaOperativa = PlazaAutomatica | "los_cabos";
 
 export type UbicacionEntrega = {
   region?: string | null;
@@ -9,7 +10,7 @@ export type UbicacionEntrega = {
 };
 
 export type ResolucionPlaza = {
-  plaza: PlazaAutomatica | null;
+  plaza: PlazaOperativa | null;
   motivo: "ubicacion_reconocida" | "ubicacion_sin_regla" | "ubicaciones_en_conflicto";
 };
 
@@ -73,23 +74,39 @@ function esLaPaz(valor: string): boolean {
   return /(^| )la paz( |$)/.test(valor);
 }
 
-// Estas ciudades permanecen manuales por autorización expresa. Evita que una
-// región amplia llamada "La Paz" absorba entregas fuera de la ciudad.
-function esPlazaManualExplicita(valor: string): boolean {
+// Los Cabos permanece sin asignación automática, pero se identifica como plaza
+// operativa para que sus choferes disponibles puedan tomar el pedido.
+function esLosCabos(valor: string): boolean {
   return contiene(valor, [
     "los cabos",
     "cabo san lucas",
     "san jose del cabo",
     "todos santos",
+    "pescadero",
+    "miraflores",
+    "santiago",
+    "la ribera",
     "los barriles",
   ]);
 }
 
-function detectarEnTexto(valor: string): PlazaAutomatica | null {
+function detectarEnTexto(valor: string): PlazaOperativa | null {
   if (esBajaCaliforniaNorte(valor)) return "baja_california_norte";
   if (esPuertoVallartaONayarit(valor)) return "puerto_vallarta_nayarit";
+  if (esLosCabos(valor)) return "los_cabos";
   if (esLaPaz(valor)) return "la_paz";
   return null;
+}
+
+export function detectarPlazaOperativa(ubicacion: UbicacionEntrega): PlazaOperativa | null {
+  const ciudad = normalizar(ubicacion.ciudad);
+  const region = normalizar(ubicacion.region);
+
+  if (ciudad) {
+    const porCiudad = detectarEnTexto(ciudad);
+    if (porCiudad) return porCiudad;
+  }
+  return detectarEnTexto(region);
 }
 
 /**
@@ -97,17 +114,8 @@ function detectarEnTexto(valor: string): PlazaAutomatica | null {
  * plazas manuales nunca heredan por accidente una región operativa de La Paz.
  */
 export function detectarPlazaAutomatica(ubicacion: UbicacionEntrega): PlazaAutomatica | null {
-  const ciudad = normalizar(ubicacion.ciudad);
-  const region = normalizar(ubicacion.region);
-
-  if (ciudad) {
-    if (esPlazaManualExplicita(ciudad)) return null;
-    const porCiudad = detectarEnTexto(ciudad);
-    if (porCiudad) return porCiudad;
-  }
-
-  if (esPlazaManualExplicita(region)) return null;
-  return detectarEnTexto(region);
+  const plaza = detectarPlazaOperativa(ubicacion);
+  return plaza === "los_cabos" ? null : plaza;
 }
 
 /**
@@ -120,8 +128,8 @@ export function resolverPlazaConsistente(
 ): ResolucionPlaza {
   const plazas = new Set(
     ubicaciones
-      .map(detectarPlazaAutomatica)
-      .filter((plaza): plaza is PlazaAutomatica => Boolean(plaza)),
+      .map(detectarPlazaOperativa)
+      .filter((plaza): plaza is PlazaOperativa => Boolean(plaza)),
   );
 
   if (plazas.size > 1) {
@@ -131,7 +139,7 @@ export function resolverPlazaConsistente(
     return { plaza: [...plazas][0], motivo: "ubicacion_reconocida" };
   }
 
-  const plazaRespaldo = respaldo ? detectarPlazaAutomatica(respaldo) : null;
+  const plazaRespaldo = respaldo ? detectarPlazaOperativa(respaldo) : null;
   return plazaRespaldo
     ? { plaza: plazaRespaldo, motivo: "ubicacion_reconocida" }
     : { plaza: null, motivo: "ubicacion_sin_regla" };

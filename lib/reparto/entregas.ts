@@ -31,7 +31,10 @@ export async function autorizarEntrega(pedidoId: string): Promise<Autorizacion> 
   const { data: usuario } = await repartoAdmin
     .from("usuarios")
     .select("id")
+    .eq("activo", true)
+    .eq("es_chofer", true)
     .ilike("email", rep.email)
+    .limit(1)
     .maybeSingle();
 
   // Un chofer solo puede registrar la entrega de los pedidos asignados a él.
