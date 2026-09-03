@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   detectarPlazaAutomatica,
+  detectarPlazaOperativa,
   resolverPlazaConsistente,
 } from "../lib/reparto/asignacion-automatica.ts";
 
@@ -36,6 +37,17 @@ test("solo la ciudad de La Paz entra a la regla de Mauricio", () => {
 test("Los Cabos y Baja California Sur permanecen para asignación manual", () => {
   assert.equal(detectarPlazaAutomatica({ region: "Baja California Sur", ciudad: "Los Cabos" }), null);
   assert.equal(detectarPlazaAutomatica({ region: "Los Cabos", ciudad: "Cabo San Lucas" }), null);
+});
+
+test("Los Cabos se identifica como plaza operativa para el autoservicio de choferes", () => {
+  for (const ubicacion of [
+    { region: "Baja California Sur", ciudad: "Los Cabos" },
+    { region: "Los Cabos", ciudad: "Cabo San Lucas" },
+    { region: "La Paz", ciudad: "Todos Santos" },
+    { region: "La Paz", ciudad: "Los Barriles" },
+  ]) {
+    assert.equal(detectarPlazaOperativa(ubicacion), "los_cabos");
+  }
 });
 
 test("RFC duplicado con la misma plaza sigue siendo seguro", () => {

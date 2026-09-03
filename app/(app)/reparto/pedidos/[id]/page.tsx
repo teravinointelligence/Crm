@@ -78,7 +78,7 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
       )
       .eq("id", params.id)
       .single(),
-    repartoAdmin.from("usuarios").select("id, nombre").eq("es_chofer", true).eq("activo", true).order("nombre"),
+    repartoAdmin.from("usuarios").select("id, nombre, email").eq("es_chofer", true).eq("activo", true).order("nombre"),
   ]);
 
   if (!pedidoRaw) notFound();
@@ -105,6 +105,12 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
   }
   const canManage = canManageReparto(rep.role);
   const canOperate = canAccessReparto(rep.role); // operación (chofer+): registrar entrega
+  const currentDriver = rep.role === "chofer"
+    ? (choferes ?? []).find(
+        (chofer) => chofer.email?.trim().toLowerCase() === rep.email.trim().toLowerCase(),
+      ) ?? null
+    : null;
+  const canRegisterDelivery = canOperate && (rep.role !== "chofer" || currentDriver?.id === pedido.chofer_id);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -202,7 +208,7 @@ export default async function PedidoDetail({ params }: { params: { id: string } 
         </table>
       </CardContent></Card>
 
-      {canOperate && pedido.estatus !== "entregado" && <RegistrarEntrega pedidoId={pedido.id} />}
+      {canRegisterDelivery && pedido.estatus !== "entregado" && <RegistrarEntrega pedidoId={pedido.id} />}
 
       {entregas.length > 0 && (
         <Card><CardContent className="space-y-3 p-5">

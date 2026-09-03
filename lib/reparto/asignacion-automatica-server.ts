@@ -6,7 +6,7 @@ import {
   CHOFER_EMAIL_POR_PLAZA,
   PLAZA_LABEL,
   resolverPlazaConsistente,
-  type PlazaAutomatica,
+  type PlazaOperativa,
   type UbicacionEntrega,
 } from "@/lib/reparto/asignacion-automatica";
 
@@ -33,7 +33,7 @@ type Chofer = {
 export type AsignacionAutomatica = {
   chofer_id: string | null;
   chofer_nombre: string | null;
-  plaza: PlazaAutomatica | null;
+  plaza: PlazaOperativa | null;
   aplicada: boolean;
   motivo: string;
 };
@@ -42,11 +42,11 @@ function normalizarRfc(rfc: string | null | undefined): string {
   return (rfc ?? "").toUpperCase().replace(/[^A-Z0-9Ñ&]/g, "");
 }
 
-function sinAsignar(motivo: string): AsignacionAutomatica {
+function sinAsignar(motivo: string, plaza: PlazaOperativa | null = null): AsignacionAutomatica {
   return {
     chofer_id: null,
     chofer_nombre: null,
-    plaza: null,
+    plaza,
     aplicada: false,
     motivo,
   };
@@ -145,6 +145,12 @@ export function crearResolvedorAsignacionAutomatica() {
     }
     if (!resolucion.plaza) {
       return sinAsignar("La ubicación no tiene una regla automática; queda para asignación manual");
+    }
+    if (resolucion.plaza === "los_cabos") {
+      return sinAsignar(
+        "Los Cabos: disponible para que un chofer activo tome el pedido",
+        "los_cabos",
+      );
     }
 
     const { choferes, error: choferesError } = await cargarChoferes();

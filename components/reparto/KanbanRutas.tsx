@@ -43,6 +43,7 @@ type Pedido = {
   chofer_id: string | null;
   direccion_entrega: string | null;
   horario_recepcion: string | null;
+  plaza_operativa: string | null;
   clientes: { id: string; nombre: string; ciudad: string | null; zona: string | null } | null;
 };
 
@@ -52,17 +53,24 @@ export function KanbanRutas({
   pedidos: initial,
   choferes,
   canManage = true,
+  canClaim = false,
+  currentDriverId = null,
+  availabilityMessage = null,
 }: {
   fecha: string;
   incluirRezagados?: boolean;
   pedidos: Pedido[];
   choferes: Chofer[];
   canManage?: boolean;
+  canClaim?: boolean;
+  currentDriverId?: string | null;
+  availabilityMessage?: string | null;
 }) {
   const router = useRouter();
   const [pedidos, setPedidos] = useState<Pedido[]>(initial);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [claimingId, setClaimingId] = useState<string | null>(null);
 
   // El estado local existe solo para el update optimista del drag&drop; cuando
   // el server manda datos nuevos (cambio de fecha, toggle de rezagados o
@@ -156,12 +164,41 @@ export function KanbanRutas({
     });
   };
 
+  const claimPedido = async (pedido: Pedido) => {
+    if (!canClaim || !currentDriverId || claimingId) return;
+    setClaimingId(pedido.id);
+    try {
+      const res = await fetch(`/api/reparto/pedidos/${pedido.id}/tomar`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(body.error ?? "No se pudo tomar el pedido");
+        router.refresh();
+        return;
+      }
+      setPedidos((current) =>
+        current.map((item) =>
+          item.id === pedido.id
+            ? { ...item, chofer_id: currentDriverId, estatus: "asignado" }
+            : item,
+        ),
+      );
+      toast.success(`${pedido.numero_factura} quedó asignado a ti`);
+      router.refresh();
+    } finally {
+      setClaimingId(null);
+    }
+  };
+
   // Columnas: "Sin asignar" + una por chofer (siempre) + una por usuario que NO
   // es chofer pero tiene pedidos asignados ese día (entrega personal). Así el
   // tablero no se llena de columnas vacías y, aun así, los pedidos que alguien
   // se llevó a entregar en persona quedan visibles y reasignables.
   const columns: { id: string; titulo: string; subtitulo: string }[] = [
-    { id: UNASSIGNED, titulo: "Sin asignar", subtitulo: "Arrastra hacia un chofer →" },
+    {
+      id: UNASSIGNED,
+      titulo: "Sin asignar",
+      subtitulo: canManage ? "Arrastra hacia un chofer →" : canClaim ? "Elige cuál vas a entregar" : "Sin pedidos disponibles",
+    },
     ...choferes
       .filter((c) => c.es_chofer !== false || (grouped.get(c.id)?.length ?? 0) > 0)
       .map((c) => ({
@@ -214,10 +251,28 @@ export function KanbanRutas({
         </p>
       </div>
 
+      {availabilityMessage && (
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{availabilityMessage}</span>
+        </div>
+      )}
+
       <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {columns.map((col) => (
-            <Column key={col.id} id={col.id} titulo={col.titulo} subtitulo={col.subtitulo} pedidos={grouped.get(col.id) ?? []} canManage={canManage} fechaOperacion={fecha} />
+            <Column
+              key={col.id}
+              id={col.id}
+              titulo={col.titulo}
+              subtitulo={col.subtitulo}
+              pedidos={grouped.get(col.id) ?? []}
+              canManage={canManage}
+              canClaim={canClaim}
+              claimingId={claimingId}
+              onClaim={claimPedido}
+              fechaOperacion={fecha}
+            />
           ))}
         </div>
         <DragOverlay>
@@ -234,6 +289,9 @@ function Column({
   subtitulo,
   pedidos,
   canManage,
+  canClaim,
+  claimingId,
+  onClaim,
   fechaOperacion,
 }: {
   id: string;
@@ -241,6 +299,9 @@ function Column({
   subtitulo: string;
   pedidos: Pedido[];
   canManage: boolean;
+  canClaim: boolean;
+  claimingId: string | null;
+  onClaim: (pedido: Pedido) => void;
   fechaOperacion: string;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -268,7 +329,17 @@ function Column({
             {isUnassigned ? "Sin pendientes." : "Sin pedidos asignados."}
           </p>
         ) : (
-          pedidos.map((p) => <PedidoCard key={p.id} pedido={p} canManage={canManage} fechaOperacion={fechaOperacion} />)
+          pedidos.map((p) => (
+            <PedidoCard
+              key={p.id}
+              pedido={p}
+              canManage={canManage}
+              canClaim={canClaim && isUnassigned && p.plaza_operativa === "los_cabos"}
+              isClaiming={claimingId === p.id}
+              onClaim={onClaim}
+              fechaOperacion={fechaOperacion}
+            />
+          ))
         )}
       </div>
       {pedidos.length > 0 && (
@@ -280,7 +351,21 @@ function Column({
   );
 }
 
-function PedidoCard({ pedido, canManage, fechaOperacion }: { pedido: Pedido; canManage: boolean; fechaOperacion: string }) {
+function PedidoCard({
+  pedido,
+  canManage,
+  canClaim,
+  isClaiming,
+  onClaim,
+  fechaOperacion,
+}: {
+  pedido: Pedido;
+  canManage: boolean;
+  canClaim: boolean;
+  isClaiming: boolean;
+  onClaim: (pedido: Pedido) => void;
+  fechaOperacion: string;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: pedido.id, disabled: !canManage });
   return (
     <div
@@ -294,6 +379,20 @@ function PedidoCard({ pedido, canManage, fechaOperacion }: { pedido: Pedido; can
       )}
     >
       <PedidoCardView pedido={pedido} fechaOperacion={fechaOperacion} />
+      {canClaim && (
+        <Button
+          type="button"
+          size="sm"
+          className="mt-2 w-full"
+          disabled={isClaiming}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClaim(pedido);
+          }}
+        >
+          {isClaiming ? "Asignando…" : "Tomar pedido"}
+        </Button>
+      )}
     </div>
   );
 }

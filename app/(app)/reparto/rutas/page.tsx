@@ -7,12 +7,15 @@ import { repartoAdmin } from "@/lib/supabase-reparto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { KanbanRutas } from "@/components/reparto/KanbanRutas";
 import { ESTATUS_PENDIENTES, combinarConRezagados } from "@/lib/reparto-rutas";
+import { crearResolvedorAsignacionAutomatica } from "@/lib/reparto/asignacion-automatica-server";
+import { canSelfClaimLosCabos, isLosCabosDriver, normalizeDriverEmail } from "@/lib/reparto/autoservicio-los-cabos";
+import { getRhDriverAvailability } from "@/lib/reparto/disponibilidad-rh";
 
 export const metadata = { title: "Rutas — Reparto" };
 export const dynamic = "force-dynamic";
 
 const PEDIDO_SELECT =
-  "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)";
+  "id, numero_factura, tipo, fecha, ventana_inicio, ventana_fin, estatus, prioridad, total, cliente_id, chofer_id, direccion_entrega, clientes:cliente_id(id, nombre, ciudad, zona, rfc, horario_recepcion)";
 
 export default async function RutasPage({
   searchParams,
@@ -24,9 +27,17 @@ export default async function RutasPage({
   if (!canViewReparto(rep.role)) redirect("/");
   const canManage = canManageReparto(rep.role);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mazatlan",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
   const fecha = searchParams.fecha ?? today;
   const incluirRezagados = searchParams.rezagados === "1";
+  const rhAvailabilityPromise = rep.role === "chofer" && isLosCabosDriver(rep.email)
+    ? getRhDriverAvailability(fecha)
+    : Promise.resolve(null);
 
   const [{ data: pedidos }, { data: choferes }, rezagadosRes] = await Promise.all([
     repartoAdmin
@@ -79,14 +90,48 @@ export default async function RutasPage({
       if (r && a.horario_recepcion) accountHorario.set(r, a.horario_recepcion as string);
     }
   }
-  const pedidosEnriquecidos = pedidosRaw.map((p) => {
+  const resolvedor = crearResolvedorAsignacionAutomatica();
+  const pedidosEnriquecidos = await Promise.all(pedidosRaw.map(async (p) => {
     const rfc = (p.clientes?.rfc as string | null)?.trim().toUpperCase();
     const horario_recepcion =
       (rfc ? accountHorario.get(rfc) : null) ??
       (p.clientes?.horario_recepcion as string | null) ??
       null;
-    return { ...p, horario_recepcion };
-  });
+    const resolucion = p.cliente_id
+      ? await resolvedor.resolverPorClienteId(p.cliente_id as string)
+      : null;
+    return { ...p, horario_recepcion, plaza_operativa: resolucion?.plaza ?? null };
+  }));
+
+  const choferesActivos = (choferes ?? []) as { id: string; nombre: string; email: string; es_chofer: boolean }[];
+  const currentDriver = rep.role === "chofer"
+    ? choferesActivos.find(
+        (chofer) => chofer.es_chofer && normalizeDriverEmail(chofer.email) === normalizeDriverEmail(rep.email),
+      ) ?? null
+    : null;
+  const rhAvailability = await rhAvailabilityPromise;
+  const canClaim = Boolean(
+    currentDriver && rhAvailability?.ok && canSelfClaimLosCabos(rep.email, rhAvailability.availableEmails),
+  );
+  const availabilityMessage = rep.role !== "chofer"
+    ? null
+    : !currentDriver
+      ? "Tu usuario de chofer no está activo en Reparto."
+      : isLosCabosDriver(rep.email) && !rhAvailability?.ok
+        ? "No se pudo confirmar tu disponibilidad con RH. Logística puede asignarte pedidos manualmente."
+        : isLosCabosDriver(rep.email) && !canClaim
+          ? "RH te marca como no disponible para esta fecha; no verás pedidos de Los Cabos sin asignar."
+          : null;
+  const pedidosVisibles = rep.role === "chofer"
+    ? pedidosEnriquecidos.filter(
+        (pedido) =>
+          pedido.chofer_id === currentDriver?.id ||
+          (canClaim && pedido.chofer_id === null && pedido.plaza_operativa === "los_cabos"),
+      )
+    : pedidosEnriquecidos;
+  const choferesVisibles = rep.role === "chofer"
+    ? (currentDriver ? [currentDriver] : [])
+    : choferesActivos;
 
   return (
     <div className="space-y-6">
@@ -95,16 +140,21 @@ export default async function RutasPage({
         <p className="text-sm text-muted-foreground">
           {canManage
             ? 'Arrastra los pedidos de la columna "Sin asignar" hacia un chofer. Vuelve a arrastrar para reasignar.'
-            : "Vista de solo lectura: consulta cómo quedaron asignadas las rutas por chofer."}
+            : rep.role === "chofer"
+              ? "Consulta tus pedidos; en Los Cabos puedes tomar uno disponible antes de subir la evidencia."
+              : "Vista de solo lectura: consulta cómo quedaron asignadas las rutas por chofer."}
         </p>
       </div>
       <KanbanRutas
         fecha={fecha}
         incluirRezagados={incluirRezagados}
         canManage={canManage}
+        canClaim={canClaim}
+        currentDriverId={currentDriver?.id ?? null}
+        availabilityMessage={availabilityMessage}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        pedidos={pedidosEnriquecidos as any}
-        choferes={(choferes ?? []) as { id: string; nombre: string; email: string; es_chofer: boolean }[]}
+        pedidos={pedidosVisibles as any}
+        choferes={choferesVisibles}
       />
     </div>
   );
