@@ -4,6 +4,10 @@ export const LOS_CABOS_DRIVER_EMAILS = [
   "isai@teravino.com",
 ] as const;
 
+// Al reservar desde el pool, el pedido ya está físicamente en manos del chofer.
+// Marcarlo en ruta evita que otro chofer salga a entregar la misma factura.
+export const SELF_CLAIM_STATUS = "en_ruta" as const;
+
 export function normalizeDriverEmail(email: string | null | undefined): string {
   return (email ?? "").trim().toLowerCase();
 }

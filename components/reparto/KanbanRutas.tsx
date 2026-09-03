@@ -3,7 +3,7 @@
 
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -18,7 +18,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { Calendar, GripVertical, AlertCircle, Clock, History } from "lucide-react";
+import { Calendar, GripVertical, AlertCircle, Clock, History, PackageCheck, Truck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +28,7 @@ import { buildRutasUrl, esRezagado } from "@/lib/reparto-rutas";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, TIPO_BADGE, type PedidoEstatus, type PedidoTipo } from "@/types/reparto";
 
 const UNASSIGNED = "__sin_asignar__";
+type ClaimMode = "reserve" | "deliver";
 
 type Chofer = { id: string; nombre: string; email: string; es_chofer?: boolean };
 type Pedido = {
@@ -71,7 +72,25 @@ export function KanbanRutas({
   const [pedidos, setPedidos] = useState<Pedido[]>(initial);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState<{ id: string; mode: ClaimMode } | null>(null);
+
+  // El pool puede estar abierto simultáneamente en varios teléfonos. Refrescar
+  // periódicamente y al volver a la app retira pronto los pedidos que otro
+  // chofer ya reservó; la condición atómica del API sigue siendo el candado real.
+  useEffect(() => {
+    const refresh = () => router.refresh();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    const intervalId = window.setInterval(refresh, 30_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [router]);
 
   // El estado local existe solo para el update optimista del drag&drop; cuando
   // el server manda datos nuevos (cambio de fecha, toggle de rezagados o
@@ -165,9 +184,9 @@ export function KanbanRutas({
     });
   };
 
-  const claimPedido = async (pedido: Pedido) => {
-    if (!canClaim || !currentDriverId || claimingId) return;
-    setClaimingId(pedido.id);
+  const claimPedido = async (pedido: Pedido, mode: ClaimMode) => {
+    if (!canClaim || !currentDriverId || claiming) return;
+    setClaiming({ id: pedido.id, mode });
     try {
       const res = await fetch(`/api/reparto/pedidos/${pedido.id}/tomar`, { method: "POST" });
       const body = await res.json().catch(() => ({}));
@@ -179,14 +198,21 @@ export function KanbanRutas({
       setPedidos((current) =>
         current.map((item) =>
           item.id === pedido.id
-            ? { ...item, chofer_id: currentDriverId, estatus: "asignado" }
+            ? { ...item, chofer_id: currentDriverId, estatus: "en_ruta" }
             : item,
         ),
       );
-      toast.success(`${pedido.numero_factura} quedó asignado a ti`);
+      if (mode === "deliver") {
+        router.push(`/reparto/pedidos/${pedido.id}#registrar-entrega`);
+      } else {
+        toast.success(`${pedido.numero_factura} está en ruta contigo`);
+        router.refresh();
+      }
+    } catch {
+      toast.error("No se pudo reservar el pedido. Revisa tu conexión e inténtalo otra vez.");
       router.refresh();
     } finally {
-      setClaimingId(null);
+      setClaiming(null);
     }
   };
 
@@ -270,7 +296,8 @@ export function KanbanRutas({
               pedidos={grouped.get(col.id) ?? []}
               canManage={canManage}
               canClaim={canClaim}
-              claimingId={claimingId}
+              currentDriverId={currentDriverId}
+              claiming={claiming}
               onClaim={claimPedido}
               fechaOperacion={fecha}
             />
@@ -291,7 +318,8 @@ function Column({
   pedidos,
   canManage,
   canClaim,
-  claimingId,
+  currentDriverId,
+  claiming,
   onClaim,
   fechaOperacion,
 }: {
@@ -301,8 +329,9 @@ function Column({
   pedidos: Pedido[];
   canManage: boolean;
   canClaim: boolean;
-  claimingId: string | null;
-  onClaim: (pedido: Pedido) => void;
+  currentDriverId: string | null;
+  claiming: { id: string; mode: ClaimMode } | null;
+  onClaim: (pedido: Pedido, mode: ClaimMode) => void;
   fechaOperacion: string;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id });
@@ -336,7 +365,15 @@ function Column({
               pedido={p}
               canManage={canManage}
               canClaim={canClaim && isUnassigned && p.plaza_operativa === "los_cabos"}
-              isClaiming={claimingId === p.id}
+              canRegisterDelivery={
+                !isUnassigned &&
+                Boolean(currentDriverId) &&
+                p.chofer_id === currentDriverId &&
+                p.estatus !== "entregado" &&
+                p.estatus !== "no_entregado"
+              }
+              claimsLocked={Boolean(claiming)}
+              claimingMode={claiming?.id === p.id ? claiming.mode : null}
               onClaim={onClaim}
               fechaOperacion={fechaOperacion}
             />
@@ -356,15 +393,19 @@ function PedidoCard({
   pedido,
   canManage,
   canClaim,
-  isClaiming,
+  canRegisterDelivery,
+  claimsLocked,
+  claimingMode,
   onClaim,
   fechaOperacion,
 }: {
   pedido: Pedido;
   canManage: boolean;
   canClaim: boolean;
-  isClaiming: boolean;
-  onClaim: (pedido: Pedido) => void;
+  canRegisterDelivery: boolean;
+  claimsLocked: boolean;
+  claimingMode: ClaimMode | null;
+  onClaim: (pedido: Pedido, mode: ClaimMode) => void;
   fechaOperacion: string;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: pedido.id, disabled: !canManage });
@@ -381,17 +422,43 @@ function PedidoCard({
     >
       <PedidoCardView pedido={pedido} fechaOperacion={fechaOperacion} />
       {canClaim && (
-        <Button
-          type="button"
-          size="sm"
-          className="mt-2 w-full"
-          disabled={isClaiming}
-          onClick={(event) => {
-            event.stopPropagation();
-            onClaim(pedido);
-          }}
-        >
-          {isClaiming ? "Asignando…" : "Tomar pedido"}
+        <div className="mt-2 grid gap-2">
+          <Button
+            type="button"
+            size="sm"
+            disabled={claimsLocked}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClaim(pedido, "reserve");
+            }}
+          >
+            <Truck className="mr-1 h-3.5 w-3.5" />
+            {claimingMode === "reserve" ? "Reservando…" : "Voy a entregar"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={claimsLocked}
+            onClick={(event) => {
+              event.stopPropagation();
+              onClaim(pedido, "deliver");
+            }}
+          >
+            <PackageCheck className="mr-1 h-3.5 w-3.5" />
+            {claimingMode === "deliver" ? "Abriendo…" : "Registrar entrega"}
+          </Button>
+        </div>
+      )}
+      {canRegisterDelivery && (
+        <Button asChild type="button" size="sm" className="mt-2 w-full">
+          <Link
+            href={`/reparto/pedidos/${pedido.id}#registrar-entrega`}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <PackageCheck className="mr-1 h-3.5 w-3.5" />
+            Registrar entrega
+          </Link>
         </Button>
       )}
     </div>

@@ -147,7 +147,7 @@ export default async function RutasPage({
           {canManage
             ? 'Arrastra los pedidos de la columna "Sin asignar" hacia un chofer. Vuelve a arrastrar para reasignar.'
             : rep.role === "chofer"
-              ? "Consulta tus pedidos; en Los Cabos puedes tomar uno disponible antes de subir la evidencia."
+              ? "Consulta tus pedidos; en Los Cabos puedes reservar uno o registrar directamente su entrega con evidencia."
               : "Vista de solo lectura: consulta cómo quedaron asignadas las rutas por chofer."}
         </p>
       </div>

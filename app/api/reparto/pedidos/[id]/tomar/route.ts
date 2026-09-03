@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { requireReparto } from "../../../_lib/guard";
 import { repartoAdmin } from "@/lib/supabase-reparto";
 import { crearResolvedorAsignacionAutomatica } from "@/lib/reparto/asignacion-automatica-server";
-import { canSelfClaimLosCabos, isLosCabosDriver } from "@/lib/reparto/autoservicio-los-cabos";
+import {
+  canSelfClaimLosCabos,
+  isLosCabosDriver,
+  SELF_CLAIM_STATUS,
+} from "@/lib/reparto/autoservicio-los-cabos";
 import { getRhDriverAvailability } from "@/lib/reparto/disponibilidad-rh";
 
 export const dynamic = "force-dynamic";
@@ -37,7 +41,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ data: pedido });
   }
   if (pedido.chofer_id || pedido.estatus !== "pendiente_asignar") {
-    return NextResponse.json({ error: "Otro chofer ya tomó este pedido" }, { status: 409 });
+    return NextResponse.json({ error: "Otro chofer ya reservó este pedido" }, { status: 409 });
   }
   if (!pedido.cliente_id) {
     return NextResponse.json({ error: "El pedido no tiene cliente para validar su plaza" }, { status: 409 });
@@ -64,7 +68,7 @@ export async function POST(_request: Request, { params }: { params: { id: string
   // aunque pulsen el botón al mismo tiempo.
   const { data: claimed, error } = await repartoAdmin
     .from("pedidos")
-    .update({ chofer_id: driver.id, estatus: "asignado" })
+    .update({ chofer_id: driver.id, estatus: SELF_CLAIM_STATUS })
     .eq("id", pedido.id)
     .is("chofer_id", null)
     .eq("estatus", "pendiente_asignar")
@@ -72,6 +76,6 @@ export async function POST(_request: Request, { params }: { params: { id: string
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  if (!claimed) return NextResponse.json({ error: "Otro chofer ya tomó este pedido" }, { status: 409 });
+  if (!claimed) return NextResponse.json({ error: "Otro chofer ya reservó este pedido" }, { status: 409 });
   return NextResponse.json({ data: claimed });
 }

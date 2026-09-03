@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   canSelfClaimLosCabos,
   isLosCabosDriver,
+  SELF_CLAIM_STATUS,
 } from "../lib/reparto/autoservicio-los-cabos.ts";
 
 test("solo los tres choferes autorizados pertenecen a la ruta de Los Cabos", () => {
@@ -17,4 +18,8 @@ test("un chofer solo puede tomar pedidos cuando RH lo confirma disponible", () =
   assert.equal(canSelfClaimLosCabos("anibal@teravino.com", available), true);
   assert.equal(canSelfClaimLosCabos("isai@teravino.com", available), false);
   assert.equal(canSelfClaimLosCabos("martin@teravino.com", available), false);
+});
+
+test("reservar un pedido desde el pool lo marca en ruta", () => {
+  assert.equal(SELF_CLAIM_STATUS, "en_ruta");
 });
