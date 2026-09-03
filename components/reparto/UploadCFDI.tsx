@@ -1,11 +1,12 @@
 // Diálogo para subir XML o ZIP de CFDI 4.0 y crear pedidos automáticamente.
+// También incluye la recarga manual de facturas desde el sincronizador de Reparto.
 
 "use client";
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Upload, CheckCircle2, AlertTriangle, FileSpreadsheet } from "lucide-react";
+import { Upload, CheckCircle2, AlertTriangle, FileSpreadsheet, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
@@ -37,6 +38,8 @@ export function UploadCFDI() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
   const [results, setResults] = useState<Outcome[]>([]);
@@ -47,6 +50,37 @@ export function UploadCFDI() {
     setFiles(Array.from(e.target.files ?? []));
     setSummary(null);
     setResults([]);
+  };
+
+  const cargarFacturas = async () => {
+    if (syncing) return;
+    setSyncing(true);
+
+    try {
+      const res = await fetch("/api/reparto/cargar-facturas", { method: "POST" });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast.error(json.error ?? "No se pudo iniciar la carga de facturas");
+        return;
+      }
+
+      const ahora = new Date();
+      setLastSync(
+        ahora.toLocaleTimeString("es-MX", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      );
+      toast.success("Carga de facturas iniciada", {
+        description: "El sincronizador está buscando nuevas facturas para Reparto.",
+      });
+      router.refresh();
+    } catch {
+      toast.error("No se pudo conectar con el sincronizador de facturas");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const upload = () => {
@@ -73,86 +107,98 @@ export function UploadCFDI() {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
-          <Upload className="mr-1 h-4 w-4" /> Subir CFDI
+    <>
+      <div className="flex flex-col items-end gap-1">
+        <Button onClick={cargarFacturas} disabled={syncing}>
+          <RefreshCw className={`mr-1 h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+          {syncing ? "Cargando facturas…" : "Cargar facturas"}
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Importar pedidos desde CFDI</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <label className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/30 p-8 text-center cursor-pointer hover:bg-muted/50">
-            <FileSpreadsheet className="h-10 w-10 text-brand-carmesi" />
-            <span className="font-medium">
-              {files.length === 0 ? "Click para seleccionar XML o ZIP" : `${files.length} archivo(s) seleccionado(s)`}
-            </span>
-            <span className="text-xs text-muted-foreground">Acepta varios .xml o un .zip con XMLs adentro</span>
-            <input ref={inputRef} type="file" accept=".xml,.zip,application/xml,application/zip" multiple className="hidden" onChange={handlePick} />
-          </label>
+        {lastSync && (
+          <span className="text-[10px] text-muted-foreground">Última carga: {lastSync}</span>
+        )}
+      </div>
 
-          {files.length > 0 && !summary && (
-            <ul className="max-h-32 space-y-1 overflow-y-auto rounded-md border bg-card p-2 text-xs">
-              {files.map((f, i) => <li key={i} className="text-muted-foreground">{f.name} <span className="text-foreground/40">({Math.round(f.size / 1024)} KB)</span></li>)}
-            </ul>
-          )}
+      <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) reset(); }}>
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <Upload className="mr-1 h-4 w-4" /> Subir CFDI
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Importar pedidos desde CFDI</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <label className="flex flex-col items-center gap-2 rounded-lg border border-dashed bg-muted/30 p-8 text-center cursor-pointer hover:bg-muted/50">
+              <FileSpreadsheet className="h-10 w-10 text-brand-carmesi" />
+              <span className="font-medium">
+                {files.length === 0 ? "Click para seleccionar XML o ZIP" : `${files.length} archivo(s) seleccionado(s)`}
+              </span>
+              <span className="text-xs text-muted-foreground">Acepta varios .xml o un .zip con XMLs adentro</span>
+              <input ref={inputRef} type="file" accept=".xml,.zip,application/xml,application/zip" multiple className="hidden" onChange={handlePick} />
+            </label>
 
-          {summary && (
-            <div className="space-y-2">
-              <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
-                <Kpi label="Total" value={summary.total} />
-                <Kpi label="Creados" value={summary.creados} tone={summary.creados > 0 ? "ok" : undefined} />
-                <Kpi label="Autoasignados" value={summary.asignados_automaticamente ?? 0} tone={summary.asignados_automaticamente > 0 ? "ok" : undefined} />
-                <Kpi label="Ya existen" value={summary.ya_existen} />
-                <Kpi label="Errores" value={summary.errores} tone={summary.errores > 0 ? "warn" : undefined} />
-              </div>
-              {summary.clientes_creados > 0 && (
-                <p className="text-xs text-muted-foreground">+ {summary.clientes_creados} cliente(s) nuevo(s) creados automáticamente.</p>
-              )}
-              <details className="rounded-md border bg-muted/30 text-xs">
-                <summary className="cursor-pointer p-2 font-medium">Detalle por archivo</summary>
-                <ul className="max-h-56 space-y-1 overflow-y-auto p-2">
-                  {results.map((r, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      {r.status === "creado" && <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />}
-                      {r.status === "ya_existe" && <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                      {r.status === "error" && <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />}
-                      <span>
-                        <strong>{r.archivo}</strong> · {r.numero_factura ?? "—"} ·{" "}
-                        <span className={r.status === "error" ? "text-amber-700" : "text-muted-foreground"}>
-                          {r.status === "creado"
-                            ? r.asignacion?.aplicada
-                              ? `creado · asignado a ${r.asignacion.chofer_nombre}`
-                              : `creado · sin asignar (${r.asignacion?.motivo ?? "requiere revisión manual"})`
-                            : r.status === "ya_existe"
-                              ? "ya existía"
-                              : `error: ${r.error}`}
-                        </span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-2">
-            {summary ? (
-              <Button onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancelar</Button>
-                <Button onClick={upload} disabled={pending || files.length === 0}>
-                  {pending ? "Procesando…" : `Importar ${files.length || ""}`}
-                </Button>
-              </>
+            {files.length > 0 && !summary && (
+              <ul className="max-h-32 space-y-1 overflow-y-auto rounded-md border bg-card p-2 text-xs">
+                {files.map((f, i) => <li key={i} className="text-muted-foreground">{f.name} <span className="text-foreground/40">({Math.round(f.size / 1024)} KB)</span></li>)}
+              </ul>
             )}
+
+            {summary && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-5">
+                  <Kpi label="Total" value={summary.total} />
+                  <Kpi label="Creados" value={summary.creados} tone={summary.creados > 0 ? "ok" : undefined} />
+                  <Kpi label="Autoasignados" value={summary.asignados_automaticamente ?? 0} tone={summary.asignados_automaticamente > 0 ? "ok" : undefined} />
+                  <Kpi label="Ya existen" value={summary.ya_existen} />
+                  <Kpi label="Errores" value={summary.errores} tone={summary.errores > 0 ? "warn" : undefined} />
+                </div>
+                {summary.clientes_creados > 0 && (
+                  <p className="text-xs text-muted-foreground">+ {summary.clientes_creados} cliente(s) nuevo(s) creados automáticamente.</p>
+                )}
+                <details className="rounded-md border bg-muted/30 text-xs">
+                  <summary className="cursor-pointer p-2 font-medium">Detalle por archivo</summary>
+                  <ul className="max-h-56 space-y-1 overflow-y-auto p-2">
+                    {results.map((r, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        {r.status === "creado" && <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />}
+                        {r.status === "ya_existe" && <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                        {r.status === "error" && <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600" />}
+                        <span>
+                          <strong>{r.archivo}</strong> · {r.numero_factura ?? "—"} ·{" "}
+                          <span className={r.status === "error" ? "text-amber-700" : "text-muted-foreground"}>
+                            {r.status === "creado"
+                              ? r.asignacion?.aplicada
+                                ? `creado · asignado a ${r.asignacion.chofer_nombre}`
+                                : `creado · sin asignar (${r.asignacion?.motivo ?? "requiere revisión manual"})`
+                              : r.status === "ya_existe"
+                                ? "ya existía"
+                                : `error: ${r.error}`}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              {summary ? (
+                <Button onClick={() => { setOpen(false); reset(); }}>Cerrar</Button>
+              ) : (
+                <>
+                  <Button variant="outline" onClick={() => setOpen(false)} disabled={pending}>Cancelar</Button>
+                  <Button onClick={upload} disabled={pending || files.length === 0}>
+                    {pending ? "Procesando…" : `Importar ${files.length || ""}`}
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
