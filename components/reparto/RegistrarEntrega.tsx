@@ -140,7 +140,7 @@ export function RegistrarEntrega({ pedidoId }: { pedidoId: string }) {
   };
 
   return (
-    <Card>
+    <Card id="registrar-entrega" className="scroll-mt-6">
       <CardContent className="space-y-4 p-5">
         <div className="space-y-1">
           <h3 className="font-display text-lg">Registrar entrega</h3>
