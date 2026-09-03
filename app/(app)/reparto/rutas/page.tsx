@@ -10,6 +10,7 @@ import { ESTATUS_PENDIENTES, combinarConRezagados } from "@/lib/reparto-rutas";
 import { crearResolvedorAsignacionAutomatica } from "@/lib/reparto/asignacion-automatica-server";
 import { canSelfClaimLosCabos, isLosCabosDriver, normalizeDriverEmail } from "@/lib/reparto/autoservicio-los-cabos";
 import { getRhDriverAvailability } from "@/lib/reparto/disponibilidad-rh";
+import { PLAZA_LABEL } from "@/lib/reparto/asignacion-automatica";
 
 export const metadata = { title: "Rutas — Reparto" };
 export const dynamic = "force-dynamic";
@@ -100,7 +101,12 @@ export default async function RutasPage({
     const resolucion = p.cliente_id
       ? await resolvedor.resolverPorClienteId(p.cliente_id as string)
       : null;
-    return { ...p, horario_recepcion, plaza_operativa: resolucion?.plaza ?? null };
+    return {
+      ...p,
+      horario_recepcion,
+      plaza_operativa: resolucion?.plaza ?? null,
+      ubicacion_operativa: resolucion?.plaza ? PLAZA_LABEL[resolucion.plaza] : null,
+    };
   }));
 
   const choferesActivos = (choferes ?? []) as { id: string; nombre: string; email: string; es_chofer: boolean }[];

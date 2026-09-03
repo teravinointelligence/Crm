@@ -20,10 +20,11 @@ export const CHOFER_EMAIL_POR_PLAZA: Record<PlazaAutomatica, string> = {
   la_paz: "mauricio@teravino.com",
 };
 
-export const PLAZA_LABEL: Record<PlazaAutomatica, string> = {
+export const PLAZA_LABEL: Record<PlazaOperativa, string> = {
   baja_california_norte: "Baja California Norte",
   puerto_vallarta_nayarit: "Puerto Vallarta/Nayarit",
   la_paz: "La Paz",
+  los_cabos: "Los Cabos",
 };
 
 function normalizar(valor: string | null | undefined): string {

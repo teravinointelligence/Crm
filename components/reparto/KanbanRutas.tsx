@@ -44,6 +44,7 @@ type Pedido = {
   direccion_entrega: string | null;
   horario_recepcion: string | null;
   plaza_operativa: string | null;
+  ubicacion_operativa: string | null;
   clientes: { id: string; nombre: string; ciudad: string | null; zona: string | null } | null;
 };
 
@@ -440,7 +441,9 @@ function PedidoCardView({
       </div>
       <p className="truncate font-medium">{pedido.clientes?.nombre ?? "—"}</p>
       <p className="truncate text-[11px] text-muted-foreground">
-        {[pedido.clientes?.zona ?? pedido.clientes?.ciudad, pedido.direccion_entrega].filter(Boolean).join(" · ") || "Sin dirección"}
+        {[pedido.ubicacion_operativa ?? pedido.clientes?.zona ?? pedido.clientes?.ciudad, pedido.direccion_entrega]
+          .filter(Boolean)
+          .join(" · ") || "Sin dirección"}
       </p>
       {pedido.horario_recepcion && (
         <p className="flex items-center gap-1 text-[11px] text-brand-carmesi" title="Horario de recepción de mercancía">
