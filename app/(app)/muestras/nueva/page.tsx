@@ -21,7 +21,7 @@ export default async function NuevaMuestraPage({
   const [{ data: products }, { data: citasRaw }, { data: lockedRows }, { data: bankRows }] = await Promise.all([
     supabase
       .from("products")
-      .select("id, name, supplier, varietal, vintage, active, country, region_origin")
+      .select("id, name, supplier, varietal, vintage, active, country, region_origin, category")
       .eq("active", true)
       .order("supplier")
       .order("name"),

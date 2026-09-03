@@ -11,16 +11,29 @@ export type SampleLocation = (typeof SAMPLE_LOCATIONS)[number];
 
 // ── Candado de consumo por cliente ───────────────────────────────────────────
 // Un cliente no puede recibir más de `botellasPorCliente` botellas de muestra
-// en una ventana rodante de `ventanaDias` días. Las capacitaciones quedan
+// en una ventana rodante de `ventanaDias` días, y el tope aplica POR CATEGORÍA
+// por separado: hasta 6 de vino Y hasta 6 de cerveza. Las capacitaciones quedan
 // fuera del tope pero SOLO de vinos que el cliente ya compró (compra real en
 // monthly_sales_items); el Admin queda exento de todo.
 // FOOTGUN: el candado real vive en la BD (tg_sample_client_cap, migración
-// 0092) con estos MISMOS números; esto solo alimenta los textos de la UI.
+// 0098) con estos MISMOS números; esto solo alimenta los textos de la UI.
 // Si cambias uno, cambia el otro.
 export const SAMPLE_CAP = {
   botellasPorCliente: 6,
   ventanaDias: 30,
 } as const;
+
+// Categoría del catálogo que cuenta como "cerveza" para el tope y el banco.
+// Todo lo demás (vino_tinto/blanco/rosado/naranja, espumoso, destilado, sake,
+// otro, sin categoría y los renglones manuales) cuenta como "vino". Mismo
+// criterio que el banco de muestras (migración 0089) y el candado 0098.
+export const SAMPLE_BEER_CATEGORY = "cerveza";
+export type SampleBucket = "vino" | "cerveza";
+
+/** Clasifica un producto en el bucket del tope de muestras a partir de su categoría. */
+export function sampleBucket(category: string | null | undefined): SampleBucket {
+  return (category ?? "") === SAMPLE_BEER_CATEGORY ? "cerveza" : "vino";
+}
 
 // ── Rendimiento de muestras para capacitaciones / catas ──────────────────────
 // Estándar TERAVINO: se sirven 2 onzas por participante de una botella de 750 ml,

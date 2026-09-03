@@ -14,7 +14,7 @@ import { CancelSampleButton } from "@/components/samples/CancelSampleButton";
 import { SampleCancellationActions } from "@/components/samples/SampleCancellationActions";
 import { SubmitSampleButton } from "@/components/samples/SubmitSampleButton";
 import { formatDateTime, formatDate, formatCurrency } from "@/lib/utils";
-import { SAMPLE_CAP } from "@/lib/samples";
+import { SAMPLE_CAP, sampleBucket } from "@/lib/samples";
 
 export default async function SampleDetailPage({ params }: { params: { id: string } }) {
   const supabase = createClient();
@@ -25,7 +25,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
   const { data: req } = await supabase
     .from("sample_requests")
     .select(
-      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes), sample_request_activities(id, evidence_path, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
+      "*, sales_reps:sales_rep_id(full_name), reviewer:reviewed_by(full_name), accounts:account_id(id, business_name), sample_request_items(id, product_id, product_name, supplier, quantity, notes, products:product_id(category)), sample_request_activities(id, evidence_path, activities:activity_id(id, activity_date, activity_type, status, accounts:account_id(id, business_name, client_number)))",
     )
     .eq("id", params.id)
     .single();
@@ -33,6 +33,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
 
   const items = (req.sample_request_items ?? []) as Array<{
     id: string; product_id: string | null; product_name: string; supplier: string | null; quantity: number; notes: string | null;
+    products: { category: string | null } | null;
   }>;
   const sampleProductIds = Array.from(
     new Set(items.map((item) => item.product_id).filter((id): id is string => Boolean(id))),
@@ -99,20 +100,35 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       });
   }
   const totalBottles = items.reduce((s, i) => s + Number(i.quantity ?? 0), 0);
+  // El tope aplica por categoría por separado (vino / cerveza).
+  const totalVino = items.reduce((s, i) => s + (sampleBucket(i.products?.category) === "vino" ? Number(i.quantity ?? 0) : 0), 0);
+  const totalCerveza = items.reduce((s, i) => s + (sampleBucket(i.products?.category) === "cerveza" ? Number(i.quantity ?? 0) : 0), 0);
 
   // Contexto de consumo para el admin al autorizar: botellas que ya lleva el
   // cliente (30/90 días), botellas del vendedor (30 días) y valor de ESTA
   // solicitud a precio de lista. Mismas reglas de conteo que el candado 0092
   // (solo solicitudes enviada/aprobada/entregada).
   let consumo: {
-    cliente30: number; cliente90: number; vendedor30: number; valor: number; sinPrecio: number;
+    cliente30Vino: number; cliente30Cerveza: number; cliente90: number; vendedor30: number; valor: number; sinPrecio: number;
   } | null = null;
+  type ReqBottles = {
+    id: string; created_at: string;
+    sample_request_items: { quantity: number | null; products: { category: string | null } | null }[] | null;
+  };
   if (isAdmin) {
     const d30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
     const d90 = new Date(Date.now() - 90 * 86_400_000).toISOString();
-    const sumBottles = (rows: { sample_request_items: { quantity: number | null }[] | null }[] | null) =>
+    const sumBottles = (
+      rows: ReqBottles[] | null,
+      bucket?: "vino" | "cerveza",
+    ) =>
       (rows ?? []).reduce(
-        (s, x) => s + (x.sample_request_items ?? []).reduce((a, i) => a + Number(i.quantity ?? 0), 0),
+        (s, x) =>
+          s +
+          (x.sample_request_items ?? []).reduce(
+            (a, i) => a + (bucket && sampleBucket(i.products?.category) !== bucket ? 0 : Number(i.quantity ?? 0)),
+            0,
+          ),
         0,
       );
     const productIds = items.map((i) => i.product_id).filter((id): id is string => Boolean(id));
@@ -120,7 +136,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       r.account_id
         ? supabase
             .from("sample_requests")
-            .select("id, created_at, sample_request_items(quantity)")
+            .select("id, created_at, sample_request_items(quantity, products:product_id(category))")
             .eq("account_id", r.account_id)
             .in("status", ["enviada", "aprobada", "entregada"])
             .gte("created_at", d90)
@@ -128,7 +144,7 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
         : Promise.resolve({ data: [] as never[] }),
       supabase
         .from("sample_requests")
-        .select("id, created_at, sample_request_items(quantity)")
+        .select("id, created_at, sample_request_items(quantity, products:product_id(category))")
         .eq("sales_rep_id", r.sales_rep_id)
         .in("status", ["enviada", "aprobada", "entregada"])
         .gte("created_at", d30)
@@ -137,7 +153,6 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
         ? supabase.from("products").select("id, base_price").in("id", productIds)
         : Promise.resolve({ data: [] as never[] }),
     ]);
-    type ReqBottles = { id: string; created_at: string; sample_request_items: { quantity: number | null }[] | null };
     const cli90Rows = ((cli90Res.data ?? []) as unknown) as ReqBottles[];
     const priceById = new Map(
       ((pricesRes.data ?? []) as { id: string; base_price: number | null }[]).map((p) => [p.id, Number(p.base_price ?? 0)]),
@@ -149,8 +164,10 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
       if (price == null) sinPrecio += Number(i.quantity ?? 0);
       else valor += Number(i.quantity ?? 0) * price;
     }
+    const cli30Rows = cli90Rows.filter((x) => x.created_at >= d30);
     consumo = {
-      cliente30: sumBottles(cli90Rows.filter((x) => x.created_at >= d30)),
+      cliente30Vino: sumBottles(cli30Rows, "vino"),
+      cliente30Cerveza: sumBottles(cli30Rows, "cerveza"),
       cliente90: sumBottles(cli90Rows),
       vendedor30: sumBottles(((rep30Res.data ?? []) as unknown) as ReqBottles[]),
       valor,
@@ -325,10 +342,13 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
             </div>
             <div className="rounded-md border bg-card p-2.5">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente · 30 días</div>
-              <div className={`font-display text-lg ${consumo.cliente30 + totalBottles > SAMPLE_CAP.botellasPorCliente ? "text-red-600" : ""}`}>
-                {consumo.cliente30} + {totalBottles} de esta
+              <div className={`font-display text-lg ${consumo.cliente30Vino + totalVino > SAMPLE_CAP.botellasPorCliente ? "text-red-600" : ""}`}>
+                Vino: {consumo.cliente30Vino} + {totalVino}
               </div>
-              <div className="text-xs text-muted-foreground">tope: {SAMPLE_CAP.botellasPorCliente} por cliente</div>
+              <div className={`font-display text-lg ${consumo.cliente30Cerveza + totalCerveza > SAMPLE_CAP.botellasPorCliente ? "text-red-600" : ""}`}>
+                Cerveza: {consumo.cliente30Cerveza} + {totalCerveza}
+              </div>
+              <div className="text-xs text-muted-foreground">tope: {SAMPLE_CAP.botellasPorCliente} de vino y {SAMPLE_CAP.botellasPorCliente} de cerveza</div>
             </div>
             <div className="rounded-md border bg-card p-2.5">
               <div className="text-[11px] uppercase tracking-wide text-muted-foreground">Cliente · 90 días</div>
@@ -341,10 +361,15 @@ export default async function SampleDetailPage({ params }: { params: { id: strin
               <div className="text-xs text-muted-foreground">botellas en otras solicitudes</div>
             </div>
           </div>
-          {consumo.cliente30 + totalBottles > SAMPLE_CAP.botellasPorCliente && (
+          {(consumo.cliente30Vino + totalVino > SAMPLE_CAP.botellasPorCliente ||
+            consumo.cliente30Cerveza + totalCerveza > SAMPLE_CAP.botellasPorCliente) && (
             <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">
-              Con esta solicitud el cliente supera el tope de {SAMPLE_CAP.botellasPorCliente} botellas
-              en {SAMPLE_CAP.ventanaDias} días{r.training_people ? " (es capacitación: solo válida sobre vinos que el cliente ya compra)" : ""}.
+              Con esta solicitud el cliente supera el tope de {SAMPLE_CAP.botellasPorCliente} botellas de
+              {consumo.cliente30Vino + totalVino > SAMPLE_CAP.botellasPorCliente ? " vino" : ""}
+              {consumo.cliente30Vino + totalVino > SAMPLE_CAP.botellasPorCliente &&
+               consumo.cliente30Cerveza + totalCerveza > SAMPLE_CAP.botellasPorCliente ? " y" : ""}
+              {consumo.cliente30Cerveza + totalCerveza > SAMPLE_CAP.botellasPorCliente ? " cerveza" : ""}
+              {" "}en {SAMPLE_CAP.ventanaDias} días{r.training_people ? " (es capacitación: solo válida sobre vinos que el cliente ya compra)" : ""}.
               Autorízala solo si el caso lo amerita.
             </p>
           )}
