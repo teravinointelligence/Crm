@@ -5,6 +5,10 @@
       "schedule": "0 15 * * 1"
     },
     {
+      "path": "/api/cron/reporte-cobranza",
+      "schedule": "30 15 * * 1"
+    },
+    {
       "path": "/api/cron/clientes-inactivos",
       "schedule": "0 16 * * 1"
     },
