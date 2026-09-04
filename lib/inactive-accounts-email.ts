@@ -1,9 +1,9 @@
-// Carga de cuentas inactivas (sin actividad registrada en N días) y armado del
-// correo-recordatorio por vendedor. Compartido entre el tablero admin, el
+// Carga de cuentas inactivas (sin actividad ni facturación en N días) y armado
+// del correo-recordatorio por vendedor. Compartido entre el tablero admin, el
 // endpoint de envío y el cron. NO envía por sí mismo.
 //
-// Se apoya en la vista public.v_account_last_activity (migración 0015), que ya
-// calcula la última actividad por cuenta ignorando las canceladas.
+// Se apoya en la vista public.v_account_last_activity, que calcula la última
+// actividad comercial por cuenta: actividad o factura, ignorando canceladas.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { createClient } from "@/lib/supabase/server";
@@ -25,9 +25,9 @@ export type InactiveAccount = {
   account_id: string;
   business_name: string;
   assigned_rep_id: string | null;
-  /** ISO de la última actividad no cancelada, o null si nunca tuvo actividad. */
+  /** ISO de la última actividad o factura no cancelada; null si no tuvo ninguna. */
   last_activity_date: string | null;
-  /** Días transcurridos desde la última actividad; null = nunca registró nada. */
+  /** Días desde la última actividad o factura; null = nunca registró ninguna. */
   days_inactive: number | null;
 };
 
@@ -38,7 +38,7 @@ function daysSince(iso: string | null, now: number): number | null {
   return Math.floor((now - new Date(iso).getTime()) / MS_DAY);
 }
 
-/** Carga las cuentas activas/prospecto con su última actividad.
+/** Carga las cuentas activas/prospecto con su última actividad o factura.
  *  Si se pasa repId, solo las de ese vendedor. Devuelve TODAS (sin filtrar por
  *  umbral) para que el tablero pueda ajustar el corte en el cliente. */
 export async function loadInactiveAccounts(
@@ -84,9 +84,9 @@ export function filterByDays(accounts: InactiveAccount[], days: number): Inactiv
   return accounts.filter((a) => a.days_inactive === null || a.days_inactive >= days);
 }
 
-/** Texto legible del último contacto de una cuenta. */
+/** Texto legible de la última actividad comercial de una cuenta. */
 export function lastContactLabel(a: InactiveAccount): string {
-  if (a.days_inactive === null) return "Sin actividad registrada";
+  if (a.days_inactive === null) return "Sin actividad ni facturación registrada";
   const fecha = a.last_activity_date
     ? new Date(a.last_activity_date).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
     : "";
@@ -129,12 +129,12 @@ export async function buildInactiveAccountsDigest(
   const html = `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
     <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Clientes sin seguimiento</h2>
-    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(rep.full_name ?? "")}, estos clientes que tienes asignados llevan ${days} días o más sin ninguna actividad registrada:</p>
+    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(rep.full_name ?? "")}, estos clientes que tienes asignados llevan ${days} días o más sin actividad registrada ni facturación:</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead>
         <tr style="background:#f6f1ee;text-align:left;">
           <th style="padding:6px 10px;">Cliente</th>
-          <th style="padding:6px 10px;">Último contacto</th>
+          <th style="padding:6px 10px;">Última actividad o factura</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>

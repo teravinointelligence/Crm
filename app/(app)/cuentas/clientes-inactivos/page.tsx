@@ -63,15 +63,15 @@ export default async function ClientesInactivosPage() {
       <div className="space-y-1">
         <h1 className="font-display text-3xl">Clientes inactivos por vendedor</h1>
         <p className="text-sm text-muted-foreground">
-          Cuentas activas/prospecto sin ninguna actividad registrada en el periodo elegido (incluye las
-          que nunca han tenido actividad). Manda a cada vendedor un recordatorio para darles seguimiento.
+          Cuentas activas/prospecto sin actividad ni facturación en el periodo elegido (incluye las
+          que nunca han tenido ninguna). Manda a cada vendedor un recordatorio para darles seguimiento.
         </p>
       </div>
 
       {list.length === 0 ? (
         <EmptyState
           title="Todo al día"
-          description="No hay cuentas activas o prospecto sin actividad reciente."
+          description="No hay cuentas activas o prospecto sin actividad comercial reciente."
         />
       ) : (
         <ClientesInactivosBoard groups={list} />

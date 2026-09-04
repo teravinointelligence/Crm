@@ -3,9 +3,9 @@
 // Corre a diario (ver app/api/cron/agenda-tareas). NO inventa nada: arma las
 // tareas a partir de datos que el CRM ya tiene.
 //
-//   prospecto  → cuentas en estado 'prospecto' sin actividad en 14 días
+//   prospecto  → cuentas en estado 'prospecto' sin actividad ni factura en 14 días
 //   cobranza   → cuentas con saldo vencido, priorizadas con el score de cobranza
-//   inactivo   → clientes activos sin actividad en 15 días
+//   inactivo   → clientes activos sin actividad ni factura en 15 días
 //
 // Reglas de convivencia, para que la agenda no se vuelva un basurero:
 //  · Si ya hay una tarea PENDIENTE de esa regla para esa cuenta, se refresca
@@ -88,7 +88,7 @@ async function fetchAllRows<T>(
 
 // --- Reglas ----------------------------------------------------------------
 
-/** Prospectos y clientes inactivos: ambos salen de v_account_last_activity. */
+/** Prospectos y clientes inactivos: la vista combina actividades y facturas. */
 async function candidatesFromActivity(
   supabase: DbClient,
   repIds: Set<string>,
@@ -109,7 +109,7 @@ async function candidatesFromActivity(
       .range(from, to),
   );
 
-  // La mayoría de las cuentas nunca ha tenido una actividad capturada. Si a
+  // La mayoría de las cuentas nunca ha tenido actividad ni factura. Si a
   // todas les diéramos la misma prioridad, el top de cada día saldría al azar.
   // Para esas usamos la antigüedad de la cuenta como reloj: la que lleva más
   // tiempo sin que nadie la toque es la más urgente. `activity_baseline_at` es
@@ -133,7 +133,7 @@ async function candidatesFromActivity(
   for (const r of rows) {
     if (!r.assigned_rep_id || !repIds.has(r.assigned_rep_id)) continue;
     const realDays = daysBetween(r.last_activity_date, nowMs);
-    // Días "de abandono": desde la última actividad o, si nunca hubo, desde
+    // Días "de abandono": desde la última actividad/factura o, si nunca hubo, desde
     // que la cuenta existe.
     const days = realDays ?? daysBetween(anchorById.get(r.account_id) ?? null, nowMs);
     const name = r.business_name ?? "(sin nombre)";

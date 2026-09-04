@@ -74,9 +74,9 @@ compra y ticket promedio. Fuente: `monthly_sales`.
 
 **Bloque Cuentas en riesgo** (semanal — lo más importante):
 
-- **Inactivas 30+ días**: sus cuentas activas sin actividad (o sin actividad
-  alguna), lista clickable a la ficha. Fuente `v_account_last_activity` (misma
-  vista que "Visitar pronto").
+- **Inactivas 30+ días**: sus cuentas activas sin actividad ni facturación (o
+  sin ninguna de las dos), lista clickable a la ficha. Fuente
+  `v_account_last_activity` (misma vista que "Visitar pronto").
 - **Sin pedido este mes**: compraron el mes anterior (al último cargado) y no
   aparecen en el mes de referencia, con lo que facturaban en promedio (últimos
   3 meses con venta). Fuente `monthly_sales`.
@@ -101,7 +101,7 @@ Nayarit, Sin región — orden canónico; se agregan las que existan en Cuentas)
 | Venta bruta / % del total / MoM | Σ venta del periodo por región de la cuenta; MoM = mes de referencia vs anterior | `monthly_sales` × `accounts.region` |
 | Cuentas activas y penetración | Con compra / activas × 100 | `accounts` + `monthly_sales` |
 | Monto vencido y % vencido | Σ saldo vencido de la región; % sobre su saldo pendiente | `v_account_balance` |
-| Inactivas 30+ | Cuentas activas de la región sin actividad en 30+ días | `v_account_last_activity` |
+| Inactivas 30+ | Cuentas activas de la región sin actividad ni facturación en 30+ días | `v_account_last_activity` |
 
 La tabla de regiones siempre compara todas las regiones (el filtro de región
 aplica a Dirección y Vendedores); clic en una región te lleva a las tarjetas de

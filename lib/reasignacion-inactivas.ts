@@ -2,9 +2,9 @@
 // 53 días sin actividad recibe un aviso de última oportunidad; al cumplir 60
 // días y tras siete días completos desde el aviso pasa al pool de Sabrina.
 //
-// "Actividad" = la última actividad no cancelada de la cuenta (vista
-// public.v_account_last_activity, migración 0015). Si la cuenta nunca tuvo
-// actividad, se mide desde su created_at.
+// "Actividad comercial" = la última actividad o factura no cancelada de la
+// cuenta (vista public.v_account_last_activity). Si la cuenta nunca tuvo
+// ninguna, se mide desde su created_at.
 //
 // Se apoya en accounts.reassign_warned_at y account_reassignment_log (migración
 // 0088). Compartido entre el cron diario y el botón "Ejecutar ahora" del panel.
@@ -98,7 +98,7 @@ export async function runReassignmentSweep(
       a.assigned_rep_id !== SABRINA_POOL_REP_ID,
   );
 
-  // Última actividad por cuenta.
+  // Última actividad comercial por cuenta (actividad manual o factura).
   const { data: actData } = await supabase
     .from("v_account_last_activity")
     .select("account_id, last_activity_date");
@@ -415,8 +415,8 @@ function buildWarningEmail(repName: string, items: { business_name: string; dias
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
     <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Última oportunidad antes de reasignación</h2>
-    <p style="margin:0 0 10px;color:#666;">Hola ${escapeHtml(repName)}, este es un <strong>aviso de última oportunidad</strong>. Estas cuentas llevan ${REASSIGN_WARN_DAYS} días o más sin actividad registrada.</p>
-    <p style="margin:0 0 16px;color:#666;">Tienes siete días completos, <strong>hasta el ${deadline}</strong>, para registrar una actividad (visita, llamada, degustación…). Si el plazo vence sin actividad, pasarán al pool general de Sabrina.</p>
+    <p style="margin:0 0 10px;color:#666;">Hola ${escapeHtml(repName)}, este es un <strong>aviso de última oportunidad</strong>. Estas cuentas llevan ${REASSIGN_WARN_DAYS} días o más sin actividad registrada ni facturación.</p>
+    <p style="margin:0 0 16px;color:#666;">Tienes siete días completos, <strong>hasta el ${deadline}</strong>, para registrar una actividad (visita, llamada, degustación…) o generar una factura. Si el plazo vence sin ninguna de las dos, pasarán al pool general de Sabrina.</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead><tr style="background:#f6f1ee;text-align:left;"><th style="padding:6px 10px;">Cuenta</th><th style="padding:6px 10px;">Plazo</th></tr></thead>
       <tbody>${rowsHtml(items, true)}</tbody>
@@ -435,7 +435,7 @@ function buildReassignedEmail(repName: string, items: { business_name: string }[
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#222;">
     <h2 style="color:#7a1220;margin:0 0 4px;">TERAVINO — Cuentas reasignadas por inactividad</h2>
-    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(repName)}, estas cuentas pasaron al pool general de Sabrina porque venció el aviso de siete días sin que se registrara actividad. Si quieres recuperarlas, coméntalo con tu administrador.</p>
+    <p style="margin:0 0 16px;color:#666;">Hola ${escapeHtml(repName)}, estas cuentas pasaron al pool general de Sabrina porque venció el aviso de siete días sin actividad ni facturación. Si quieres recuperarlas, coméntalo con tu administrador.</p>
     <table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;">
       <thead><tr style="background:#f6f1ee;text-align:left;"><th style="padding:6px 10px;">Cuenta</th></tr></thead>
       <tbody>${rows}</tbody>

@@ -24,7 +24,7 @@ const DAY_OPTIONS = [15, 30, 45, 60, 90];
 const DEFAULT_DAYS = 15;
 
 function lastContactLabel(days: number | null, iso: string | null): string {
-  if (days === null) return "Sin actividad registrada";
+  if (days === null) return "Sin actividad ni facturación registrada";
   const fecha = iso
     ? new Date(iso).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
     : "";
@@ -100,7 +100,7 @@ export function ClientesInactivosBoard({ groups }: { groups: InactiveRepGroup[] 
       {/* Umbral de inactividad */}
       <div className="rounded-lg border bg-card p-4">
         <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
-          Sin actividad desde hace al menos
+          Sin actividad ni facturación desde hace al menos
         </div>
         <div className="flex flex-wrap gap-2">
           {DAY_OPTIONS.map((d) => {
@@ -133,7 +133,7 @@ export function ClientesInactivosBoard({ groups }: { groups: InactiveRepGroup[] 
 
       {filtered.length === 0 ? (
         <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
-          Ningún cliente lleva {days} días o más sin actividad.
+          Ningún cliente lleva {days} días o más sin actividad ni facturación.
         </p>
       ) : (
         filtered.map((g) => {
