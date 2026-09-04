@@ -23,6 +23,7 @@ import { STICKY_CELL, STICKY_HEAD } from "@/components/ui/table-sticky";
 import { Pager } from "@/components/ui/pagination";
 import { usePagedRows } from "@/components/ui/use-paged-rows";
 import { SemaforoBadge } from "@/components/cartera/SemaforoBadge";
+import { creditDaysLabel } from "@/lib/credit-terms";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const ALL = "_all";
@@ -45,6 +46,7 @@ export type CarteraRow = {
   accountId: string;
   businessName: string | null;
   clientNumber: string | null;
+  creditDays: number | null;
   region: string | null;
   vendedor: string | null;
   esSocio: boolean | null;
@@ -210,6 +212,9 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                         # {b.clientNumber}
                       </div>
                     )}
+                    <div className="text-xs text-muted-foreground">
+                      Plazo: {creditDaysLabel(b.creditDays)}
+                    </div>
                     <div className="mt-1">
                       <SemaforoBadge
                         saldoPendiente={b.saldoPendiente ?? 0}
@@ -217,6 +222,7 @@ export function CarteraTable({ rows }: { rows: CarteraRow[] }) {
                         totalPagado={b.totalPagado}
                         ultimoPagoVencidoFecha={b.ultimoPagoVencidoFecha}
                         diasVencido={b.diasVencido}
+                        creditDays={b.creditDays}
                       />
                     </div>
                   </td>

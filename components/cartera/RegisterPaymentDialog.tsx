@@ -23,17 +23,30 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
+import { dueDateFromCredit } from "@/lib/cartera";
+import { creditDaysLabel, nextCreditDays } from "@/lib/credit-terms";
 import { formatCurrency } from "@/lib/utils";
 import { PAYMENT_METHODS } from "@/types/database";
 
-type OpenInvoice = { id: string; invoice_number: string; balance: number | null };
+type OpenInvoice = {
+  id: string;
+  invoice_number: string;
+  invoice_date: string;
+  balance: number | null;
+};
 
 export function RegisterPaymentDialog({
   accountId,
   openInvoices,
+  creditDays,
+  lastAdjustmentDate,
+  isPartner,
 }: {
   accountId: string;
   openInvoices: OpenInvoice[];
+  creditDays: number | null;
+  lastAdjustmentDate: string | null;
+  isPartner: boolean;
 }) {
   const router = useRouter();
   const supabase = createClient();
@@ -42,6 +55,22 @@ export function RegisterPaymentDialog({
   const [invoiceId, setInvoiceId] = useState<string>("__fifo");
 
   const today = new Date().toISOString().slice(0, 10);
+  const [paymentDate, setPaymentDate] = useState(today);
+  const nextTerm = nextCreditDays(creditDays);
+  const hasNewOverdueEpisode =
+    !isPartner &&
+    creditDays != null &&
+    creditDays > 0 &&
+    openInvoices.some((invoice) => {
+      const dueDate = dueDateFromCredit(invoice.invoice_date, creditDays);
+      return Boolean(
+        dueDate &&
+          dueDate < paymentDate &&
+          (!lastAdjustmentDate || dueDate > lastAdjustmentDate),
+      );
+    });
+  const willAdjustCredit =
+    hasNewOverdueEpisode && nextTerm != null;
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -85,6 +114,14 @@ export function RegisterPaymentDialog({
           <DialogTitle>Registrar pago</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="grid gap-3">
+          {willAdjustCredit && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              Este cliente tiene facturas vencidas. Al registrar el pago, su plazo se
+              ajustará de <strong>{creditDaysLabel(creditDays)}</strong> a{" "}
+              <strong>{creditDaysLabel(nextTerm)}</strong>. Otros abonos del mismo atraso
+              no volverán a reducirlo.
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="amount">Monto *</Label>
             <Input id="amount" name="amount" type="number" step="0.01" min={0} required />
@@ -95,7 +132,8 @@ export function RegisterPaymentDialog({
               id="payment_date"
               name="payment_date"
               type="date"
-              defaultValue={today}
+              value={paymentDate}
+              onChange={(event) => setPaymentDate(event.target.value)}
               required
             />
           </div>

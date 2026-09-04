@@ -15,15 +15,10 @@ import { InvoicesTable } from "@/components/cartera/InvoicesTable";
 import { getCurrentRep, isAdmin } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { creditDaysLabel } from "@/lib/credit-terms";
 import { BUCKET_KEYS, BUCKET_LABEL, pctDelSaldo, resumenVencido } from "@/lib/cartera";
-import type { Invoice, Payment } from "@/types/database";
+import type { AccountCreditAdjustment, Invoice, Payment } from "@/types/database";
 import type { ReconcileSuggestion } from "@/lib/bank/types";
-
-function creditDaysLabel(days: number | null | undefined) {
-  if (days == null) return "Por confirmar";
-  if (days === 0) return "Contado";
-  return `${days} días`;
-}
 
 // "hoy" / "ayer" / "hace N días" a partir de una fecha (usa el día local de
 // Mazatlán, no la hora). Robusto ante fechas 'YYYY-MM-DD' o timestamps.
@@ -54,7 +49,7 @@ export default async function EstadoCuentaPage({
   const { data: account } = await supabase
     .from("accounts")
     .select(
-      "id, business_name, region, city, fiscal_name, rfc, client_number, credit_days, dias_pago, dias_revision, ventana_revision, ventana_suspension, is_legacy, assigned_rep_id",
+      "id, business_name, region, city, fiscal_name, rfc, client_number, credit_days, dias_pago, dias_revision, ventana_revision, ventana_suspension, is_legacy, es_socio, assigned_rep_id",
     )
     .eq("id", params.accountId)
     .single();
@@ -71,6 +66,7 @@ export default async function EstadoCuentaPage({
     { data: sugeridos },
     { data: snapshots },
     { data: creditRelease },
+    { data: creditAdjustments },
   ] = await Promise.all([
     supabase
       .from("invoices")
@@ -111,17 +107,31 @@ export default async function EstadoCuentaPage({
       .select("last_qualifying_payment_date")
       .eq("account_id", params.accountId)
       .maybeSingle(),
+    supabase
+      .from("account_credit_adjustments")
+      .select("id, account_id, payment_id, triggering_invoice_id, payment_date, previous_credit_days, new_credit_days, reason, created_at")
+      .eq("account_id", params.accountId)
+      .order("payment_date", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const inv = (invoices ?? []) as Invoice[];
   const pays = (payments ?? []) as Payment[];
+  const adjustments = (creditAdjustments ?? []) as AccountCreditAdjustment[];
+  const invoiceNumber = new Map(inv.map((invoice) => [invoice.id, invoice.invoice_number]));
   // Pagos ya vienen ordenados por payment_date desc: el primero es el más
   // reciente; mostramos ese en grande + los 2 anteriores como contexto.
   const ultimoPago = pays[0] ?? null;
   const pagosAnteriores = pays.slice(1, 3);
   const openInvoices = inv
     .filter((i) => (i.balance ?? 0) > 0)
-    .map((i) => ({ id: i.id, invoice_number: i.invoice_number, balance: i.balance }));
+    .map((i) => ({
+      id: i.id,
+      invoice_number: i.invoice_number,
+      invoice_date: i.invoice_date,
+      balance: i.balance,
+    }));
 
   const saldoPendiente = Number(balance?.saldo_pendiente ?? 0);
   // Vencimiento credit-aware (regla 11) calculado desde las facturas — no
@@ -171,6 +181,7 @@ export default async function EstadoCuentaPage({
               totalPagado={balance?.total_pagado}
               ultimoPagoVencidoFecha={creditRelease?.last_qualifying_payment_date ?? null}
               diasVencido={maxDiasVencido}
+              creditDays={account.credit_days}
             />
           </div>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-3">
@@ -201,7 +212,13 @@ export default async function EstadoCuentaPage({
           {admin && (
             <ImportCarteraCuenta accountId={account.id} businessName={account.business_name} />
           )}
-          <RegisterPaymentDialog accountId={account.id} openInvoices={openInvoices} />
+          <RegisterPaymentDialog
+            accountId={account.id}
+            openInvoices={openInvoices}
+            creditDays={account.credit_days}
+            lastAdjustmentDate={adjustments[0]?.payment_date ?? null}
+            isPartner={Boolean(account.es_socio)}
+          />
         </div>
       </div>
 
@@ -270,6 +287,7 @@ export default async function EstadoCuentaPage({
               isLegacy={account.is_legacy}
               ventanaRevision={account.ventana_revision}
               ventanaSuspension={account.ventana_suspension}
+              creditDays={account.credit_days}
             />
           </div>
           {sumSugeridos > 0 && (
@@ -439,6 +457,46 @@ export default async function EstadoCuentaPage({
           )}
         </CardContent>
       </Card>
+
+      {adjustments.length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="border-b px-6 py-3">
+              <div className="font-display text-lg">Historial de ajustes de crédito</div>
+              <p className="text-xs text-muted-foreground">
+                Reducciones automáticas por pagos realizados después del vencimiento.
+              </p>
+            </div>
+            <table className="min-w-full text-sm">
+              <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Fecha del pago</th>
+                  <th className="px-4 py-3">Factura vencida</th>
+                  <th className="px-4 py-3 text-right">Ajuste</th>
+                </tr>
+              </thead>
+              <tbody>
+                {adjustments.map((adjustment) => (
+                  <tr key={adjustment.id} className="border-b last:border-b-0">
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(adjustment.payment_date)}
+                    </td>
+                    <td className="px-4 py-3">
+                      {adjustment.triggering_invoice_id
+                        ? invoiceNumber.get(adjustment.triggering_invoice_id) ?? "Factura anterior"
+                        : "Factura anterior"}
+                    </td>
+                    <td className="px-4 py-3 text-right font-medium text-amber-800">
+                      {creditDaysLabel(adjustment.previous_credit_days)} →{" "}
+                      {creditDaysLabel(adjustment.new_credit_days)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Notas */}
       <Card>

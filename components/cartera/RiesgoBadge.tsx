@@ -9,6 +9,7 @@ type Props = {
   isLegacy?: boolean | null;
   ventanaRevision?: number | null;
   ventanaSuspension?: number | null;
+  creditDays?: number | null;
   /** Muestra el detalle del porqué debajo del badge. */
   withDetail?: boolean;
 };

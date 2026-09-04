@@ -72,3 +72,20 @@ test("un pago reciente que no corresponde a una factura vencida no libera", () =
   });
   assert.equal(result.clase, "Suspender Crédito");
 });
+
+test("el plazo en contado prevalece sobre una liberación reciente", () => {
+  const now = new Date("2026-08-24T12:00:00Z");
+  assert.equal(
+    semaforoCobranza(0, 0, 1000, "2026-08-20", now, 0).label,
+    "Sin crédito · contado",
+  );
+  const result = clasificarRiesgo({
+    ultimoPagoVencidoFecha: "2026-08-20",
+    now,
+    diasVencido: 0,
+    saldoVencido: 0,
+    creditDays: 0,
+  });
+  assert.equal(result.clase, "Suspender Crédito");
+  assert.match(result.detalle, /solo contado/);
+});

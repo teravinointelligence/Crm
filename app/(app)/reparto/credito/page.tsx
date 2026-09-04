@@ -27,6 +27,7 @@ type AccountMeta = {
   region: string | null;
   assigned_rep_id: string | null;
   is_legacy: boolean | null;
+  credit_days: number | null;
   ventana_revision: number | null;
   ventana_suspension: number | null;
 };
@@ -48,7 +49,7 @@ export default async function CreditoClientesPage() {
     db
       .from("accounts")
       .select(
-        "id, business_name, client_number, region, assigned_rep_id, is_legacy, ventana_revision, ventana_suspension",
+        "id, business_name, client_number, region, assigned_rep_id, is_legacy, credit_days, ventana_revision, ventana_suspension",
       ),
     db.from("sales_reps").select("id, full_name"),
     db.from("v_account_credit_release").select("account_id, last_qualifying_payment_date"),
@@ -77,6 +78,7 @@ export default async function CreditoClientesPage() {
         isLegacy: meta?.is_legacy,
         ventanaRevision: meta?.ventana_revision,
         ventanaSuspension: meta?.ventana_suspension,
+        creditDays: meta?.credit_days,
       });
       return {
         accountId: b.account_id,
@@ -86,6 +88,7 @@ export default async function CreditoClientesPage() {
         vendedor: b.assigned_rep_id ? repName.get(b.assigned_rep_id) ?? null : null,
         diasVencido: b.dias_vencido,
         esSocio: b.es_socio,
+        creditDays: meta?.credit_days ?? null,
         clase: riesgo.clase,
         detalle: riesgo.detalle,
       };
@@ -96,8 +99,9 @@ export default async function CreditoClientesPage() {
       <div>
         <h1 className="font-display text-3xl">Crédito de clientes</h1>
         <p className="text-sm text-muted-foreground">
-          El crédito se libera cuando el cliente paga una factura vencida durante los
-          últimos 30 días. Los demás pagos no liberan el crédito.
+          Al pagar con facturas vencidas, el plazo baja un peldaño: 60 → 45 → 30 →
+          15 días → contado. Cada atraso reduce una sola vez; un nuevo vencimiento
+          activa el siguiente ajuste.
         </p>
       </div>
 

@@ -35,8 +35,14 @@ export default async function AppLayout({
   let creditosLiberados: CreditoLiberadoPopupItem[] = [];
   if (isSellerRole(rep.role) || isIsai) {
     const db = isIsai ? supabaseAdmin() : createClient();
-    const [{ data: releases }, { data: reps }, { data: creditAccounts }] = await Promise.all([
-      db.from("v_account_credit_release").select("account_id"),
+    const adjustmentCutoff = new Date();
+    adjustmentCutoff.setUTCDate(adjustmentCutoff.getUTCDate() - 30);
+    const [{ data: adjustments }, { data: reps }, { data: creditAccounts }] = await Promise.all([
+      db
+        .from("account_credit_adjustments")
+        .select("id, account_id, payment_date, previous_credit_days, new_credit_days")
+        .gte("payment_date", adjustmentCutoff.toISOString().slice(0, 10))
+        .order("payment_date", { ascending: false }),
       isIsai
         ? db.from("sales_reps").select("id, full_name")
         : Promise.resolve({ data: [] as { id: string; full_name: string | null }[] }),
@@ -48,21 +54,23 @@ export default async function AppLayout({
         seller.full_name,
       ]),
     );
-    const releaseIds = new Set((releases ?? []).map((release) => release.account_id));
-    creditosLiberados = (creditAccounts ?? [])
-      .filter(
-        (account) =>
-          releaseIds.has(account.id) && (isIsai || account.assigned_rep_id === rep.id),
-      )
-      .sort((a, b) => (a.business_name ?? "").localeCompare(b.business_name ?? "", "es"))
-      .map((account) => ({
+    const accountsById = new Map((creditAccounts ?? []).map((account) => [account.id, account]));
+    creditosLiberados = (adjustments ?? []).flatMap((adjustment) => {
+      const account = accountsById.get(adjustment.account_id);
+      if (!account || (!isIsai && account.assigned_rep_id !== rep.id)) return [];
+      return [{
+        adjustmentId: adjustment.id,
         accountId: account.id,
         nombre: account.business_name ?? "Cuenta sin nombre",
         clientNumber: account.client_number ?? null,
         vendedor: account.assigned_rep_id
           ? repNames.get(account.assigned_rep_id) ?? null
           : null,
-      }));
+        paymentDate: adjustment.payment_date,
+        previousCreditDays: adjustment.previous_credit_days,
+        newCreditDays: adjustment.new_credit_days,
+      }];
+    });
   }
 
   // Base44 es la fuente de verdad de consignaciones y tomas. Si la integración

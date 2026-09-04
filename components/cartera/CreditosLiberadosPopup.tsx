@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, FileCheck2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { creditDaysLabel } from "@/lib/credit-terms";
+import { formatDate } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +16,14 @@ import {
 } from "@/components/ui/dialog";
 
 export type CreditoLiberadoPopupItem = {
+  adjustmentId: string;
   accountId: string;
   nombre: string;
   clientNumber: string | null;
   vendedor: string | null;
+  paymentDate: string;
+  previousCreditDays: number;
+  newCreditDays: number;
 };
 
 export function CreditosLiberadosPopup({
@@ -32,10 +38,10 @@ export function CreditosLiberadosPopup({
   const [open, setOpen] = useState(false);
   const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signature = useMemo(
-    () => items.map((item) => item.accountId).sort().join("|"),
+    () => items.map((item) => `${item.adjustmentId}:${item.newCreditDays}`).sort().join("|"),
     [items],
   );
-  const storageKey = `teravino:creditos-liberados:v1:${repKey}:${signature}`;
+  const storageKey = `teravino:creditos-ajustados:v2:${repKey}:${signature}`;
 
   useEffect(() => {
     if (!items.length) return;
@@ -82,12 +88,12 @@ export function CreditosLiberadosPopup({
               </div>
               <div>
                 <DialogTitle className="text-2xl text-brand-tinta">
-                  Créditos liberados
+                  Plazos de crédito ajustados
                 </DialogTitle>
                 <DialogDescription className="mt-1 leading-relaxed">
                   {facturista
-                    ? `${items.length} cuentas pagaron una factura vencida y pueden facturarse a crédito.`
-                    : `${items.length} de tus cuentas pagaron una factura vencida y tienen el crédito liberado.`}
+                    ? `${items.length} cuentas pagaron después del vencimiento y cambiaron de plazo.`
+                    : `${items.length} de tus cuentas pagaron después del vencimiento y cambiaron de plazo.`}
                 </DialogDescription>
               </div>
             </div>
@@ -95,15 +101,15 @@ export function CreditosLiberadosPopup({
         </div>
 
         <div className="space-y-3 px-6 py-5">
-          <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-            Nueva regla: el crédito se libera al pagar una factura vencida durante los
-            últimos 30 días. Otros abonos no liberan el crédito.
+          <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+            Regla: 60 → 45 → 30 → 15 días → contado. Varios abonos del mismo
+            atraso cuentan como un solo ajuste.
           </p>
           <div className="max-h-[45vh] space-y-2 overflow-y-auto pr-1">
             {items.map((item) => (
               <Link
-                key={item.accountId}
-                href={`/cuentas/${item.accountId}`}
+                key={item.adjustmentId}
+                href={`/cartera/${item.accountId}`}
                 onClick={() => handleOpenChange(false)}
                 className="group flex items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 shadow-sm transition-colors hover:border-emerald-300 hover:bg-emerald-50/50"
               >
@@ -114,10 +120,12 @@ export function CreditosLiberadosPopup({
                   <span className="block text-xs text-muted-foreground">
                     {item.clientNumber ? `Cliente ${item.clientNumber}` : "Cuenta CRM"}
                     {facturista && item.vendedor ? ` · ${item.vendedor}` : ""}
+                    {` · pago ${formatDate(item.paymentDate)}`}
                   </span>
                 </span>
-                <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-emerald-700">
-                  Liberado <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-amber-800">
+                  {creditDaysLabel(item.previousCreditDays)} → {creditDaysLabel(item.newCreditDays)}
+                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </span>
               </Link>
             ))}
@@ -130,7 +138,7 @@ export function CreditosLiberadosPopup({
           </Button>
           <Button asChild onClick={() => handleOpenChange(false)}>
             <Link href={facturista ? "/reparto/credito" : "/cartera"}>
-              Ver cuentas liberadas
+              Ver política de crédito
             </Link>
           </Button>
         </DialogFooter>

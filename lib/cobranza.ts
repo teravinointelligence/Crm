@@ -22,9 +22,19 @@ export function semaforoCobranza(
   totalPagado?: number | null,
   ultimoPagoVencidoFecha?: string | null,
   now = new Date(),
+  creditDays?: number | null,
 ): SemaforoInfo {
   const dv = Number(diasVencido ?? 0);
   const pend = Number(saldoPendiente ?? 0);
+
+  if (creditDays === 0) {
+    return {
+      estado: "suspendido",
+      label: "Sin crédito · contado",
+      variant: "danger",
+      bloquea: true,
+    };
+  }
 
   if (ultimoPagoVencidoFecha !== undefined) {
     if (pagoEnUltimos30Dias(ultimoPagoVencidoFecha, now)) {
@@ -99,11 +109,19 @@ export function clasificarRiesgo(params: {
   isLegacy?: boolean | null;
   ventanaRevision?: number | null;
   ventanaSuspension?: number | null;
+  creditDays?: number | null;
 }): RiesgoInfo {
   const pagado = Number(params.totalPagado ?? 0);
   const vencido = Number(params.saldoVencido ?? 0);
   const usaReglaFacturaVencida = params.ultimoPagoVencidoFecha !== undefined;
   const pagoReciente = pagoEnUltimos30Dias(params.ultimoPagoVencidoFecha, params.now);
+  if (params.creditDays === 0) {
+    return {
+      clase: "Suspender Crédito",
+      variant: "danger",
+      detalle: "Sin crédito · solo contado por reincidencia de pago tardío",
+    };
+  }
   if (vencido <= 0) {
     return {
       clase: "Crédito Liberado",
