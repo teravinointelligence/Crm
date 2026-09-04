@@ -18,7 +18,7 @@ import {
 
 export function CancelSampleButton({ requestId }: { requestId: string }) {
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
 
   const [reason, setReason] = useState("");
@@ -32,10 +32,11 @@ export function CancelSampleButton({ requestId }: { requestId: string }) {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        toast.error("No se pudo cancelar", { description: data.error });
+        toast.error("No se pudo solicitar la cancelación", { description: data.error });
         return;
       }
       toast.success("Cancelación enviada a administración");
+      setReason("");
       setOpen(false);
       router.refresh();
     });
@@ -47,6 +48,7 @@ export function CancelSampleButton({ requestId }: { requestId: string }) {
         variant="outline"
         size="sm"
         className="text-red-600 border-red-200 hover:bg-red-50"
+        disabled={pending}
         onClick={() => setOpen(true)}
       >
         <XCircle className="mr-1.5 h-4 w-4" /> Solicitar cancelación
@@ -65,15 +67,16 @@ export function CancelSampleButton({ requestId }: { requestId: string }) {
             <Textarea
               id="cancellation-reason"
               value={reason}
+              disabled={pending}
               onChange={(event) => setReason(event.target.value)}
               placeholder="Ej. El cliente canceló la cita o seleccioné un producto equivocado"
               maxLength={2000}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Volver</Button>
-            <Button variant="destructive" disabled={reason.trim().length < 5} onClick={confirm}>
-              Enviar solicitud
+            <Button variant="outline" disabled={pending} onClick={() => setOpen(false)}>Volver</Button>
+            <Button variant="destructive" disabled={pending || reason.trim().length < 5} onClick={confirm}>
+              {pending ? "Enviando…" : "Enviar solicitud"}
             </Button>
           </DialogFooter>
         </DialogContent>
