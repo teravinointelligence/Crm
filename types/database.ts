@@ -498,7 +498,12 @@ export type AcademyLeaderboardRow = {
 // Tareas del vendedor ("Mi día"). Tabla creada en 0099; aún no está en los
 // tipos generados de Supabase, así que se declara a mano.
 // ---------------------------------------------------------------------
-export type RepTaskSource = "prospecto" | "cobranza" | "inactivo" | "manual";
+export type RepTaskSource =
+  | "prospecto"
+  | "cobranza"
+  | "inactivo"
+  | "sin_facturar"
+  | "manual";
 
 export type RepTaskStatus = "pendiente" | "hecha" | "descartada" | "resuelta";
 
@@ -580,6 +585,35 @@ export type NoteTag = {
 };
 
 export type NoteWithTags = RepNote & { tags: NoteTag[] };
+
+// ---------------------------------------------------------------------
+// Panel de seguimiento de la cuenta (migración 0101): bitácora de notas y
+// periodos en que la cuenta no puede comprar. Declarados a mano igual que
+// rep_tasks y rep_notes.
+// ---------------------------------------------------------------------
+
+/** Para qué sirve la nota. Solo agrupa la lectura; no cambia permisos. */
+export type AccountNoteKind =
+  | "nota"
+  | "acuerdo"
+  | "preferencia"
+  | "incidencia"
+  | "temporada";
+
+export type AccountNote = {
+  id: string;
+  account_id: string;
+  /** Autor. Null si el vendedor se dio de baja. */
+  sales_rep_id: string | null;
+  body: string;
+  kind: AccountNoteKind;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+/** Nota ya resuelta con el nombre de quien la escribió, lista para pintar. */
+export type AccountNoteWithAuthor = AccountNote & { author_name: string | null };
 
 export type PriceTier = "base" | "+10";
 

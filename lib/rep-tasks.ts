@@ -14,6 +14,12 @@ export const PROSPECT_STALE_DAYS = 14;
  *  Mismo umbral que el recordatorio de "Clientes inactivos" para que el
  *  vendedor no vea dos criterios distintos con el mismo nombre. */
 export const INACTIVE_STALE_DAYS = 15;
+/** Días sin facturar para levantar la alerta de "lleva un mes sin comprar".
+ *  Es la fuente única del periodo: lib/sin-pedidos-email.ts lo reusa para el
+ *  correo, así que la tarea de "Mi día" y el recordatorio siempre hablan del
+ *  mismo mes. Ojo: aquí "sin facturar" es distinto de "sin actividad" — la
+ *  cuenta puede estar bien atendida y aun así llevar un mes sin comprar. */
+export const SIN_FACTURAR_DAYS = 30;
 
 // --- Etiquetas -------------------------------------------------------------
 
@@ -21,6 +27,7 @@ export const SOURCE_LABEL: Record<RepTaskSource, string> = {
   prospecto: "Prospecto",
   cobranza: "Cobranza",
   inactivo: "Cliente inactivo",
+  sin_facturar: "Sin facturar",
   manual: "Asignada",
 };
 
@@ -46,7 +53,7 @@ export function outcomesForSource(source: RepTaskSource): RepTaskOutcome[] {
   if (source === "cobranza") {
     return ["promesa_pago", "pago_recibido", "contactado", "no_contesto", "no_aplica"];
   }
-  if (source === "prospecto" || source === "inactivo") {
+  if (source === "prospecto" || source === "inactivo" || source === "sin_facturar") {
     return ["agendo_cita", "contactado", "no_contesto", "sin_interes"];
   }
   return ["contactado", "agendo_cita", "no_contesto", "no_aplica"];
@@ -77,9 +84,11 @@ export function monthKey(day: string): string {
   return day.slice(0, 7);
 }
 
-/** Cada regla tiene su cadencia: cobranza es mensual, el resto semanal. */
+/** Cada regla tiene su cadencia: cobranza y "sin facturar" son mensuales, el
+ *  resto semanal. La de facturación va por mes porque el umbral ES un mes:
+ *  repetirla cada semana convertiría una alerta en una regañina. */
 export function periodKeyFor(source: RepTaskSource, day: string): string {
-  return source === "cobranza" ? monthKey(day) : isoWeekKey(day);
+  return source === "cobranza" || source === "sin_facturar" ? monthKey(day) : isoWeekKey(day);
 }
 
 /**
@@ -115,6 +124,15 @@ export function prospectPriority(daysAbandoned: number | null): number {
 export function inactivePriority(daysAbandoned: number | null): number {
   if (daysAbandoned === null) return 55;
   return clampPriority(40 + Math.min(daysAbandoned, AGE_CAP_DAYS) * 0.4);
+}
+
+/**
+ * Prioridad 0–100 de un cliente que lleva un mes o más sin facturar. Arranca
+ * más alto que "inactivo" porque aquí ya se perdió venta real, no solo
+ * contacto, y sube con los días desde la última factura.
+ */
+export function sinFacturarPriority(daysSinceOrder: number): number {
+  return clampPriority(60 + Math.min(Math.max(daysSinceOrder - SIN_FACTURAR_DAYS, 0), AGE_CAP_DAYS) * 0.3);
 }
 
 /** La cobranza ya trae su propio score explicable (lib/cobranza-score.ts). */

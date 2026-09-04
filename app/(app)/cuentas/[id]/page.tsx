@@ -6,7 +6,7 @@ import { getCurrentRep } from "@/lib/auth";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, dateKeyTz } from "@/lib/utils";
 import { AccountHeader } from "@/components/accounts/AccountHeader";
 import { ContactsList } from "@/components/contacts/ContactsList";
 import { ActivityTimeline } from "@/components/activities/ActivityTimeline";
@@ -16,7 +16,10 @@ import { ProductPurchaseTimelineCard } from "@/components/accounts/ProductPurcha
 import { NextBestActionCard } from "@/components/accounts/NextBestActionCard";
 import { loadAccountFacts } from "@/lib/account-intel";
 import { AccountConsignaciones } from "@/components/accounts/AccountConsignaciones";
-import { AccountVisitas } from "@/components/accounts/AccountVisitas";
+import { AccountSeguimiento } from "@/components/accounts/AccountSeguimiento";
+import { PurchaseBlockBanner } from "@/components/accounts/PurchaseBlockBanner";
+import { loadAccountBlocks } from "@/lib/account-seguimiento";
+import { activeBlockOn } from "@/lib/purchase-blocks";
 import { ImportPedidosCuenta } from "@/components/accounts/ImportPedidosCuenta";
 import { AccountAgreements, type AgreementRow } from "@/components/accounts/AccountAgreements";
 import { AccountProposals, type ProposalRow } from "@/components/accounts/AccountProposals";
@@ -56,7 +59,7 @@ export default async function CuentaDetailPage({
   const supabase = createClient();
   const me = await getCurrentRep();
   if (!me) redirect("/login");
-  const validTabs = ["resumen", "vinos", "contactos", "actividades", "pedidos", "reparto", "consignaciones", "acuerdos", "propuestas", "info"];
+  const validTabs = ["resumen", "seguimiento", "vinos", "contactos", "actividades", "pedidos", "reparto", "consignaciones", "acuerdos", "propuestas", "info"];
   const initialTab = validTabs.includes(searchParams.tab ?? "") ? searchParams.tab! : "resumen";
 
   const { data: account } = await supabase
@@ -246,6 +249,17 @@ export default async function CuentaDetailPage({
     lastSends.push(row);
   }
 
+  // Pausas de compra de la cuenta (temporada baja, remodelación…). Se cargan
+  // aquí, y no dentro de la pestaña, porque el Resumen también las necesita:
+  // que un hotel no pueda comprar hasta noviembre es lo primero que hay que ver.
+  const blocks = await loadAccountBlocks(supabase, params.id);
+  const hoy = dateKeyTz(new Date());
+  const bloqueoVigente = activeBlockOn(blocks, hoy);
+
+  // Última factura no cancelada, para el semáforo de "un mes sin facturar".
+  const ultimaFactura =
+    facturasRecientes.find((f) => f.status !== "cancelada")?.invoice_date ?? null;
+
   const proposalList: ProposalRow[] = (proposalsRaw ?? []).map((p: any) => ({
     id: p.id,
     account_id: p.account_id,
@@ -263,6 +277,7 @@ export default async function CuentaDetailPage({
       <Tabs defaultValue={initialTab}>
         <TabsList>
           <TabsTrigger value="resumen">Resumen</TabsTrigger>
+          <TabsTrigger value="seguimiento">Seguimiento</TabsTrigger>
           <TabsTrigger value="vinos">Vinos ({wineList.length})</TabsTrigger>
           <TabsTrigger value="contactos">Contactos ({contacts?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="actividades">Actividades ({activityList.length})</TabsTrigger>
@@ -276,7 +291,9 @@ export default async function CuentaDetailPage({
 
         <TabsContent value="resumen">
           <div className="space-y-6">
-            <AccountVisitas accountId={account.id} />
+            {bloqueoVigente && (
+              <PurchaseBlockBanner accountId={account.id} block={bloqueoVigente} />
+            )}
             <div className="grid gap-4 lg:grid-cols-2">
               <NextBestActionCard
                 accountId={account.id}
@@ -412,6 +429,18 @@ export default async function CuentaDetailPage({
               </div>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="seguimiento">
+          <AccountSeguimiento
+            accountId={account.id}
+            repId={me.id}
+            repName={me.full_name ?? null}
+            isAdmin={me.role === "admin"}
+            canEdit={canEditAccount}
+            blocks={blocks}
+            lastInvoiceDate={ultimaFactura}
+          />
         </TabsContent>
 
         <TabsContent value="vinos">

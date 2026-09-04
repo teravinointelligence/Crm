@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  SIN_FACTURAR_DAYS,
   addDays,
   compareTasks,
   dedupeKey,
@@ -12,6 +13,7 @@ import {
   outcomesForSource,
   overdueDays,
   prospectPriority,
+  sinFacturarPriority,
 } from "../lib/rep-tasks.ts";
 
 test("la semana ISO agrupa lunes a domingo", () => {
@@ -88,4 +90,33 @@ test("cada tipo de tarea ofrece resultados que le hacen sentido", () => {
   assert.ok(!outcomesForSource("cobranza").includes("sin_interes"));
   assert.ok(outcomesForSource("prospecto").includes("agendo_cita"));
   assert.ok(!outcomesForSource("prospecto").includes("pago_recibido"));
+});
+
+test("la alerta de facturación se dedupea por mes, no por semana", () => {
+  // El umbral es un mes: si la tarea volviera cada semana, el vendedor vería
+  // cuatro veces el mismo cliente antes de que cambiara nada.
+  assert.equal(
+    dedupeKey("sin_facturar", "acct-1", "2026-08-03"),
+    dedupeKey("sin_facturar", "acct-1", "2026-08-28"),
+  );
+  assert.notEqual(
+    dedupeKey("sin_facturar", "acct-1", "2026-08-28"),
+    dedupeKey("sin_facturar", "acct-1", "2026-09-01"),
+  );
+});
+
+test("sin facturar pesa más que inactivo con los mismos días", () => {
+  // Perder la venta es peor que perder el contacto: la alerta de facturación
+  // tiene que salir arriba en el día del vendedor.
+  assert.ok(sinFacturarPriority(SIN_FACTURAR_DAYS) > inactivePriority(SIN_FACTURAR_DAYS));
+});
+
+test("la prioridad de sin facturar sube con los días y no se pasa de 100", () => {
+  assert.ok(sinFacturarPriority(60) > sinFacturarPriority(SIN_FACTURAR_DAYS));
+  assert.ok(sinFacturarPriority(5000) <= 100);
+  assert.ok(sinFacturarPriority(SIN_FACTURAR_DAYS) >= 0);
+});
+
+test("cerrar una tarea de sin facturar ofrece resultados de reactivación", () => {
+  assert.deepEqual(outcomesForSource("sin_facturar"), outcomesForSource("inactivo"));
 });
