@@ -12,7 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
-import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP } from "@/lib/samples";
+import {
+  peopleServed,
+  peoplePerBottles,
+  DEFAULT_BOTTLE_ML,
+  OUNCES_PER_PERSON,
+  SAMPLE_CAP,
+  SAMPLE_SINGLE_USE_LABEL,
+} from "@/lib/samples";
 import type { Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
@@ -295,7 +302,12 @@ export function SampleRequestForm({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="font-display text-lg">Citas con clientes</h3>
-            <p className="text-sm text-muted-foreground">Necesitas al menos {MIN_PEDIR} cita agendada para pedir la muestra. Luego suma más citas desde la muestra (hasta 3 clientes) para volver a pedir el mismo vino.</p>
+            <p className="text-sm text-muted-foreground">
+            Necesitas al menos {MIN_PEDIR} cita agendada para pedir la muestra. Luego suma más citas
+            desde la muestra (hasta 3 clientes) para volver a pedir el mismo vino. Ese candado no
+            aplica a {SAMPLE_SINGLE_USE_LABEL}: se consumen con el cliente, así que puedes pedir otra
+            para la siguiente cita.
+          </p>
           </div>
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium",

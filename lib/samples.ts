@@ -22,6 +22,19 @@ export const SAMPLE_CAP = {
   ventanaDias: 30,
 } as const;
 
+// ── Muestras de un solo uso ──────────────────────────────────────────────────
+// Categorías cuya botella NO se puede reutilizar con el siguiente cliente: se
+// abre, se consume con el cliente y ahí se queda. No entran al banco de
+// muestras ni ocupan el candado de "3 clientes distintos antes de volver a
+// pedirla", así que el vendedor puede pedir otra para la siguiente cita.
+// FOOTGUN: la regla real vive en la BD (sample_single_use_product, migración
+// 0101) con estas MISMAS categorías; esto solo alimenta los textos de la UI.
+// Si cambias una, cambia la otra.
+export const SAMPLE_SINGLE_USE_CATEGORIES = ["cerveza", "aceite"] as const;
+
+/** Etiqueta legible de las categorías de un solo uso ("la cerveza y el aceite de oliva"). */
+export const SAMPLE_SINGLE_USE_LABEL = "la cerveza y el aceite de oliva";
+
 // ── Rendimiento de muestras para capacitaciones / catas ──────────────────────
 // Estándar TERAVINO: se sirven 2 onzas por participante de una botella de 750 ml,
 // por lo que cada botella rinde ~12 personas (antes se asumían 8, a ~3 oz).
