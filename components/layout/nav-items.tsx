@@ -32,6 +32,7 @@ import {
   Wrench,
   CalendarClock,
   Grid3x3,
+  Camera,
 } from "lucide-react";
 import { canAccessAcademy, canAccessFacturacion, canAccessFlota, canManageReparto, canReportFleetFault, canSeeFinance, canViewCreditoClientes, canViewCuentas, canViewIncentivos, canViewMuestras, canViewPlanogramas, canViewPortafolios, canViewReparto, canViewReportes, canViewRestock, canViewVisitas, isRepartoOnlyRole } from "@/lib/modules";
 
@@ -125,6 +126,7 @@ export const navItems: Item[] = [
       { href: "/reparto/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/reparto/credito", label: "Crédito clientes", icon: ShieldCheck, creditoOnly: true },
       { href: "/reparto/pedidos", label: "Pedidos", icon: ClipboardList },
+      { href: "/reparto/auditoria", label: "Auditoría de entregas", icon: Camera },
       { href: "/reparto/rutas", label: "Rutas", icon: Route },
       { href: "/reparto/bitacora", label: "Bitácora", icon: FileText },
       { href: "/reparto/choferes", label: "Choferes", icon: UserCog, manageOnly: true },

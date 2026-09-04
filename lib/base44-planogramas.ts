@@ -1,5 +1,6 @@
 // Cliente Base44 para la app "Teravino Map" (planogramas de bodega), publicada
-// en teravino-planogramas.base44.app.
+// en planogramas.teravino.com (antes teravino-planogramas.base44.app, que sigue
+// sirviendo el mismo app y queda como respaldo).
 // SERVER-ONLY: usa la API key directa, nunca debe llegar al browser.
 //
 // Mismo patrón que lib/base44-flota.ts: pega al subdominio publicado del app
@@ -40,19 +41,35 @@ export {
 
 import type { PlanoBodega, PlanoCaja, PlanoPosicion } from "./planogramas-types";
 
-/** URL pública del app en Base44, para el botón "Editar en Teravino Map". */
-export const PLANOGRAMAS_APP_URL = (
-  process.env.BASE44_PLANOGRAMAS_URL || "https://teravino-planogramas.base44.app"
-)
-  .trim()
-  .replace(/\/+$/, "")
-  .replace(/\/api$/, "");
+// Dominio propio del app (el que se usa hoy) y el subdominio original de
+// Base44, que sigue publicando el mismo app y sirve de respaldo mientras el
+// dominio personalizado termina de verificarse.
+const URL_DOMINIO_PROPIO = "https://planogramas.teravino.com";
+const URL_BASE44 = "https://teravino-planogramas.base44.app";
 
-// Base de la REST API del app. Acepta el dominio publicado con o sin sufijo
-// /api (lo normalizamos). Default al subdominio publicado conocido.
-function baseUrl(): string {
-  return `${PLANOGRAMAS_APP_URL}/api`;
+// Acepta el dominio con o sin sufijo /api y con o sin diagonal final.
+function normalizarUrl(url: string): string {
+  return url.trim().replace(/\/+$/, "").replace(/\/api$/, "");
 }
+
+/** URL pública del app, para el botón "Editar en Teravino Map". */
+export const PLANOGRAMAS_APP_URL = normalizarUrl(
+  process.env.BASE44_PLANOGRAMAS_URL || URL_DOMINIO_PROPIO,
+);
+
+// Bases de la REST API a intentar, en orden. El respaldo cubre el hueco de que
+// el dominio personalizado no resuelva todavía (verificación pendiente en
+// Base44) o se caiga más adelante: en ese caso se lee por el subdominio de
+// Base44 en vez de dejar el módulo sin datos.
+function basesApi(): string[] {
+  const bases = [PLANOGRAMAS_APP_URL];
+  if (!bases.includes(URL_BASE44)) bases.push(URL_BASE44);
+  return bases.map((b) => `${b}/api`);
+}
+
+// Base que respondió la última vez: se prueba primero para no repetir el
+// intento fallido en cada request del proceso.
+let baseActiva: string | null = null;
 
 // A diferencia de Flota/Docs/Consignaciones, la API de LECTURA de este app
 // responde sin credenciales (verificado 2026-08-12), así que la key es
@@ -76,12 +93,37 @@ type ListParams = {
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const url = `${baseUrl()}${path}`;
-  const res = await fetch(url, {
-    ...init,
-    headers: { ...authHeaders(), ...(init?.headers ?? {}) },
-    cache: "no-store",
-  });
+  const bases = basesApi();
+  // La base que ya funcionó va primero; el resto queda como respaldo.
+  const orden = baseActiva ? [baseActiva, ...bases.filter((b) => b !== baseActiva)] : bases;
+
+  let res: Response | null = null;
+  let ultimoError: unknown = null;
+  for (const base of orden) {
+    try {
+      res = await fetch(`${base}${path}`, {
+        ...init,
+        headers: { ...authHeaders(), ...(init?.headers ?? {}) },
+        cache: "no-store",
+      });
+      baseActiva = base;
+      break;
+    } catch (err) {
+      // Falla de red (DNS sin propagar, TLS, host caído): se intenta la
+      // siguiente base. Un error HTTP (4xx/5xx) NO entra aquí: eso ya es el
+      // app respondiendo y se maneja abajo.
+      ultimoError = err;
+      if (baseActiva === base) baseActiva = null;
+    }
+  }
+  if (!res) {
+    throw new Error(
+      `No se pudo contactar a Teravino Map (${orden.join(", ")}): ${
+        ultimoError instanceof Error ? ultimoError.message : String(ultimoError)
+      }`,
+    );
+  }
+
   if (res.status === 401 || res.status === 403) {
     throw new Error(
       "Teravino Map ya no deja leer sin credenciales: configura BASE44_PLANOGRAMAS_API_KEY (o BASE44_API_KEY) en Vercel → Settings → Environment Variables.",

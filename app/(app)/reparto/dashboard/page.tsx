@@ -10,6 +10,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UploadCFDI } from "@/components/reparto/UploadCFDI";
+import { AuditoriaEntregas } from "@/components/reparto/AuditoriaEntregas";
+import { loadAuditoriaEntregas } from "@/lib/reparto-auditoria-data";
 import { ESTATUS_LABEL, ESTATUS_VARIANT, type PedidoEstatus } from "@/types/reparto";
 import { formatCurrency, formatDateTime } from "@/lib/utils";
 
@@ -42,7 +44,7 @@ export default async function DashboardRepartoPage() {
   startOfWeek.setDate(startOfWeek.getDate() - 6);
   const startWeekISO = startOfWeek.toISOString().slice(0, 10);
 
-  const [hoyRes, semanaRes, proximasRes, choferesRes, entregasHoyRes] = await Promise.all([
+  const [hoyRes, semanaRes, proximasRes, choferesRes, entregasHoyRes, auditoria] = await Promise.all([
     repartoAdmin
       .from("pedidos")
       .select("id, estatus", { count: "exact", head: true })
@@ -72,6 +74,9 @@ export default async function DashboardRepartoPage() {
       .select("id, chofer_id")
       .gte("timestamp_entrega", `${today}T00:00:00`)
       .lte("timestamp_entrega", `${today}T23:59:59`),
+    // Auditoría: pedidos de días anteriores atorados por falta de evidencia
+    // (la foto de la factura firmada y sellada es lo que los cierra).
+    loadAuditoriaEntregas(),
   ]);
 
   const semana = (semanaRes.data ?? []) as Array<{ estatus: PedidoEstatus; total: number | null; chofer_id: string | null; fecha: string }>;
@@ -150,6 +155,17 @@ export default async function DashboardRepartoPage() {
         <Kpi label="Entregados" value={kpis.entregados} tone="ok" />
         <Kpi label="No entregados" value={kpis.noEntregados} tone={kpis.noEntregados > 0 ? "danger" : "muted"} />
       </section>
+
+      {auditoria.resumen.total > 0 && (
+        <section>
+          <AuditoriaEntregas
+            data={auditoria}
+            limite={6}
+            verTodosHref="/reparto/auditoria"
+            mostrarMontos={!esChofer}
+          />
+        </section>
+      )}
 
       <section>
         <Card><CardContent className="p-5">
