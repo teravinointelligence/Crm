@@ -22,6 +22,19 @@ export const SAMPLE_CAP = {
   ventanaDias: 30,
 } as const;
 
+// ── Tope de muestras por cita ────────────────────────────────────────────────
+// El gasto de muestras sigue la actividad real del vendedor: máximo
+// `vinosPorCita` vinos por cita presencial ligada, tanto por solicitud como
+// acumulado en el mes (una cita solo da cupo una vez aunque se ligue a varias
+// solicitudes). Con más citas el cupo sube solo. Aplica también a
+// capacitaciones; el Admin está exento.
+// FOOTGUN: el candado real vive en la BD (tg_sample_citas_cap, migración
+// 20260828120000) con este MISMO número; esto solo alimenta los textos de la
+// UI. Si cambias uno, cambia el otro.
+export const SAMPLE_CITA_CAP = {
+  vinosPorCita: 3,
+} as const;
+
 // ── Rendimiento de muestras para capacitaciones / catas ──────────────────────
 // Estándar TERAVINO: se sirven 2 onzas por participante de una botella de 750 ml,
 // por lo que cada botella rinde ~12 personas (antes se asumían 8, a ~3 oz).

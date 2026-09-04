@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 import { cn, formatDateTime } from "@/lib/utils";
-import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP } from "@/lib/samples";
+import { peopleServed, peoplePerBottles, DEFAULT_BOTTLE_ML, OUNCES_PER_PERSON, SAMPLE_CAP, SAMPLE_CITA_CAP } from "@/lib/samples";
 import type { Product } from "@/types/database";
 
 type Line = { key: string; product_id: string | null; product_name: string; supplier: string | null; qty: number; notes: string };
@@ -41,6 +41,8 @@ export function SampleRequestForm({
   citas,
   lockedProductIds,
   bankProductIds,
+  monthBottles,
+  monthCitas,
   preselectAccountId,
 }: {
   products: Pick<Product, "id" | "name" | "supplier" | "varietal" | "vintage" | "active" | "country" | "region_origin">[];
@@ -49,6 +51,8 @@ export function SampleRequestForm({
   citas: Cita[];
   lockedProductIds: string[];
   bankProductIds: string[];
+  monthBottles: number;
+  monthCitas: number;
   preselectAccountId?: string;
 }) {
   const router = useRouter();
@@ -416,6 +420,24 @@ export function SampleRequestForm({
             cada {SAMPLE_CAP.ventanaDias} días (sumando tus solicitudes anteriores a ese cliente) y
             el envío se rechaza en automático. Solo las capacitaciones de vinos que el cliente ya
             compra quedan fuera del tope (márcala arriba).
+          </p>
+        )}
+        {!isAdmin && totalBottles > SAMPLE_CITA_CAP.vinosPorCita * Math.max(selected.length, 1) && (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            Vas por {totalBottles} botellas con {selected.length} cita{selected.length === 1 ? "" : "s"} ligada
+            {selected.length === 1 ? "" : "s"}: el estándar es máximo {SAMPLE_CITA_CAP.vinosPorCita} vinos
+            por cita y el envío se rechaza en automático. Liga las citas donde usarás las muestras o
+            quita vinos; si de verdad necesitas más (p. ej. una capacitación grande), pídele al admin
+            que la capture.
+          </p>
+        )}
+        {!isAdmin && monthBottles + totalBottles > SAMPLE_CITA_CAP.vinosPorCita * Math.max(monthCitas + selected.length, 1) && (
+          <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            Este mes llevas {monthBottles} botella{monthBottles === 1 ? "" : "s"} de muestra con{" "}
+            {monthCitas} cita{monthCitas === 1 ? "" : "s"} ligada{monthCitas === 1 ? "" : "s"}; con esta
+            solicitud serían {monthBottles + totalBottles} y tu cupo del mes es{" "}
+            {SAMPLE_CITA_CAP.vinosPorCita * Math.max(monthCitas + selected.length, 1)} (máximo{" "}
+            {SAMPLE_CITA_CAP.vinosPorCita} vinos por cita). Con más citas el cupo sube solo.
           </p>
         )}
       </CardContent></Card>
