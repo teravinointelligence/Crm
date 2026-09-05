@@ -158,6 +158,9 @@ export async function extractBankTransactionsFromPdf(
           "OJO: 'SPEI RECIBIDO', 'DEPOSITO', 'PAGO CUENTA DE TERCERO' y 'ABONO' son DINERO QUE ENTRA → 'abono'. " +
           "'SPEI ENVIADO', 'RETIRO', 'PAGO DE COMISION', 'IVA', 'SERV BANCA' son DINERO QUE SALE → 'cargo'. " +
           "`amount` siempre positivo (el signo lo da kind). No incluyas saldos ni totales, solo movimientos. " +
+          "En `description` conserva TODAS las líneas del detalle del movimiento, unidas con un espacio. " +
+          "En particular, en 'SPEI RECIBIDO <BANCO>' incluye íntegra la línea de la cuenta ordenante " +
+          "(18 o 20 dígitos seguidos, p.ej. 00072041011490019166): sirve para identificar al cliente. " +
           "Responde solo con el arreglo JSON.",
       },
     ],

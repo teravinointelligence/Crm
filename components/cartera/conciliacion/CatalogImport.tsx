@@ -13,6 +13,7 @@ type MatchRow = {
   name: string;
   rfc: string | null;
   bnet: string | null;
+  clabe: string | null;
   firma: string;
   notes: string | null;
   account_id: string | null;
@@ -84,6 +85,7 @@ export function CatalogImport() {
             name: r.name,
             firma: r.firma || null,
             bnet: r.bnet,
+            clabe: r.clabe,
             rfc: r.rfc,
             account_id: r.account_id,
             notes: r.notes,
@@ -115,7 +117,7 @@ export function CatalogImport() {
             <Upload className="h-8 w-8 text-brand-carmesi" />
             <span className="font-medium">Subir catálogo de clientes (Excel)</span>
             <span className="text-xs text-muted-foreground">
-              Casa cada cliente con su cuenta y siembra las llaves de conciliación (BNET, RFC, nombre).
+              Casa cada cliente con su cuenta y siembra las llaves de conciliación (BNET, CLABE, RFC, nombre).
             </span>
             <input type="file" accept=".xlsx,.xls" className="hidden" onChange={onFile} disabled={busy} />
           </label>
@@ -178,7 +180,7 @@ export function CatalogImport() {
                           )}
                         </td>
                         <td className="px-3 py-2 text-xs text-muted-foreground">
-                          {[r.bnet && `BNET ${r.bnet}`, r.rfc && `RFC ${r.rfc}`, r.firma && "nombre"]
+                          {[r.bnet && `BNET ${r.bnet}`, r.clabe && `CLABE ${r.clabe}`, r.rfc && `RFC ${r.rfc}`, r.firma && "nombre"]
                             .filter(Boolean)
                             .join(" · ") || "—"}
                         </td>

@@ -1,15 +1,16 @@
 // Parseo del catálogo de clientes (Excel) para sembrar la memoria de
 // conciliación: por cada cliente identificado, derivamos sus llaves de pagador
-// (BNET / RFC / firma de nombre) y lo casamos con una cuenta del CRM.
+// (BNET / CLABE / RFC / firma de nombre) y lo casamos con una cuenta del CRM.
 
 import * as XLSX from "xlsx";
-import { extractBnet, extractRfc, payerSignature } from "./aliases";
+import { extractBnet, extractClabe, extractRfc, payerSignature } from "./aliases";
 
 export type CatalogRow = {
   num: number;
   name: string;
   rfc: string | null;
   bnet: string | null;
+  clabe: string | null; // cuenta ordenante SPEI (18 dígitos canónicos)
   clienteNum: string | null; // # cliente CONTPAQ si la nota lo trae
   firma: string;
   notes: string | null;
@@ -36,12 +37,13 @@ export function parseCatalog(buf: ArrayBuffer): CatalogRow[] {
 
     const rfc = extractRfc(blob);
     const bnet = extractBnet(blob);
+    const clabe = extractClabe(blob);
     // # cliente CONTPAQ embebido en notas/nombre ("Cliente 15910", "CONTPAQ 276")
     const cnMatch = /(?:cliente|contpaq)\s*(\d{2,6})/i.exec(blob);
     const clienteNum = cnMatch ? cnMatch[1] : null;
     const firma = payerSignature(name, null);
 
-    out.push({ num, name, rfc, bnet, clienteNum, firma, notes });
+    out.push({ num, name, rfc, bnet, clabe, clienteNum, firma, notes });
   }
   return out;
 }

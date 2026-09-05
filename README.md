@@ -54,6 +54,23 @@ pnpm dev
 
 Si necesitas reaplicar el schema en otro proyecto, los archivos están en `supabase/migrations/`.
 
+### Notas de arquitectura de la base
+
+- **`invoices.balance` es una columna generada** (`total - coalesce(total_paid, 0)`).
+  Cualquier script, RPC o endpoint que aplique pagos debe escribir solo `total_paid` y `status`;
+  un `UPDATE` que toque `balance` truena con `column "balance" can only be updated to DEFAULT`.
+- **Toda tabla nueva en `public` debe llevar RLS** (`alter table ... enable row level security`) aunque
+  no tenga políticas: sin RLS queda abierta a la anon key. Los backups manuales (`*_bak_YYYYMMDD`) y
+  tablas scratch se borran al terminar o, si se conservan, se dejan con RLS y `revoke` a `anon`/`authenticated`.
+- **Llaves de pagador para conciliación** (`bank_payer_aliases.kind`): `bnet` (BBVA→BBVA, "PAGO CUENTA DE
+  TERCERO"), `clabe` (cuenta ordenante de "SPEI RECIBIDO <BANCO>", 18 dígitos canónicos), `rfc` y `firma`.
+- **Import de ventas CONTPAQ** (`import_monthly_sales_contpaq`): una sola transacción que nunca descarta clientes.
+  Si el # no existe en `accounts` crea la cuenta con `needs_review = true` (nombre CONTPAQ, `credit_days` 60,
+  sin vendedor; `account_type = 'muestras'` si el nombre empieza con MUESTRAS). Reimportar un mes reemplaza el mes
+  completo. `sales_imports` guarda creados / saltados / retirados / sin vendedor y el cuadre contra el
+  "Total General" del reporte (`total_diff`; más de $1.00 = alerta en la UI). Las cuentas `muestras` se excluyen
+  de comisiones, metas e incentivos.
+
 ## Cuentas pre-creadas
 
 Cada vendedor solo ve las cuentas y contactos que tiene asignados (heredados del owner en HubSpot), vía Row Level Security. Sabrina (admin) ve todo.

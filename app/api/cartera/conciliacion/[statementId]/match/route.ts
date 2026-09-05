@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentRep } from "@/lib/auth";
 import { canSeeFinance } from "@/lib/modules";
 import { heuristicMatch, findSubset, type AccountOpenInvoices } from "@/lib/bank/match";
-import { payerKeys } from "@/lib/bank/aliases";
+import { payerKeys, normalizeClabe } from "@/lib/bank/aliases";
 import { cargoMatchKey } from "@/lib/bank/bodegas";
 import { suggestReconciliation, type OpenInvoiceForMatch } from "@/lib/anthropic";
 import type { ReconcileSuggestion } from "@/lib/bank/types";
@@ -58,15 +58,22 @@ export async function POST(_req: Request, { params }: { params: { statementId: s
     (accounts ?? []).map((a) => [a.id, { name: a.business_name as string, client_number: a.client_number as string | null }]),
   );
 
-  // Aliases aprendidos (firma del pagador → cliente), no ambiguos.
+  // Aliases aprendidos (llaves del pagador → cliente), no ambiguos.
+  //   bnet  → "PAGO CUENTA DE TERCERO ... BNET nnnn" (BBVA → BBVA)
+  //   clabe → cuenta ordenante de "SPEI RECIBIDO <BANCO>" (interbancario)
+  //   rfc / firma → texto del concepto
+  // La CLABE se compara en su forma canónica de 18 dígitos (por si alguien
+  // capturó a mano la versión de 20 dígitos del estado de cuenta).
   const { data: aliasRows } = await supabase
     .from("bank_payer_aliases")
     .select("kind, match_key, account_id")
     .eq("ambiguous", false)
     .not("account_id", "is", null);
-  const aliasMap = new Map(
-    (aliasRows ?? []).map((a) => [`${a.kind}|${a.match_key}` as string, a.account_id as string]),
-  );
+  const aliasMap = new Map<string, string>();
+  for (const a of aliasRows ?? []) {
+    const key = a.kind === "clabe" ? normalizeClabe(a.match_key as string) : (a.match_key as string);
+    if (key) aliasMap.set(`${a.kind}|${key}`, a.account_id as string);
+  }
   const byAccount = new Map<string, OpenInvoiceForMatch[]>();
   for (const inv of invoices ?? []) {
     const list = byAccount.get(inv.account_id) ?? [];

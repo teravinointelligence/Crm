@@ -99,10 +99,12 @@ export async function loadFelixIncentiveSnapshot(
   const throughDate = todayKey < FELIX_INCENTIVE_END ? todayKey : FELIX_INCENTIVE_END;
   const supabase = createClient();
   const [salesResult, invoicesResult] = await Promise.all([
+    // Cuentas de muestras (account_type = 'muestras') fuera del incentivo.
     supabase
       .from("monthly_sales")
-      .select("period, neto_desc, updated_at")
+      .select("period, neto_desc, updated_at, accounts!inner(account_type)")
       .eq("sales_rep_id", rep.id)
+      .or("account_type.is.null,account_type.neq.muestras", { referencedTable: "accounts" })
       .gte("period", FELIX_INCENTIVE_START)
       .lte("period", FELIX_INCENTIVE_END)
       .order("period"),

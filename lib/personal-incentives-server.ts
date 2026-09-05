@@ -423,10 +423,12 @@ export async function loadPersonalIncentiveSnapshot(
       : todayKey;
 
   const [salesResult, accountsResult, targetsResult] = await Promise.all([
+    // Cuentas de muestras (account_type = 'muestras') fuera de metas e incentivos.
     db
       .from("monthly_sales")
-      .select("period, neto_desc")
+      .select("period, neto_desc, accounts!inner(account_type)")
       .eq("sales_rep_id", rep.id)
+      .or("account_type.is.null,account_type.neq.muestras", { referencedTable: "accounts" })
       .gte("period", `${Number(PERSONAL_SALES_HISTORY_START.slice(0, 4)) - 1}-01-01`)
       .lte("period", PERSONAL_INCENTIVE_END)
       .limit(5_000),

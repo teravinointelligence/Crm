@@ -13,6 +13,9 @@ type SyncResult = {
   customers?: number;
   productLines?: number;
   errors?: number;
+  created?: number;
+  warnings?: string[];
+  alert?: string | null;
 };
 
 export function SyncSalesFromDriveButton() {
@@ -25,8 +28,11 @@ export function SyncSalesFromDriveButton() {
       const response = await fetch("/api/restock/sync-sales", { method: "POST" });
       const result = await response.json() as SyncResult;
       if (!response.ok || !result.ok) throw new Error(result.error || "No se pudieron actualizar las ventas");
+      if (result.alert) {
+        toast.error("Ventas actualizadas, pero el import NO cuadra con el reporte", { description: result.alert, duration: 15000 });
+      }
       toast.success("Ventas actualizadas desde Drive", {
-        description: `${result.fileName}: ${result.customers} clientes y ${result.productLines} productos${result.errors ? `; ${result.errors} observaciones` : ""}.`,
+        description: `${result.fileName}: ${result.customers} clientes y ${result.productLines} productos${result.created ? `; ${result.created} cuentas creadas (revisar)` : ""}${result.warnings?.length ? `; ${result.warnings.length} avisos` : ""}${result.errors ? `; ${result.errors} observaciones` : ""}.`,
       });
       router.refresh();
     } catch (error) {

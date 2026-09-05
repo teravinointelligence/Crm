@@ -6,6 +6,11 @@
 //   2. "Ventas por Vendedor" (hoja Detalle por Cliente) → solo totales por cliente.
 // En ambos el vendedor se deriva del assigned_rep_id de la cuenta (distribución
 // automática). Upsert por (account_id, period).
+//
+// El formato CONTPAQ corre por el RPC import_monthly_sales_contpaq (una sola
+// transacción): NUNCA descarta clientes en silencio — crea las cuentas que
+// faltan (needs_review), importa sin vendedor las que no lo tienen, retira las
+// filas del mes que ya no vienen y cuadra contra el "Total General".
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -22,9 +27,12 @@ import {
   isContpaqVentas,
   parseVentasContpaq,
   parseVentasExcel,
+  sumClientes,
   type VentaRowParsed,
   type VentaClienteParsed,
+  type VentasTotalGeneral,
 } from "@/lib/excel/parseVentas";
+import { DIFF_ALERT_THRESHOLD, importContpaqSales, summaryAlert, summaryWarnings } from "@/lib/ventas/import-contpaq";
 import { formatCurrency } from "@/lib/utils";
 
 const MESES = [
@@ -48,6 +56,7 @@ export function ImportVentasClient() {
   const [format, setFormat] = useState<Format | null>(null);
   const [rows, setRows] = useState<VentaRowParsed[] | null>(null);          // por_vendedor
   const [clientes, setClientes] = useState<VentaClienteParsed[] | null>(null); // contpaq
+  const [totalGeneral, setTotalGeneral] = useState<VentasTotalGeneral | null>(null); // contpaq
   const [parseErrors, setParseErrors] = useState<{ row: number; message: string }[]>([]);
   const [resolveErrors, setResolveErrors] = useState<string[]>([]);
   const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
@@ -57,6 +66,7 @@ export function ImportVentasClient() {
     setFormat(null);
     setRows(null);
     setClientes(null);
+    setTotalGeneral(null);
     setParseErrors([]);
     setResolveErrors([]);
   };
@@ -74,6 +84,7 @@ export function ImportVentasClient() {
       const result = await parseVentasContpaq(buf);
       setFormat("contpaq");
       setClientes(result.clientes);
+      setTotalGeneral(result.totalGeneral);
       setParseErrors(result.errors);
       if (result.periodGuess) setPeriod(result.periodGuess.slice(0, 7));
     } else {
@@ -167,78 +178,46 @@ export function ImportVentasClient() {
 
   const confirmContpaq = (periodDate: string) => {
     startTransition(async () => {
-      const byClientNum = await loadAccountsIndex();
-      const errs: string[] = [];
-      const matched: { acc: { id: string; assigned_rep_id: string | null }; c: VentaClienteParsed }[] = [];
-      for (const c of clientes ?? []) {
-        const acc = c.client_number ? byClientNum.get(c.client_number) : undefined;
-        if (!acc) { errs.push(`# ${c.client_number ?? "?"} (${c.client_name ?? "?"}): cliente no existe en el CRM`); continue; }
-        if (!acc.assigned_rep_id) { errs.push(`# ${c.client_number} (${c.client_name}): cuenta sin vendedor asignado`); continue; }
-        matched.push({ acc, c });
-      }
-      setResolveErrors(errs);
-      if (!matched.length) { toast.error("Ningún cliente pudo asociarse a una cuenta con vendedor"); return; }
-
-      // 1) Upsert cabeceras monthly_sales (devuelve ids para enlazar items).
-      const salesPayload = matched.map(({ acc, c }) => ({
-        account_id: acc.id, sales_rep_id: acc.assigned_rep_id, period: periodDate,
-        client_number: c.client_number, client_name: c.client_name, vendedor_excel: null,
-        venta_bruta: c.venta_bruta, neto: c.neto, descuento: c.descuento, neto_desc: c.neto_desc,
-      }));
-      const { data: upserted, error: upErr } = await supabase
-        .from("monthly_sales")
-        .upsert(salesPayload, { onConflict: "account_id,period" })
-        .select("id, account_id");
-      if (upErr || !upserted) { toast.error("Error al importar ventas", { description: upErr?.message }); return; }
-
-      const saleIdByAccount = new Map(upserted.map((r) => [r.account_id as string, r.id as string]));
-      const saleIds = upserted.map((r) => r.id as string);
-
-      // 2) Reemplaza los items de esos meses (borra + inserta) para idempotencia.
-      //    Se hace de forma ATÓMICA via RPC: el delete y el insert corren en una
-      //    sola transacción server-side, así que si el insert falla NO se pierde
-      //    el detalle previo (antes el delete era cliente-side y un error a medias
-      //    dejaba cabeceras con totales pero cero partidas).
-      const itemsPayload: Record<string, unknown>[] = [];
-      for (const { acc, c } of matched) {
-        const saleId = saleIdByAccount.get(acc.id);
-        if (!saleId) continue;
-        for (const it of c.items) {
-          itemsPayload.push({
-            monthly_sale_id: saleId, codigo: it.codigo, producto_nombre: it.producto_nombre,
-            cantidad: it.cantidad, neto: it.neto, descuento: it.descuento,
-            neto_desc: it.neto_desc, impuesto: it.impuesto, total: it.total,
-          });
-        }
-      }
-      const { error: itErr } = await supabase.rpc("replace_sales_items", {
-        p_sale_ids: saleIds,
-        p_items: itemsPayload,
-      });
-      if (itErr) { toast.error("Error al guardar detalle de productos", { description: itErr.message }); return; }
-
-      const { error: logError } = await recordImport({
-        periodDate,
-        sourceFormat: "contpaq",
-        customersImported: matched.length,
-        productLinesImported: itemsPayload.length,
-        rowsError: errs.length + parseErrors.length,
-      });
-      if (logError) {
-        toast.warning("Ventas importadas, pero no se registró la fecha de actualización", {
-          description: logError.message,
+      if (!clientes?.length) return;
+      let summary;
+      try {
+        summary = await importContpaqSales(supabase, {
+          period: periodDate,
+          clientes,
+          totalGeneral,
+          parseErrors: parseErrors.length,
+          sourceFileName: fileName,
+          replacePeriod: true,
         });
-      } else {
-        toast.success(`${matched.length} clientes · ${itemsPayload.length} líneas de producto importadas para ${period}${errs.length ? ` · ${errs.length} con error` : ""}`);
+      } catch (err) {
+        toast.error("Error al importar ventas", { description: err instanceof Error ? err.message : String(err) });
+        return;
       }
-      // Resultado persistente (el toast desaparece): filas procesadas + errores.
+      const alert = summaryAlert(summary);
+      const warnings = summaryWarnings(summary);
+      setResolveErrors([]);
+      if (alert) {
+        toast.error("El import NO cuadra con el reporte", { description: alert, duration: 12000 });
+      } else {
+        toast.success(
+          `${summary.customers} clientes · ${summary.product_lines} líneas de producto importadas para ${period}` +
+            (summary.created.length ? ` · ${summary.created.length} cuentas creadas` : "") +
+            (warnings.length ? ` · ${warnings.length} avisos` : ""),
+        );
+      }
+      // Resultado persistente (el toast desaparece): cuadre, cuentas creadas,
+      // sin vendedor, duplicados y filas retiradas.
       setOutcome({
-        ok: matched.length,
-        okLabel: `clientes (${itemsPayload.length} líneas de producto) importados para ${period}`,
-        errors: errs,
-        cta: { href: `/ventas?period=${period}`, label: "Ver ventas del periodo" },
+        ok: summary.customers,
+        okLabel: `clientes (${summary.product_lines} líneas de producto) importados para ${period} · reporte ${formatCurrency(Number(summary.report_totals?.total ?? 0))} vs importado ${formatCurrency(Number(summary.imported_totals.total))}`,
+        errors: summary.skipped.map((k) => `# ${k.client_number ?? "?"} (${k.client_name ?? "?"}): ${k.reason}`),
+        alert,
+        warnings,
+        cta: summary.created.length
+          ? { href: "/cuentas?needs_review=1", label: "Revisar cuentas creadas" }
+          : { href: `/ventas?period=${period}`, label: "Ver ventas del periodo" },
       });
-      if (!errs.length) reset();
+      if (!alert && !warnings.length) reset();
       router.refresh();
     });
   };
@@ -259,6 +238,11 @@ export function ImportVentasClient() {
   const totalBruta = format === "contpaq"
     ? (clientes ?? []).reduce((s, c) => s + c.venta_bruta, 0)
     : (rows ?? []).reduce((s, r) => s + r.venta_bruta, 0);
+  // Cuadre previo: lo parseado vs el "Total General" del archivo. Si difiere,
+  // el parser se comió algo y no tiene caso importar.
+  const parsedTotals = format === "contpaq" && clientes ? sumClientes(clientes) : null;
+  const previewDiff = totalGeneral && parsedTotals ? Math.round((totalGeneral.total - parsedTotals.total) * 100) / 100 : null;
+  const previewAlert = previewDiff != null && Math.abs(previewDiff) > DIFF_ALERT_THRESHOLD;
   const hasPreview = format === "contpaq" ? clientes !== null : rows !== null;
   const [py, pm] = period.split("-").map(Number);
 
@@ -273,7 +257,8 @@ export function ImportVentasClient() {
           <li><strong>Reporte de Ventas por Cliente (CONTPAQ)</strong> — el reporte crudo. Trae <strong>detalle por producto</strong>, así que alimenta el top de vinos con ventas reales. Recomendado.</li>
           <li><strong>Ventas por Vendedor</strong> (hoja "Detalle por Cliente") — solo totales por cliente, sin productos.</li>
         </ul>
-        <p className="text-xs text-muted-foreground">El vendedor se deriva del <em>cliente asignado</em> en el CRM (# cliente CONTPAQ → cuenta → vendedor). Re-importar el mismo mes actualiza.</p>
+        <p className="text-xs text-muted-foreground">El vendedor se deriva del <em>cliente asignado</em> en el CRM (# cliente CONTPAQ → cuenta → vendedor). Re-importar el mismo mes reemplaza el mes completo.</p>
+        <p className="text-xs text-muted-foreground">Ningún cliente se descarta: si el # no existe en el CRM se crea la cuenta marcada <em>para revisar</em> (asignar vendedor); si la cuenta no tiene vendedor se importa sin vendedor y se avisa. Al final se cuadra contra el "Total General" del reporte.</p>
         <p className="text-xs">
           <a href="/templates/plantilla_ventas.xlsx" className="text-brand-carmesi hover:underline">
             Descargar plantilla "Ventas por Vendedor" (.xlsx)
@@ -316,6 +301,14 @@ export function ImportVentasClient() {
               <div className="rounded-md border bg-muted/30 p-4">
                 <div className="flex items-center gap-2 text-xs uppercase text-muted-foreground"><Boxes className="h-3.5 w-3.5" /> Líneas de producto</div>
                 <div className="font-display text-xl">{nItems}</div>
+                {totalGeneral ? (
+                  <div className={`mt-1 text-xs ${previewAlert ? "font-medium text-red-700" : "text-muted-foreground"}`}>
+                    Total General del reporte: {formatCurrency(totalGeneral.total)}
+                    {previewAlert ? ` · el archivo NO cuadra con lo leído (dif. ${formatCurrency(previewDiff ?? 0)})` : " · cuadra"}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-xs text-amber-700">El archivo no trae fila "Total General": se cuadrará contra la suma leída.</div>
+                )}
               </div>
             ) : (
               <div className={`rounded-md border p-4 ${parseErrors.length ? "bg-amber-50 text-amber-900" : "bg-muted/30 text-muted-foreground"}`}>
