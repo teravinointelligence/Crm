@@ -29,6 +29,7 @@ export type Database = {
           ventana_suspension: number | null;
           is_legacy: boolean | null;
           es_socio: boolean | null;
+          needs_review: boolean | null;
           fiscal_name: string | null;
           id: string;
           notes: string | null;
@@ -334,6 +335,7 @@ export type Database = {
           neto: number | null;
           descuento: number | null;
           neto_desc: number | null;
+          notes: string | null;
           created_at: string | null;
           updated_at: string | null;
         };

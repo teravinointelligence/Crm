@@ -176,84 +176,57 @@ console.log(`\nClientes parseados del XLS: ${clientes.length}`);
 const totalLineas = clientes.reduce((s, c) => s + c.items.length, 0);
 console.log(`Líneas de producto: ${totalLineas}`);
 
-// ─── Resuelve cuentas en CRM ───────────────────────────────────────────────────
-console.log("\nCargando cuentas del CRM...");
-const { data: accounts } = await db.from("accounts").select("id, client_number, business_name, assigned_rep_id").range(0, 49999);
-const byClientNum = new Map();
-for (const a of accounts ?? []) {
-  const cn = normalizeClientNumber(a.client_number);
-  if (cn) byClientNum.set(cn, { id: a.id, assigned_rep_id: a.assigned_rep_id, name: a.business_name });
-}
-
-const matched = [];
-const errs = [];
-for (const c of clientes) {
-  const acc = c.client_number ? byClientNum.get(c.client_number) : undefined;
-  if (!acc) { errs.push(`# ${c.client_number ?? "?"} (${c.client_name ?? "?"}): cliente no existe en CRM`); continue; }
-  if (!acc.assigned_rep_id) { errs.push(`# ${c.client_number} (${c.client_name}): cuenta sin vendedor asignado`); continue; }
-  matched.push({ acc, c });
-}
-
-console.log(`Clientes resueltos: ${matched.length}  /  Sin resolver: ${errs.length}`);
-if (errs.length) {
-  console.warn("\nAvisos (clientes no importados):");
-  errs.forEach((e) => console.warn("  ·", e));
-}
-if (!matched.length) { console.error("\nNingún cliente resolvió. Abortando."); process.exit(1); }
-
-// ─── Upsert monthly_sales ──────────────────────────────────────────────────────
-console.log("\nImportando cabeceras monthly_sales...");
-const salesPayload = matched.map(({ acc, c }) => ({
-  account_id: acc.id, sales_rep_id: acc.assigned_rep_id, period: periodDate,
-  client_number: c.client_number, client_name: c.client_name, vendedor_excel: null,
-  venta_bruta: c.venta_bruta, neto: c.neto, descuento: c.descuento, neto_desc: c.neto_desc,
-}));
-
-const { data: upserted, error: upErr } = await db
-  .from("monthly_sales")
-  .upsert(salesPayload, { onConflict: "account_id,period" })
-  .select("id, account_id");
-if (upErr || !upserted) {
-  console.error("Error al importar ventas:", upErr?.message);
-  process.exit(1);
-}
-console.log(`  → ${upserted.length} registros upserted`);
-
-const saleIdByAccount = new Map(upserted.map((r) => [r.account_id, r.id]));
-const saleIds = upserted.map((r) => r.id);
-
-// ─── Replace items (atómico via RPC) ──────────────────────────────────────────
-console.log("Reemplazando líneas de producto (replace_sales_items)...");
-const itemsPayload = [];
-for (const { acc, c } of matched) {
-  const saleId = saleIdByAccount.get(acc.id);
-  if (!saleId) continue;
-  for (const it of c.items) {
-    itemsPayload.push({
-      monthly_sale_id: saleId, codigo: it.codigo, producto_nombre: it.producto_nombre,
-      cantidad: it.cantidad, neto: it.neto, descuento: it.descuento,
-      neto_desc: it.neto_desc, impuesto: it.impuesto, total: it.total,
-    });
+// ─── Total General del reporte (para cuadrar) ────────────────────────────────
+let totalGeneral = null;
+for (const r of m) {
+  if (String(r[1] ?? "").trim() === "Total General") {
+    totalGeneral = {
+      cantidad: parseNum(r[cols.cantidad]), neto: parseNum(r[cols.neto]), descuento: parseNum(r[cols.descuento]),
+      neto_desc: cols.netoDesc >= 0 ? parseNum(r[cols.netoDesc]) : 0, impuesto: parseNum(r[cols.impuesto]), total: parseNum(r[cols.total]),
+    };
   }
 }
+if (!totalGeneral) {
+  const r2 = (n) => Math.round(n * 100) / 100;
+  totalGeneral = { cantidad: 0, neto: 0, descuento: 0, neto_desc: 0, impuesto: 0, total: 0 };
+  for (const c of clientes) for (const it of c.items) {
+    totalGeneral.cantidad += it.cantidad; totalGeneral.neto += it.neto; totalGeneral.descuento += it.descuento;
+    totalGeneral.neto_desc += it.neto_desc; totalGeneral.impuesto += it.impuesto; totalGeneral.total += it.total;
+  }
+  for (const k of Object.keys(totalGeneral)) totalGeneral[k] = r2(totalGeneral[k]);
+  console.warn("⚠ El archivo no trae 'Total General'; se cuadra contra la suma leída.");
+}
 
-const { error: itErr } = await db.rpc("replace_sales_items", {
-  p_sale_ids: saleIds,
-  p_items: itemsPayload,
+// ─── Import atómico via RPC (nunca descarta clientes en silencio) ─────────────
+// Crea cuentas faltantes (needs_review), importa sin vendedor las que no lo
+// tienen, retira filas del mes que ya no vienen y cuadra vs Total General.
+console.log("\nImportando via import_monthly_sales_contpaq...");
+const { data: summary, error: rpcErr } = await db.rpc("import_monthly_sales_contpaq", {
+  p_period: periodDate,
+  p_clientes: clientes,
+  p_source_file_name: filePath.split("/").pop(),
+  p_source_format: "contpaq",
+  p_report_totals: totalGeneral,
+  p_parse_errors: 0,
+  p_replace_period: true,
 });
-if (itErr) {
-  console.error("Error al guardar líneas de producto:", itErr.message);
+if (rpcErr) {
+  console.error("Error al importar ventas:", rpcErr.message);
   process.exit(1);
 }
-console.log(`  → ${itemsPayload.length} líneas de producto guardadas`);
 
-// ─── Resumen ───────────────────────────────────────────────────────────────────
-const totalVenta = matched.reduce((s, { c }) => s + c.venta_bruta, 0);
+const fmt = (n) => `$${Number(n ?? 0).toLocaleString("es-MX", { minimumFractionDigits: 2 })}`;
 console.log(`
 ✓ Importación completa
-  Periodo  : ${periodDate.slice(0, 7)}
-  Clientes : ${matched.length}
-  Productos: ${itemsPayload.length} líneas
-  Venta bruta total: $${totalVenta.toLocaleString("es-MX", { minimumFractionDigits: 2 })}
-${errs.length ? `  ⚠ ${errs.length} cliente(s) no importados (ver arriba)\n` : ""}Las comisiones se actualizan automáticamente en /ventas y /reportes.
+  Periodo   : ${periodDate.slice(0, 7)}
+  Clientes  : ${summary.customers}
+  Productos : ${summary.product_lines} líneas
+  Reporte   : ${fmt(summary.report_totals?.total)}   Importado: ${fmt(summary.imported_totals?.total)}   Dif: ${fmt(summary.total_diff)}
 `);
+if (summary.diff_alert) console.error("✗ NO CUADRA: revisa los avisos antes de usar este mes.");
+for (const a of summary.created) console.warn(`  · # ${a.client_number} (${a.client_name}): cuenta creada${a.muestras ? " como MUESTRAS" : ""} — asignar vendedor.`);
+for (const a of summary.without_rep) if (!summary.created.some((c) => c.account_id === a.account_id)) console.warn(`  · # ${a.client_number} (${a.client_name}): cuenta sin vendedor — importada sin vendedor.`);
+for (const a of summary.duplicates) console.warn(`  · # ${a.client_number} (${a.client_name}): ${a.n} cuentas con ese # en el CRM — corregir duplicado.`);
+for (const a of summary.removed) console.warn(`  · # ${a.client_number} (${a.client_name}): ya no viene en el reporte — fila retirada (${fmt(a.venta_bruta)}).`);
+for (const k of summary.skipped) console.warn(`  · # ${k.client_number ?? "?"} (${k.client_name ?? "?"}): NO importado — ${k.reason}.`);
+console.log("Las comisiones se actualizan automáticamente en /ventas y /reportes.");

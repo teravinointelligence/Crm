@@ -18,14 +18,24 @@ export type ImportOutcome = {
   errors: string[];
   /** A dónde ver el resultado, ej. { href: "/ventas", label: "Ver ventas" }. */
   cta?: { href: string; label: string };
+  /** Alerta bloqueante (p. ej. el import no cuadra con el reporte). */
+  alert?: string | null;
+  /** Avisos que requieren acción pero no impidieron el import. */
+  warnings?: string[];
 };
 
 export function ImportResultPanel({ outcome }: { outcome: ImportOutcome }) {
-  const { ok, okLabel, errors, cta } = outcome;
+  const { ok, okLabel, errors, cta, alert, warnings = [] } = outcome;
   return (
     <Card>
       <CardContent className="space-y-3 p-6">
         <h3 className="font-display text-lg">Resultado de la importación</h3>
+        {alert && (
+          <div role="alert" className="flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span className="font-medium">{alert}</span>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-md border bg-emerald-50 p-4 text-emerald-900">
             <div className="flex items-center gap-2">
@@ -56,6 +66,18 @@ export function ImportResultPanel({ outcome }: { outcome: ImportOutcome }) {
             <ul className="mt-2 space-y-1 text-xs text-amber-900">
               {errors.map((e, i) => (
                 <li key={i}>{e}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {warnings.length > 0 && (
+          <details className="rounded-md border bg-amber-50 p-3 text-sm" open={warnings.length <= 8}>
+            <summary className="cursor-pointer font-medium text-amber-900">
+              Avisos que requieren revisión ({warnings.length})
+            </summary>
+            <ul className="mt-2 space-y-1 text-xs text-amber-900">
+              {warnings.map((w, i) => (
+                <li key={i}>{w}</li>
               ))}
             </ul>
           </details>

@@ -64,6 +64,12 @@ Si necesitas reaplicar el schema en otro proyecto, los archivos están en `supab
   tablas scratch se borran al terminar o, si se conservan, se dejan con RLS y `revoke` a `anon`/`authenticated`.
 - **Llaves de pagador para conciliación** (`bank_payer_aliases.kind`): `bnet` (BBVA→BBVA, "PAGO CUENTA DE
   TERCERO"), `clabe` (cuenta ordenante de "SPEI RECIBIDO <BANCO>", 18 dígitos canónicos), `rfc` y `firma`.
+- **Import de ventas CONTPAQ** (`import_monthly_sales_contpaq`): una sola transacción que nunca descarta clientes.
+  Si el # no existe en `accounts` crea la cuenta con `needs_review = true` (nombre CONTPAQ, `credit_days` 60,
+  sin vendedor; `account_type = 'muestras'` si el nombre empieza con MUESTRAS). Reimportar un mes reemplaza el mes
+  completo. `sales_imports` guarda creados / saltados / retirados / sin vendedor y el cuadre contra el
+  "Total General" del reporte (`total_diff`; más de $1.00 = alerta en la UI). Las cuentas `muestras` se excluyen
+  de comisiones, metas e incentivos.
 
 ## Cuentas pre-creadas
 

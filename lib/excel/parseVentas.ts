@@ -56,11 +56,40 @@ export type VentaClienteParsed = {
   neto_desc: number;
 };
 
+/** Fila "Total General" del reporte (para cuadrar lo importado). */
+export type VentasTotalGeneral = {
+  cantidad: number;
+  neto: number;
+  descuento: number;
+  neto_desc: number;
+  impuesto: number;
+  total: number;
+};
+
 export type VentasContpaqResult = {
   clientes: VentaClienteParsed[];
   errors: { row: number; message: string }[];
   periodGuess: string | null;
+  /** "Total General" del reporte, o null si el archivo no lo trae. */
+  totalGeneral: VentasTotalGeneral | null;
 };
+
+/** Suma de los clientes parseados, con la misma forma que totalGeneral. */
+export function sumClientes(clientes: VentaClienteParsed[]): VentasTotalGeneral {
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const t: VentasTotalGeneral = { cantidad: 0, neto: 0, descuento: 0, neto_desc: 0, impuesto: 0, total: 0 };
+  for (const c of clientes) {
+    for (const it of c.items) {
+      t.cantidad += it.cantidad;
+      t.neto += it.neto;
+      t.descuento += it.descuento;
+      t.neto_desc += it.neto_desc;
+      t.impuesto += it.impuesto;
+      t.total += it.total;
+    }
+  }
+  return { cantidad: r2(t.cantidad), neto: r2(t.neto), descuento: r2(t.descuento), neto_desc: r2(t.neto_desc), impuesto: r2(t.impuesto), total: r2(t.total) };
+}
 
 function ymdFromEsp(dd: string, mmm: string, yyyy: string): string | null {
   const mo = ESP_MONTHS[mmm.toLowerCase().slice(0, 3)];
@@ -297,6 +326,7 @@ export async function parseVentasContpaq(buf: ArrayBuffer): Promise<VentasContpa
   let pendingMeta = false; // la fila siguiente al encabezado Fecha/Serie es la meta de factura
   let skipInvoice = false; // factura Cancelada → omitir sus partidas
   const monthsSeen = new Set<string>();
+  let totalGeneral: VentasTotalGeneral | null = null;
 
   const pushCur = () => {
     if (cur && cur.items.length) {
@@ -345,8 +375,20 @@ export async function parseVentasContpaq(buf: ArrayBuffer): Promise<VentasContpa
     }
     // Encabezado de partidas → re-mapea columnas y continúa.
     if (c0n === "codigo") { cols = mapItemColumns(r); continue; }
-    // Cierres / totales / banners.
-    if (c1 === "Total Cliente" || c1 === "Total General" || c0.includes("====")) continue;
+    // "Total General": lo guardamos para cuadrar contra lo importado.
+    if (c1 === "Total General") {
+      totalGeneral = {
+        cantidad: parseNum(r[cols.cantidad]),
+        neto: parseNum(r[cols.neto]),
+        descuento: parseNum(r[cols.descuento]),
+        neto_desc: cols.netoDesc >= 0 ? parseNum(r[cols.netoDesc]) : 0,
+        impuesto: parseNum(r[cols.impuesto]),
+        total: parseNum(r[cols.total]),
+      };
+      continue;
+    }
+    // Cierres / banners.
+    if (c1 === "Total Cliente" || c0.includes("====")) continue;
     if (!c0 || c0n === "contpaq i" || c0n.startsWith("moneda") || DATE_RE.test(c0)) continue;
 
     // Línea de producto: requiere cliente activo, factura no cancelada y nombre.
@@ -375,5 +417,5 @@ export async function parseVentasContpaq(buf: ArrayBuffer): Promise<VentasContpa
       message: `⚠ El reporte abarca varios meses (${meses}). El importador carga TODO al mes seleccionado; sube un reporte por mes para no mezclar.`,
     });
   }
-  return { clientes, errors, periodGuess };
+  return { clientes, errors, periodGuess, totalGeneral };
 }

@@ -29,12 +29,17 @@ type SalesRow = {
   }>;
 };
 
+// Las cuentas de muestras (account_type = 'muestras': c58 y MUESTRAS por
+// vendedor) no cuentan para comisiones, metas ni incentivos.
+const NOT_MUESTRAS = "account_type.is.null,account_type.neq.muestras";
+
 async function fetchLineas(repId: string | null, periods: string[]): Promise<Linea[]> {
   const db = serviceClient();
   let q = db
     .from("monthly_sales")
-    .select("period, client_number, monthly_sales_items(codigo, producto_nombre, total, descuento)")
-    .in("period", periods);
+    .select("period, client_number, monthly_sales_items(codigo, producto_nombre, total, descuento), accounts!inner(account_type)")
+    .in("period", periods)
+    .or(NOT_MUESTRAS, { referencedTable: "accounts" });
 
   if (repId !== null) {
     q = q.eq("sales_rep_id", repId);
@@ -60,9 +65,10 @@ async function fetchLineasForReps(repIds: string[], periods: string[]): Promise<
   const db = serviceClient();
   const { data } = await db
     .from("monthly_sales")
-    .select("period, client_number, sales_rep_id, monthly_sales_items(codigo, producto_nombre, total, descuento)")
+    .select("period, client_number, sales_rep_id, monthly_sales_items(codigo, producto_nombre, total, descuento), accounts!inner(account_type)")
     .in("period", periods)
     .in("sales_rep_id", repIds)
+    .or(NOT_MUESTRAS, { referencedTable: "accounts" })
     .limit(10000);
   const rows = (data ?? []) as unknown as (SalesRow & { sales_rep_id: string })[];
   return rows.flatMap((row) =>
