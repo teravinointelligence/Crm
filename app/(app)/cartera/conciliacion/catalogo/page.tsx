@@ -27,7 +27,7 @@ export default async function CatalogoPage() {
         <h1 className="font-display text-3xl">Catálogo de pagadores</h1>
         <p className="text-sm text-muted-foreground">
           Sube tu catálogo de clientes identificados (Excel). El sistema casa cada cliente con su
-          cuenta del CRM y aprende sus llaves (BNET, RFC, nombre) para auto-identificar los depósitos
+          cuenta del CRM y aprende sus llaves (BNET, CLABE, RFC, nombre) para auto-identificar los depósitos
           en los próximos estados de cuenta.
         </p>
       </div>

@@ -1,0 +1,31 @@
+-- =====================================================================
+-- 20260905120000 — SEGURIDAD: tablas en public sin RLS (advisor de Supabase)
+-- =====================================================================
+-- El advisor marcaba dos tablas de public expuestas a la anon key sin RLS
+-- (rls_disabled_in_public, nivel ERROR). Ambas tenían GRANT ALL a anon y
+-- authenticated (defaults del esquema), o sea: lectura y escritura abiertas.
+--
+-- Verificación previa (2026-09-05, proyecto tbpstqkorhkdfedqiblr):
+--   * grep del repo: ningún archivo TS/TSX/SQL/MD las referencia.
+--   * pg_depend, pg_proc (texto), vistas, triggers, FKs entrantes, políticas:
+--     cero dependencias (solo la PK de _ct). pg_cron no está instalado.
+--
+-- a) product_warehouse_stock_bak_20260816 — backup manual de
+--    product_warehouse_stock del 16-ago-2026 (2,623 filas). Ya cumplió su
+--    función; el dato vivo está en product_warehouse_stock.
+--
+-- b) _ct — scratch de 36 filas (folio, subtotal, iva, total) de la carga de
+--    facturas de junio-2026 (FA14728..FA14814). Todos los folios existen en
+--    invoices; 35 con el mismo total. El único distinto es FA14770: _ct trae
+--    10,869.90 y invoices trae 0.90, corregido a mano el 10-ago-2026 según sus
+--    notas ("Total corregido al real de CONTPAQ"). _ct guarda el valor previo a
+--    esa corrección, no información nueva.
+--
+-- Alternativa (si se prefiere conservar alguna): en vez del DROP,
+--   alter table public.<tabla> enable row level security;   -- sin políticas
+--   revoke all on public.<tabla> from anon, authenticated;
+-- queda inaccesible desde anon/authenticated y solo la lee service_role.
+-- =====================================================================
+
+drop table if exists public.product_warehouse_stock_bak_20260816;
+drop table if exists public._ct;

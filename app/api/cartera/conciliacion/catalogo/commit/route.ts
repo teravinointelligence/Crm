@@ -1,6 +1,6 @@
 // POST /api/cartera/conciliacion/catalogo/commit
 // Siembra la memoria de conciliación desde el catálogo: por cada fila resuelta
-// (con account_id) registra sus llaves (firma/BNET/RFC) como source 'catalogo'.
+// (con account_id) registra sus llaves (firma/BNET/CLABE/RFC) como source 'catalogo'.
 //
 // Auth: admin o contador.
 
@@ -17,6 +17,7 @@ type Row = {
   name: string;
   firma: string | null;
   bnet: string | null;
+  clabe?: string | null;
   rfc: string | null;
   account_id: string;
   notes: string | null;
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
     const keys: { kind: string; key: string | null }[] = [
       { kind: "firma", key: r.firma },
       { kind: "bnet", key: r.bnet },
+      { kind: "clabe", key: r.clabe ?? null },
       { kind: "rfc", key: r.rfc },
     ];
     let any = false;
