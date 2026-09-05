@@ -16,10 +16,12 @@
 --
 -- b) _ct — scratch de 36 filas (folio, subtotal, iva, total) de la carga de
 --    facturas de junio-2026 (FA14728..FA14814). Todos los folios existen en
---    invoices; 35 con el mismo total. El único distinto es FA14770: _ct trae
---    10,869.90 y invoices trae 0.90, corregido a mano el 10-ago-2026 según sus
---    notas ("Total corregido al real de CONTPAQ"). _ct guarda el valor previo a
---    esa corrección, no información nueva.
+--    invoices; 35 con el mismo total. El único distinto era FA14770: _ct traía
+--    10,869.90 e invoices 0.90. Se verificó contra CONTPAQ y el banco: el valor
+--    correcto era el de _ct (la "corrección" del 20-jun había tomado el saldo
+--    pendiente como total). Antes de este DROP se restauró FA14770 en invoices
+--    (total 10,869.90, pago SPEI 0114352443 de 10,869.00 + ajuste de 0.90),
+--    así que _ct ya no aporta nada.
 --
 -- Alternativa (si se prefiere conservar alguna): en vez del DROP,
 --   alter table public.<tabla> enable row level security;   -- sin políticas
